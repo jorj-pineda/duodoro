@@ -4,7 +4,7 @@ import { GROUND } from "@/lib/scene";
 import { useArtPx } from "./SceneScale";
 import { columnsFor } from "@/lib/terrain";
 import { shelfItems, shelfBoards } from "@/lib/interior";
-import { blend, hazedPalette, type Depth } from "@/lib/palette";
+import { blend, hazedPalette, INK, type Depth } from "@/lib/palette";
 
 interface ShelvingProps {
   sceneWidth: number;
@@ -59,8 +59,8 @@ export default function Shelving({
         {
           carcass: frame[1],
           board: frame[3] ?? frame[2],
-          lip: blend(frame[0], "#000000", 0.25),
-          back: blend(frame[0], "#000000", 0.45),
+          lip: blend(frame[0], INK, 0.25),
+          back: blend(frame[0], INK, 0.45),
         },
         sky,
         depth,

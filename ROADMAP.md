@@ -5,8 +5,8 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-03. PRs #35–#74 merged; invite/resume follow-up in flight.
-Migrations 016–023 are applied to production. **020 verified in production**
+Last updated: 2026-09-13. PRs #35–#75 merged. Migrations 016–023 are applied to
+production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
 search_path. It went in *after* #40 reached main, so there was a window where
@@ -209,6 +209,15 @@ for exercising the deployed client → server → database flow.
 
 ## Next up (recommended order)
 
+- [x] **3a. One palette** — this PR. Every art colour now lives in
+      `lib/palette.ts`; the generated material ramps were already what the
+      character and scenery art ran on, so the work left was the curated props,
+      the UI sprites, and the fixed avatar ink. The eight `HORIZON` colours were
+      a second copy of each world's sky and are now derived. No value changed —
+      `WorldDecorations.colors.test.tsx` snapshots all eight worlds and proves
+      it. `paletteGuard.test.ts` keeps a new literal from creeping back in.
+      **Not verified in a browser:** it is a no-op by construction, but nobody
+      has looked at a screen.
 - [x] **7b-bg. Backgrounds** — PR #37, **merged** (rebase, 12 commits).
       All eight worlds redrawn; every one renders at exactly one art pixel and
       the "known backlog" guard now asserts an empty list. Root cause was not
@@ -353,30 +362,54 @@ the RPC and get premium. That is the intent until Stripe lands — see
 
 ---
 
-## 3. One palette + one pixel unit  ·  mechanical, one taste call
+## 3. One palette + one pixel unit  ·  SHIPPED (3a + 3b)
 
-**146 hardcoded hex literals** in `client/src` against 17 theme tokens, drawn
-from three different published design systems:
+The original claim was **146 hardcoded hex literals** in `client/src` against
+17 theme tokens, drawn from three different published design systems. All three
+of those sources are now gone:
 
 - ~~`PetCharacter.tsx:23-37` — the most-copied Coolors palette, verbatim~~ —
   **gone in PR #39.** Pet colours are one base per animal with `shade()`
-  deriving the rest, in `lib/petMaps.ts`. Characters likewise: `palette.ts`
-  now owns every shadow either sprite uses.
-- `lib/uiSprites.ts:16,25` — a *different* Coolors set.
-- `WorldDecorations.tsx` — 77 of the 146. Tailwind defaults (`#c084fc`
-  purple-400 `:92`, `#f1f5f9` slate-100 `:121`) mixed with Material Design 800s
-  for the bookshelf (`:226-231`) and Material browns (`:224,245`).
-- `client/src/app/globals.css:10-49` — the app's own 17 warm-paper/charcoal
-  tokens, used by **none** of the art.
+  deriving the rest. Characters likewise.
+- ~~`lib/uiSprites.ts:16,25` — a *different* Coolors set~~ — **gone in this PR.**
+  The four UI palettes moved into `lib/palette.ts` with every other colour.
+- ~~`WorldDecorations.tsx` — 77 of the 146~~ — **gone in this PR.** The prop
+  palettes (planet, palm, umbrella, bookshelf, lamp, cup, machine, fridge,
+  crate, checkout, aisle sign, batten) are curated constants in `palette.ts`;
+  the ambient washes (`GLOW`), the café interior (`CAFE_ROOM`) and the water
+  (`SEA`) are named groups there too. `Ridge`/`Skyline`/`Shelving` use `INK`
+  for their hard blends instead of `"#000000"`.
+- `client/src/app/globals.css:10-49` — the warm-paper/charcoal theme tokens.
+  Unchanged and deliberately not art: these are UI chrome, not the scene.
 
-**3a (mechanical):** create `client/src/lib/palette.ts` from a published Lospec
-ramp — Sweetie-16 (forgiving) or Apollo (46 colours, richer for 8 worlds) — as
-named ramps (`SKIN[0..5]`, `FOLIAGE`, `STONE`, `NIGHT`, `WARM`, `METAL`), then
-migrate component palettes onto it.
+**3a — DID NOT go to a Lospec ramp.** `palette.ts` generates its ramps from
+one rule (hue rotates toward the ambient shadow as a colour darkens, toward the
+light source as it lightens) rather than importing Sweetie-16 or Apollo. That
+was a deliberate call: a ramp copied from memory is a ramp nobody verified, and
+the generated ramps are already what the character and scenery art is built on.
+Swapping to a published ramp later means replacing constants in that one file.
+The individual props that are not a material family are curated by hand at the
+bottom of the same file, described there.
 
-*Caveat:* existing users have literal hexes in `profiles.avatar_config`, so
-changing `SKIN_COLORS`/`HAIR_COLORS`/`OUTFIT_COLORS` leaves them permanently
-off-palette without a nearest-colour snap on load or a one-time SQL update.
+What "one palette" means now, and is enforced:
+- `lib/palette.ts` is the only file that names an art colour.
+  `paletteGuard.test.ts` fails if any other non-test source file contains a
+  hex, with a short allowlist for UI chrome, brand marks, and data that *is*
+  the colour (`avatarData.ts`'s avatar choices and per-world skies;
+  `StickyNote`'s note colours).
+- A world's sky is `skyStops` + the index of the horizon stop in
+  `avatarData.ts`; the CSS gradient and the `HORIZON` distance-blend colour are
+  derived from that one list. They used to be written down separately in two
+  files and could drift.
+- `WorldDecorations.colors.test.tsx` snapshots every colour each world paints.
+  This PR's consolidation is A/B proven colour-neutral against the previous
+  commit because of it, and a later deliberate recolour has to update it.
+
+*Caveat, still true:* existing users have literal hexes in
+`profiles.avatar_config`, so changing `SKIN_COLORS`/`HAIR_COLORS`/
+`OUTFIT_COLORS` leaves them permanently off-palette without a nearest-colour
+snap on load or a one-time SQL update. This PR changed no avatar colour, so
+nobody is off-palette yet; it only decides where a future recolour goes.
 
 **3b — DONE in PR #36, but only half of what this said.** `lib/scene.ts` now
 exports `GROUND` and `ART_PX`; characters and pets are on `ART_PX`; `GROUND`
@@ -387,7 +420,10 @@ apparent pixel size *is* its scale, so a 16-cell map at `ART_PX` is a 48px
 mountain, not a small-pixelled 128px one. Collapsing the scenery onto one unit
 either shrinks it by half to two-thirds, or means redrawing every map at more
 cells. Cost table is at the top of `WorldDecorations.tsx`; the worst is
-`MOUNTAIN` at 43×27 cells instead of 16×10.
+`MOUNTAIN` at 43×27 cells instead of 16×10. **Superseded in practice:** PR #37
+paid this off by redrawing every scenery map at more cells; every decor sprite
+now renders at `ART_PX` and `WorldDecorations.test.tsx` asserts one density per
+world with an empty exemption list.
 
 Also corrected while doing it: the `calc(19% - 4px)` was not "people stand 4px
 into the dirt". `bottom` positions the wrapper, and the wrapper's bottom edge

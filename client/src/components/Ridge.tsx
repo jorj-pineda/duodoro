@@ -9,7 +9,7 @@ import {
   ridgePath,
   type RidgeSpec,
 } from "@/lib/terrain";
-import { blend, hazedPalette, type Depth } from "@/lib/palette";
+import { blend, hazedPalette, INK, type Depth } from "@/lib/palette";
 
 interface RidgeProps {
   /** Everything except `columns`, which comes from the measured scene. */
@@ -98,7 +98,7 @@ export default function Ridge({
         y={rows - 1}
         width={columns}
         height={1}
-        fill={blend(face, "#000000", 0.22)}
+        fill={blend(face, INK, 0.22)}
       />
     </svg>
   );

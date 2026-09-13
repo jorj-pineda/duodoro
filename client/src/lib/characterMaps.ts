@@ -23,7 +23,7 @@
 
 import type { PixelMap, PixelPalette } from "@/components/PixelSprite";
 import { overlay, place } from "./pixelMap";
-import { shade, flush, blend } from "./palette";
+import { shade, flush, blend, AVATAR_INK } from "./palette";
 import type { AvatarConfig, EyeStyle, HairStyle } from "./avatarData";
 
 export const CHAR_W = 16;
@@ -280,9 +280,9 @@ export function characterPalette(avatar: AvatarConfig): PixelPalette {
     O: outfitColor,
     o: shade(outfitColor, 0.13),
     P: shade(outfitColor, 0.22),
-    F: "#2A2A33",
-    E: "#1A1A2E",
-    W: "#FFFFFF",
-    e: blend("#1A1A2E", skinColor, 0.55),
+    F: AVATAR_INK.shoes,
+    E: AVATAR_INK.eye,
+    W: AVATAR_INK.glint,
+    e: blend(AVATAR_INK.eye, skinColor, 0.55),
   };
 }

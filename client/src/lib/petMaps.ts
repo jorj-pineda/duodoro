@@ -27,7 +27,12 @@
 
 import type { PixelMap, PixelPalette } from "@/components/PixelSprite";
 import { place } from "./pixelMap";
-import { shade } from "./palette";
+import {
+  CAT_PALETTE,
+  DOG_PALETTE,
+  DRAGON_PALETTE,
+  RABBIT_PALETTE,
+} from "./palette";
 import type { PetStage } from "./petLevel";
 import type { PetType } from "./types";
 
@@ -74,24 +79,13 @@ function pet(
   return { frames: [frame(feet.together), frame(feet.apart)], palette };
 }
 
-const coat = (base: string, rest: PixelPalette): PixelPalette => ({
-  C: base,
-  c: shade(base, 0.12),
-  ...rest,
-});
-
-const CAT = coat("#E2A65C", { E: "#2C3A4A", N: "#C4604A" });
-const DOG = coat("#C99A63", { E: "#3B2411", M: "#EFD9B4", N: "#2A1808" });
-const DRAGON = coat("#A78BFA", { E: "#FFC93C", N: "#7C3AED" });
-const RABBIT = coat("#EFE6D6", { E: "#8A5A6B", N: "#E39AA0", W: "#FFFFFF" });
-
 export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
   cat: {
     // Pointed ears at the head's corners, tail curling out to one side.
     young: pet(
       "young",
       [".C...C.", ".CCCCC.", ".CENCE.", ".CCCCCc"],
-      CAT,
+      CAT_PALETTE,
     ),
     grown: pet(
       "grown",
@@ -103,7 +97,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "..CCCCCcc",
         "..CCCCC.c",
       ],
-      CAT,
+      CAT_PALETTE,
     ),
     full: pet(
       "full",
@@ -117,7 +111,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "...CCCCCc.c",
         "...CCCCC..c",
       ],
-      CAT,
+      CAT_PALETTE,
     ),
   },
 
@@ -127,7 +121,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     young: pet(
       "young",
       ["CC...CC", "cCECECc", ".CCMMC.", ".CCCCC."],
-      DOG,
+      DOG_PALETTE,
     ),
     grown: pet(
       "grown",
@@ -139,7 +133,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "..CCCCCc.",
         "..CCCCC..",
       ],
-      DOG,
+      DOG_PALETTE,
     ),
     full: pet(
       "full",
@@ -153,7 +147,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "..CCCCCC...",
         "..CCCCC....",
       ],
-      DOG,
+      DOG_PALETTE,
     ),
   },
 
@@ -162,7 +156,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     young: pet(
       "young",
       [".c...c.", ".CCCCC.", ".CENCE.", "cCCCCCc"],
-      DRAGON,
+      DRAGON_PALETTE,
     ),
     grown: pet(
       "grown",
@@ -174,7 +168,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "cCCCCCCCc",
         "..CCCCC.c",
       ],
-      DRAGON,
+      DRAGON_PALETTE,
     ),
     full: pet(
       "full",
@@ -188,7 +182,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "..CCCCCcc.c",
         "..CCCCC...c",
       ],
-      DRAGON,
+      DRAGON_PALETTE,
     ),
   },
 
@@ -199,7 +193,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     young: pet(
       "young",
       ["..C.C..", "..C.C..", ".CENCE.", ".CCCWW."],
-      RABBIT,
+      RABBIT_PALETTE,
     ),
     grown: pet(
       "grown",
@@ -211,7 +205,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         ".CCCNCCC.",
         "..CCCCCWW",
       ],
-      RABBIT,
+      RABBIT_PALETTE,
     ),
     full: pet(
       "full",
@@ -225,7 +219,7 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
         "..CCCCCCC..",
         "..CCCCCWWW.",
       ],
-      RABBIT,
+      RABBIT_PALETTE,
     ),
   },
 };
