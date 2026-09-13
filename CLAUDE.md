@@ -286,6 +286,18 @@ SVGs, five of which are untouched Next.js starter files.
   and holding HSL saturation while dropping lightness turns pale colours vivid. `shade()`
   drops lightness by a fixed amount while holding chroma, with a cap. Both failure modes
   are regression tests in `lib/palette.test.ts`.
+- **`lib/palette.ts` is the only file that names an art colour.** Material families are
+  generated ramps (`FOLIAGE`, `STONE`, `SNOW`, `EMBER`…); individual props and ambient
+  washes are curated constants at the bottom of the same file. A scene takes its colours
+  from there — `paletteGuard.test.ts` fails if any other non-test source file contains a
+  hex, with a short allowlist for UI chrome, brand marks, and *data that is itself the
+  colour* (the avatar choices and per-world skies in `avatarData.ts`, the note colours).
+  Adding a colour means adding it to the palette, not to the component that wanted it.
+  A world's sky is `skyStops` plus the index of the horizon stop; both the CSS gradient and
+  the `HORIZON` distance-blend colour are derived from that one list, so they can't drift.
+  `WorldDecorations.colors.test.tsx` snapshots every colour each world paints, so a
+  consolidation is provably colour-neutral and a deliberate recolour has to update the
+  snapshot.
 - **A sprite should change its own pixels.** `pixel-idle` translates the whole sprite up
   three px, which is motion *of* a drawing rather than motion *in* one, and a scene of
   those reads as posed dolls. The avatar blinks (4–6.5 s, jittered — a fixed interval reads
