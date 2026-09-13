@@ -33,7 +33,7 @@ interface PixelCharacterProps extends AvatarConfig {
   size?: number;
   /**
    * Draw a keyline around the silhouette. Off by default; on the Space world a
-   * dark-haired character genuinely disappears into `#04001A`.
+   * dark-haired character genuinely disappears into the night sky.
    */
   outline?: string;
   className?: string;
