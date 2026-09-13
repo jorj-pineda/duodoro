@@ -4,7 +4,7 @@ import { GROUND } from "@/lib/scene";
 import { useArtPx } from "./SceneScale";
 import { columnsFor } from "@/lib/terrain";
 import { skyline, windows, roofParts, type SkylineSpec } from "@/lib/skyline";
-import { blend, hazedPalette, type Depth } from "@/lib/palette";
+import { blend, hazedPalette, INK, type Depth } from "@/lib/palette";
 
 interface SkylineProps {
   spec: Omit<SkylineSpec, "columns">;
@@ -52,7 +52,7 @@ export default function Skyline({
       {
         face: ramp[1],
         lit: ramp[2],
-        edge: blend(ramp[0], "#000000", 0.3),
+        edge: blend(ramp[0], INK, 0.3),
         pane: glow,
         dark: ramp[0],
       },

@@ -1,5 +1,6 @@
 "use client";
 import { useArtPx } from "./SceneScale";
+import { INK } from "@/lib/palette";
 
 /**
  * One art-pixel-tall smudge on the ground plane, centred under its owner.
@@ -22,7 +23,7 @@ export default function ContactShadow({ width }: { width: number }) {
         width: width * artPx,
         height: artPx,
         marginLeft: -Math.round((width * artPx) / 2),
-        background: "#000000",
+        background: INK,
         opacity: 0.26,
       }}
     />

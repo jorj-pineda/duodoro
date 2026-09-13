@@ -20,7 +20,8 @@ import {
   CONTROLLER,
   CONTROLLER_PALETTE,
 } from "@/lib/uiSprites";
-import { WorldDecor, CUP, CUP_PALETTE } from "./WorldDecorations";
+import { WorldDecor, CUP } from "./WorldDecorations";
+import { CUP_PALETTE } from "@/lib/palette";
 import ContactShadow from "./ContactShadow";
 import type { PixelMap, PixelPalette } from "./PixelSprite";
 import { GROUND, artPxFor } from "@/lib/scene";

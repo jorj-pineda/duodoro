@@ -10,13 +10,43 @@ import Skyline from "./Skyline";
 import Shelving from "./Shelving";
 import ContactShadow from "./ContactShadow";
 import {
+  AISLE_SIGN_PALETTE,
   BARK,
+  BATTEN_PALETTE,
+  BOOKSHELF_PALETTE,
+  BOOK_TONES,
+  BUILDING_PALETTE,
+  BULB_COLORS,
+  CAFE_ROOM,
+  CAKE_TONES,
+  CHECKOUT_PALETTE,
+  CLOUD_PALETTE,
+  CRATE_PALETTE,
+  CRATER_PALETTE,
+  CUP_PALETTE,
   EMBER,
   FOLIAGE,
-  SAND,
+  FRIDGE_PALETTE,
+  GLOW,
   GRASS,
+  INK,
+  LAMP_PALETTE,
+  MACHINE_PALETTE,
+  MENU_PALETTE,
+  MINI_PLANET_PALETTE,
+  MOUNTAIN_FRONT,
+  PALM_PALETTE,
+  PINE_PALETTE,
+  PLANET_PALETTE,
+  PRODUCT_TONES,
+  SAND,
+  SEA,
   SNOW,
   STONE,
+  SUN_PALETTE,
+  TABLE_PALETTE,
+  UMBRELLA_PALETTE,
+  WHITE,
   blend,
   hazedPalette,
   type Depth,
@@ -71,8 +101,6 @@ const CLOUD: PixelMap = [
   "WWWWWWWWWWWW",
   ".SWWWWWWWWS.",
 ];
-const CLOUD_PALETTE: PixelPalette = { W: "#ffffff", S: "#dbe5ee" };
-
 const PINE: PixelMap = [
   ".....DD.....",
   "....DDDD....",
@@ -89,13 +117,6 @@ const PINE: PixelMap = [
   ".....TT.....",
   "....TTTT....",
 ];
-const PINE_PALETTE: PixelPalette = {
-  D: "#2d6a4f",
-  M: "#40916c",
-  L: "#52b788",
-  T: "#6b4f2a",
-};
-
 const SUN: PixelMap = [
   "...GGG...",
   "..GYYYG..",
@@ -107,12 +128,6 @@ const SUN: PixelMap = [
   "..GYYYG..",
   "...GGG...",
 ];
-const SUN_PALETTE: PixelPalette = {
-  G: "#f0b429",
-  Y: "#ffd166",
-  H: "#fff3b0",
-};
-
 const MOON: PixelMap = [
   "..MMMM..",
   ".MMMmm..",
@@ -146,16 +161,6 @@ const PLANET: PixelMap = [
   ".............DDDddddd.............",
   "................dd................",
 ];
-const PLANET_PALETTE: PixelPalette = {
-  H: "#e9d5ff",
-  P: "#c084fc",
-  p: "#a855f7",
-  d: "#7c3aed",
-  D: "#4c1d95",
-  r: "#8b6fd0",
-  R: "#d9c2f5",
-};
-
 const MINI_PLANET: PixelMap = [
   ".pppp.",
   "pppddp",
@@ -164,8 +169,6 @@ const MINI_PLANET: PixelMap = [
   "pppppp",
   ".pppp.",
 ];
-const MINI_PLANET_PALETTE: PixelPalette = { p: "#f0abfc", d: "#c26bd9" };
-
 const MOUNTAIN: PixelMap = [
   ".......SS.......",
   "......SSSS......",
@@ -178,12 +181,6 @@ const MOUNTAIN: PixelMap = [
   "MMMMMMMMmmmmmmm.",
   "MMMMMMMMMmmmmmmm",
 ];
-const MOUNTAIN_FRONT: PixelPalette = {
-  M: "#7c8490",
-  m: "#5f6875",
-  S: "#f1f5f9",
-};
-
 // A palm at ART_PX: 78x114px against a 48x72 person, where the old 14x11 map
 // at scale 4 was 56x44 — a palm tree two thirds the height of the person under
 // it. Fronds are arcs that stop before their tips trail off into single
@@ -228,14 +225,6 @@ const PALM: PixelMap = [
   ".........tTT..............",
   ".........tTT..............",
 ];
-const PALM_PALETTE: PixelPalette = {
-  F: "#2f7d52",
-  f: "#46a06a",
-  c: "#7a4a24",
-  t: "#8a6236",
-  T: "#5f4223",
-};
-
 const UMBRELLA: PixelMap = [
   "....RRRR....",
   "..RRRRRRRR..",
@@ -247,12 +236,6 @@ const UMBRELLA: PixelMap = [
   ".....PP.....",
   ".....PP.....",
 ];
-const UMBRELLA_PALETTE: PixelPalette = {
-  R: "#e76f51",
-  W: "#fdf6ec",
-  P: "#8d5a2b",
-};
-
 const BUILDING_SHORT: PixelMap = [
   "BBBBBBB",
   "ByBuByB",
@@ -265,13 +248,6 @@ const BUILDING_SHORT: PixelMap = [
   "BBBBBBB",
   "BBBBBBB",
 ];
-const BUILDING_PALETTE: PixelPalette = {
-  B: "#262640",
-  y: "#ffd166",
-  u: "#3b4261",
-  A: "#94a3b8",
-};
-
 const BOOKSHELF: PixelMap = [
   "FFFFFFFFFFFFFF",
   "F112233445566F",
@@ -291,17 +267,6 @@ const BOOKSHELF: PixelMap = [
   "F663311224455F",
   "FFFFFFFFFFFFFF",
 ];
-const BOOKSHELF_PALETTE: PixelPalette = {
-  F: "#4e342e",
-  f: "#33211c",
-  "1": "#c62828",
-  "2": "#1565c0",
-  "3": "#2e7d32",
-  "4": "#f9a825",
-  "5": "#6a1b9a",
-  "6": "#e65100",
-};
-
 const LAMP: PixelMap = [
   "....C....",
   "....C....",
@@ -312,12 +277,6 @@ const LAMP: PixelMap = [
   "..YYYYY..",
   "...YYY...",
 ];
-const LAMP_PALETTE: PixelPalette = {
-  C: "#3e2723",
-  G: "#2e7d32",
-  Y: "#ffe082",
-};
-
 export const CUP: PixelMap = [
   ".CCCCC..",
   ".CkkkCH.",
@@ -325,16 +284,6 @@ export const CUP: PixelMap = [
   ".CCCCC..",
   "..DDDD..",
 ];
-export const CUP_PALETTE: PixelPalette = {
-  C: "#fdf6ec",
-  k: "#6b4226",
-  // The handle had the same value as the cup wall, so defining a separate key
-  // for it achieved nothing — it just read as one column of extra width. Reuses
-  // the saucer's shade rather than introducing a colour.
-  H: "#d9c8a8",
-  D: "#d9c8a8",
-};
-
 const TABLE: PixelMap = [
   "TTTTTTTTTTTTTTTT",
   ".tt..........tt.",
@@ -342,8 +291,6 @@ const TABLE: PixelMap = [
   ".tt..........tt.",
   ".tt..........tt.",
 ];
-const TABLE_PALETTE: PixelPalette = { T: "#8d5a2b", t: "#6e441f" };
-
 // Espresso machine — the thing that makes a room read as a café rather than a
 // brown wall with tables in it.
 const MACHINE: PixelMap = [
@@ -354,14 +301,6 @@ const MACHINE: PixelMap = [
   "MMMMMMMMMMMM",
   "DDDDDDDDDDDD",
 ];
-const MACHINE_PALETTE: PixelPalette = {
-  M: "#8d9299",
-  D: "#5c6167",
-  g: "#2f3438",
-  k: "#c9c2b4",
-  n: "#3f4449",
-};
-
 // Menu board over the counter.
 const MENU: PixelMap = [
   "FFFFFFFFFFFFFF",
@@ -373,9 +312,6 @@ const MENU: PixelMap = [
   "F.cccccc.....F",
   "FFFFFFFFFFFFFF",
 ];
-const MENU_PALETTE: PixelPalette = { F: "#4a3a2c", c: "#d9cdb6" };
-
-
 // Crater rim — lit on the far side, shadowed on the near, which is what makes
 // a ring of pixels read as a hole rather than a disc.
 const CRATER: PixelMap = [
@@ -386,13 +322,6 @@ const CRATER: PixelMap = [
   ".LddddddL.",
   "..LLLLLL..",
 ];
-const CRATER_PALETTE: PixelPalette = {
-  L: "#9aa0aa",
-  d: "#5f6570",
-  D: "#43485200",
-};
-
-
 // ── Grocery ────────────────────────────────────────────────────────────────
 
 /** Chest freezer with a lit glass front. */
@@ -410,14 +339,6 @@ const FRIDGE: PixelMap = [
   "CCCCCCCCCCCCCCCC",
   "DDDDDDDDDDDDDDDD",
 ];
-const FRIDGE_PALETTE: PixelPalette = {
-  C: "#b9c2c6",
-  D: "#7f888c",
-  g: "#8fa3ab",
-  l: "#dff0f6",
-  b: "#9ec8de",
-};
-
 /** Produce crate — angled front, fruit heaped above the rim. */
 const CRATE: PixelMap = [
   "..rrrrrrrrrr..",
@@ -428,13 +349,6 @@ const CRATE: PixelMap = [
   "WWWWWWWWWWWWWW",
   "wwwwwwwwwwwwww",
 ];
-const CRATE_PALETTE: PixelPalette = {
-  r: "#c4463a",
-  g: "#5c9a3f",
-  W: "#c9a36a",
-  w: "#a07f4d",
-};
-
 /** Checkout: conveyor, register, and the little divider rail. */
 const CHECKOUT: PixelMap = [
   "..........RRRR......",
@@ -446,14 +360,6 @@ const CHECKOUT: PixelMap = [
   "DDDDDDDDDDDDDDDDDDDD",
   "DDDDDDDDDDDDDDDDDDDD",
 ];
-const CHECKOUT_PALETTE: PixelPalette = {
-  C: "#cfd5d0",
-  D: "#8d948e",
-  b: "#3f4a44",
-  R: "#5e6a63",
-  k: "#9fd6a0",
-};
-
 /** Hanging aisle sign. */
 const AISLE_SIGN: PixelMap = [
   "....ss....",
@@ -461,30 +367,8 @@ const AISLE_SIGN: PixelMap = [
   "SttSttSttS",
   "SSSSSSSSSS",
 ];
-const AISLE_SIGN_PALETTE: PixelPalette = {
-  S: "#3f7a5a",
-  t: "#eef4ee",
-  s: "#9aa39c",
-};
-
 /** Fluorescent ceiling batten. */
 const BATTEN: PixelMap = ["ffffffffffff", "FFFFFFFFFFFF"];
-const BATTEN_PALETTE: PixelPalette = { f: "#ffffff", F: "#cfd8d2" };
-
-/** Grocery packaging: bright, high-contrast, deliberately unlike book spines. */
-const PRODUCT_TONES = [
-  "#d24b3f",
-  "#e0912f",
-  "#f0c948",
-  "#4f9e56",
-  "#3f7fae",
-  "#8a5fa8",
-  "#e2e6e1",
-  "#b5563f",
-];
-
-const CAKE_TONES = ["#c9a227", "#b5651d", "#8d5a2b", "#d9c8a8", "#7c4a3a"];
-
 
 // A conifer at ART_PX is 60x111px against a 48x72 person — 1.54x human height.
 // The old PINE was 48x56: shorter than the people standing under it, and with
@@ -613,7 +497,7 @@ const ROCK_PALETTE: PixelPalette = { L: STONE[4], M: STONE[3], D: STONE[1] };
 /** Keyline for a sprite at a given depth. The outline has to recede with
  *  everything else, or a far sprite reads as nearer than the ridge behind it. */
 function keyline(sky: string, depth: Depth): string {
-  return hazedPalette({ k: blend(FOLIAGE[0], "#000000", 0.4) }, sky, depth).k;
+  return hazedPalette({ k: blend(FOLIAGE[0], INK, 0.4) }, sky, depth).k;
 }
 
 /** Every decor scene needs the measured scene width: terrain is generated to
@@ -635,7 +519,7 @@ function pin(pct: number | undefined, sceneWidth: number): string | undefined {
 /** Deterministic star field; a third of the stars twinkle on a stagger. */
 function Stars({
   count,
-  color = "#ffffff",
+  color = WHITE,
   maxY = 60,
   baseOpacity = 0.55,
   sceneWidth = 0,
@@ -780,7 +664,7 @@ export function ForestDecor({ sceneWidth }: DecorProps) {
     <>
       <div
         className="absolute right-[10%] top-[8%]"
-        style={{ filter: "drop-shadow(0 0 12px #ffd16688)" }}
+        style={{ filter: `drop-shadow(0 0 12px ${GLOW.forestSun})` }}
       >
         <PixelSprite map={SUN} palette={SUN_PALETTE} scale={artPx} />
       </div>
@@ -892,7 +776,7 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
           width: 260,
           height: 190,
           background:
-            "radial-gradient(ellipse at center, #7c3aed2e, transparent 70%)",
+            `radial-gradient(ellipse at center, ${GLOW.spaceNebula}, transparent 70%)`,
         }}
       />
       <Stars count={54} maxY={78} sceneWidth={sceneWidth} />
@@ -904,7 +788,7 @@ export function SpaceDecor({ sceneWidth }: DecorProps) {
         style={{
           left: px(58),
           top: "16%",
-          filter: "drop-shadow(0 0 22px #7c3aed88)",
+          filter: `drop-shadow(0 0 22px ${GLOW.spacePlanet})`,
         }}
       >
         <PixelSprite map={PLANET} palette={PLANET_PALETTE} scale={artPx} />
@@ -983,14 +867,14 @@ function Shore({ sceneWidth }: DecorProps) {
         const x = edge[y];
         return (
           <g key={y}>
-            <rect x={x} y={y} width={columns - x} height={1} fill="#2f7fae" />
+            <rect x={x} y={y} width={columns - x} height={1} fill={SEA.water} />
             {/* Foam at the waterline, and a second line of it further out. */}
-            <rect x={x} y={y} width={2} height={1} fill="#eaf4f7" />
+            <rect x={x} y={y} width={2} height={1} fill={SEA.foam} />
             {y % 5 === 2 && (
-              <rect x={x + 6} y={y} width={9} height={1} fill="#63a8cd" />
+              <rect x={x + 6} y={y} width={9} height={1} fill={SEA.ripple} />
             )}
             {y % 7 === 4 && (
-              <rect x={x + 18} y={y} width={13} height={1} fill="#63a8cd" />
+              <rect x={x + 18} y={y} width={13} height={1} fill={SEA.ripple} />
             )}
           </g>
         );
@@ -1007,7 +891,7 @@ export function BeachDecor({ sceneWidth }: DecorProps) {
     <>
       <div
         className="absolute left-[8%] top-[6%]"
-        style={{ filter: "drop-shadow(0 0 18px #ffd166aa)" }}
+        style={{ filter: `drop-shadow(0 0 18px ${GLOW.beachSun})` }}
       >
         <PixelSprite map={SUN} palette={SUN_PALETTE} scale={artPx} />
       </div>
@@ -1062,7 +946,7 @@ export function CityDecor({ sceneWidth }: DecorProps) {
       <Stars count={14} maxY={34} baseOpacity={0.4} sceneWidth={sceneWidth} />
       <div
         className="absolute left-[10%] top-[6%]"
-        style={{ filter: "drop-shadow(0 0 12px #fde68a66)" }}
+        style={{ filter: `drop-shadow(0 0 12px ${GLOW.cityMoon})` }}
       >
         <PixelSprite
           map={MOON}
@@ -1256,19 +1140,6 @@ export function MountainDecor({ sceneWidth }: DecorProps) {
 
 // ── Library — shelves, hanging reading lamps, warm glow ─────────────────────
 
-/** Book spine colours — deep, slightly desaturated, so a wall of them reads as
- *  leather and cloth rather than a sweet shop. */
-const BOOK_TONES = [
-  "#7c2f2a",
-  "#8a5a25",
-  "#2f5340",
-  "#2b3f63",
-  "#5a2f52",
-  "#6d6a3a",
-  "#a8875c",
-  "#3d3a36",
-];
-
 export function LibraryDecor({ sceneWidth }: DecorProps) {
   const artPx = useArtPx();
   const sky = HORIZON.library;
@@ -1281,7 +1152,7 @@ export function LibraryDecor({ sceneWidth }: DecorProps) {
           width: 420,
           height: 260,
           background:
-            "radial-gradient(ellipse at top center, #ffb74d33, transparent 72%)",
+            `radial-gradient(ellipse at top center, ${GLOW.libraryReading}, transparent 72%)`,
         }}
       />
 
@@ -1325,7 +1196,7 @@ export function LibraryDecor({ sceneWidth }: DecorProps) {
               sceneWidth > 0
                 ? `${Math.round((sceneWidth * left) / 100)}px`
                 : `${left}%`,
-            filter: "drop-shadow(0 6px 14px #ffe08277)",
+            filter: `drop-shadow(0 6px 14px ${GLOW.libraryLamp})`,
           }}
         >
           <PixelSprite map={LAMP} palette={LAMP_PALETTE} scale={artPx} />
@@ -1347,7 +1218,6 @@ export function LibraryDecor({ sceneWidth }: DecorProps) {
 
 // ── Café — string lights, tables with steaming cups ─────────────────────────
 
-const BULB_COLORS = ["#ffd166", "#e76f51", "#52b788"];
 const BULB_SAG = [2, 8, 13, 16, 16, 13, 8, 2];
 
 function StringLights() {
@@ -1417,7 +1287,7 @@ export function CafeDecor({ sceneWidth }: DecorProps) {
         style={{
           height: "46%",
           background:
-            "linear-gradient(180deg, #d8c3a0 0%, #e8d5b7 70%, #e8d5b7 100%)",
+            `linear-gradient(180deg, ${CAFE_ROOM.ceilingTop} 0%, ${CAFE_ROOM.ceilingBottom} 70%, ${CAFE_ROOM.ceilingBottom} 100%)`,
         }}
       />
       {/* Wall panelling: boards and a rail, so the back isn't a flat wash. */}
@@ -1426,9 +1296,9 @@ export function CafeDecor({ sceneWidth }: DecorProps) {
         style={{
           bottom: GROUND,
           height: 13 * artPx,
-          backgroundColor: "#c2a884",
+          backgroundColor: CAFE_ROOM.wall,
           backgroundImage:
-            "repeating-linear-gradient(90deg, #b0977512 0 " +
+            `repeating-linear-gradient(90deg, ${CAFE_ROOM.wallStripe} 0 ` +
             3 * artPx +
             "px, transparent " +
             3 * artPx +
@@ -1442,7 +1312,7 @@ export function CafeDecor({ sceneWidth }: DecorProps) {
         style={{
           bottom: `calc(${GROUND} + ${13 * artPx}px)`,
           height: artPx,
-          backgroundColor: "#8d6e4f",
+          backgroundColor: CAFE_ROOM.rail,
         }}
       />
 
@@ -1567,7 +1437,7 @@ export function GroceryDecor({ sceneWidth }: DecorProps) {
         <div
           key={i}
           className="absolute"
-          style={{ left: px(left), top: "4%", filter: "drop-shadow(0 4px 18px #ffffff66)" }}
+          style={{ left: px(left), top: "4%", filter: `drop-shadow(0 4px 18px ${GLOW.groceryBatten})` }}
         >
           <PixelSprite map={BATTEN} palette={BATTEN_PALETTE} scale={artPx} />
         </div>
