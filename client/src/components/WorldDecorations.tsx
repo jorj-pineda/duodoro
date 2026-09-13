@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import PixelSprite, { type PixelMap, type PixelPalette } from "./PixelSprite";
-import { getWorld, type WorldId } from "@/lib/avatarData";
+import { getWorld, HORIZON, type WorldId } from "@/lib/avatarData";
 import { GROUND } from "@/lib/scene";
 import { useArtPx } from "./SceneScale";
 import { columnsFor, ridgeHeights } from "@/lib/terrain";
@@ -615,23 +615,6 @@ const ROCK_PALETTE: PixelPalette = { L: STONE[4], M: STONE[3], D: STONE[1] };
 function keyline(sky: string, depth: Depth): string {
   return hazedPalette({ k: blend(FOLIAGE[0], "#000000", 0.4) }, sky, depth).k;
 }
-
-/**
- * The sky at the horizon for each world — what distance blends toward.
- *
- * Taken from the bottom stop of each world's skyGradient, because that is
- * literally the colour the air is at the point a far ridge meets it.
- */
-export const HORIZON: Record<WorldId, string> = {
-  forest: "#AEE5D8",
-  space: "#130840",
-  beach: "#FFD166",
-  city: "#16213e",
-  mountain: "#E0F0FF",
-  library: "#5d4037",
-  cafe: "#e8d5b7",
-  grocery: "#dfe4dd",
-};
 
 /** Every decor scene needs the measured scene width: terrain is generated to
  *  cover it, and sprite positions are rounded to whole pixels against it. */

@@ -11,6 +11,7 @@ import {
   HAIR_STYLE_LABELS,
   EYE_STYLE_LABELS,
   DEFAULT_AVATAR,
+  getWorld,
   type AvatarConfig,
   type EyeStyle,
 } from "@/lib/avatarData";
@@ -140,7 +141,7 @@ export default function AvatarCreator({
             style={{
               width: 120,
               height: 140,
-              background: "linear-gradient(180deg, #7EC8E3 0%, #AEE5D8 100%)",
+              background: getWorld("forest").skyGradient,
               paddingBottom: 12,
             }}
           >
