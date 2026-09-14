@@ -68,6 +68,7 @@ export function createFakeSupabase() {
 
   const calls = {
     upserts: [] as unknown[],
+    upsertOptions: [] as unknown[],
     updates: [] as { values: unknown }[],
     selectColumns: [] as string[],
   };
@@ -119,8 +120,9 @@ export function createFakeSupabase() {
     from: () => {
       selectKind = "profile";
       const b = builder();
-      b.upsert = (values: unknown) => {
+      b.upsert = (values: unknown, options?: unknown) => {
         calls.upserts.push(values);
+        calls.upsertOptions.push(options);
         return Promise.resolve({ error: null });
       };
       return b;
