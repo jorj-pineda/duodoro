@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.js"
   },
   "keywords": [],
   "author": "",
