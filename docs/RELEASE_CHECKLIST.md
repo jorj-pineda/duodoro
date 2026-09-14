@@ -132,6 +132,29 @@ Use account A in one browser profile and account B in another.
       every pet at whole-pixel density with no clipping.
 - [ ] Remove or clearly label any controlled test rows after verification.
 
+### 6a. Local automated coverage (not a substitute for the above)
+
+`server/privilegedWrites.integration.test.js` exercises migrations 020 and 022
+against a real PostgreSQL, real `auth.users` rows, and the shipping server
+modules — the round trip that schema inspection cannot prove. It runs the
+`claim_premium` grant (grant row **and** `profiles.is_premium`), idempotent
+re-claim, rejection of a direct client write to `premium_grants`,
+`record_focus_session` for two participants, retry idempotency,
+conflicting-key rejection, completed-only pet totals, and the round appearing
+once in `get_focus_stats`.
+
+```sh
+supabase start
+cd server && npm run test:integration
+```
+
+It is excluded from `npm run test:run` (which CI runs without a Supabase) and
+cleans up every user and session it creates. **Passing this does not tick the
+boxes above:** it runs locally with synthetic data, not against production with
+a real OAuth account, and it does not prove the browser, the invite flow, the
+pet renders, or anything a second human sees. The production round trip stays a
+required manual check.
+
 ## 7. Phone and visual checks
 
 Run on a real phone in portrait and landscape; browser emulation alone does not

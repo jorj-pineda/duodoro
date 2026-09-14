@@ -42,6 +42,11 @@ Database (repository root, Docker + Supabase CLI 2.116.0):
   a child process with `PORT=0` and talk to it over real sockets
   (`socket.io-client`, a devDependency) — so those runs bind ephemeral ports and
   scrape the boot log for them
+- `npm run test:integration` — the live-database suite
+  (`privilegedWrites.integration.test.js`), excluded from `test:run` because CI's
+  server job has no Supabase. Needs `supabase start`; creates real confirmed
+  users and deletes them (and their sessions) afterwards. It is the only test
+  that exercises migrations 020/022 through PostgREST rather than a mock.
 - Without `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` set, the server runs in dev mode: JWT verification and all persistence are skipped. In production those vars are required (it exits otherwise).
 
 Local dev needs both processes running. Client env: `NEXT_PUBLIC_SOCKET_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Server env: see `server/.env.example`.
