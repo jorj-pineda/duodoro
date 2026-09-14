@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_AVATAR,
   type AvatarConfig,
@@ -43,6 +43,14 @@ export function useAuth() {
   const [myAvatar, setMyAvatar] = useState<AvatarConfig>(DEFAULT_AVATAR);
 
   const sb = getSupabase();
+
+  // Kept beside `profile` so callbacks can read the latest value without
+  // listing `profile` as a dependency — a dependency on it would change the
+  // callback's identity on every presence update and re-fire its callers.
+  const profileRef = useRef<Profile | null>(null);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   useEffect(() => {
     let mounted = true;
@@ -236,8 +244,19 @@ export function useAuth() {
     cacheProfile(updated);
   };
 
-  const refreshProfilePresence = useCallback(async () => {
-    const userId = profile?.id;
+  /**
+   * Re-read the presence columns from `profiles` and fold them into state.
+   *
+   * Returns the merged profile, or null when there is nothing to refresh or the
+   * read failed. The return value has to be built *outside* the state updater:
+   * an updater can run later than the `await` that follows it (and can run
+   * twice under StrictMode), so assigning to a closure variable inside it made
+   * this function return null even on success. Nothing used the value yet, but
+   * the type promised one, and a future caller would have silently got nothing.
+   */
+  const refreshProfilePresence = useCallback(async (): Promise<Profile | null> => {
+    const current = profileRef.current;
+    const userId = current?.id;
     if (!userId) return null;
     const { data, error } = await sb
       .from("profiles")
@@ -245,21 +264,21 @@ export function useAuth() {
       .eq("id", userId)
       .single();
     if (error || !data) return null;
-    let next: Profile | null = null;
-    setProfile((current) => {
-      if (!current || current.id !== userId) return current;
-      next = {
-        ...current,
-        current_session_id: data.current_session_id,
-        current_world_id: data.current_world_id,
-        current_room: data.current_room,
-        updated_at: data.updated_at ?? current.updated_at,
-      };
-      cacheProfile(next);
-      return next;
-    });
-    return next;
-  }, [profile?.id, sb]);
+    const merged: Profile = {
+      ...current,
+      current_session_id: data.current_session_id,
+      current_world_id: data.current_world_id,
+      current_room: data.current_room,
+      updated_at: data.updated_at ?? current.updated_at,
+    };
+    // Guard the stale-account case in the updater, but do the caching and the
+    // return once, outside it.
+    setProfile((latest) =>
+      !latest || latest.id !== userId ? latest : merged,
+    );
+    cacheProfile(merged);
+    return merged;
+  }, [sb]);
 
   const isPremium = profile?.is_premium ?? false;
   const displayName = profile?.display_name ?? profile?.username ?? "You";
