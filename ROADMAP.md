@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-14. PRs #35–#76 merged. Migrations 016–023 are applied to
+Last updated: 2026-09-14. PRs #35–#77 merged. Migrations 016–023 are applied to
 production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -528,6 +528,8 @@ Options if it is worth fixing later, cheapest first:
 - `client/src/hooks/useAuth.ts:201-209` — `saveAvatar` never checks the update
   result, yet still calls `setMyAvatar`, caches to localStorage and advances to
   home. A failed write looks like success until you open another device.
+  **Fixed in #32; now tested** — `useAuth.mutations.test.tsx` pins the error and
+  zero-row-refusal cases (PR #78).
 - `client/src/components/DuoTimer.tsx:245-248` — the `display_name` update
   ignores `error` entirely. Contrast `:225-241`, which handles `claim_username`
   errors properly — the pattern is known, just not applied.
@@ -857,8 +859,14 @@ density and whole numbers, not that a 32x48 character still reads.
   Nothing mangled the art — there was never an art *system*.
 - **Accessibility:** 12 `aria-*` attributes total across ~85 buttons, with
   icon-only controls unlabelled.
-- **Test coverage:** `useAuth.ts` is 234 lines gating every screen transition
-  and has no tests.
+- **Test coverage:** ~~`useAuth.ts` is 234 lines gating every screen transition
+  and has no tests.~~ **Covered in this PR.** 24 tests across
+  `useAuth.bootstrap.test.tsx`, `useAuth.profile.test.tsx`,
+  `useAuth.presence.test.tsx` and `useAuth.mutations.test.tsx`, on a shared
+  fake in `useAuth.testkit.ts`. Writing them found a real latent bug —
+  `refreshProfilePresence` never returned the profile it was typed to return —
+  which is fixed in the same PR. The remaining untested hook surface is small;
+  the next coverage gaps are the screens, not the hooks.
 - **Unverified in the browser:** everything from PRs #26–#30. #35/#36 were
   checked by hand on localhost 2026-08-12 — characters no longer float, walk
   reads clean; pets and the jump/float/controller keyframes were *not* looked
