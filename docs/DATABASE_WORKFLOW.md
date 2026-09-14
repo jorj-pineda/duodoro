@@ -19,6 +19,18 @@ supabase test db
 supabase stop --no-backup
 ```
 
+The pgTAP contract checks structure. For behaviour — that a privileged function
+does what its comment claims against real data — run the integration suite from
+`server/` after `supabase start`:
+
+```sh
+cd server && npm run test:integration
+```
+
+It creates real confirmed users, drives migrations 020 and 022 through
+PostgREST, and removes everything it created. It is excluded from `test:run`
+because CI's server job has no Supabase.
+
 `supabase/tests/schema_contract.sql` checks the application tables, important
 columns and indexes, final RLS policy set, realtime publication, signup trigger,
 and the execution boundary around privileged functions. It is deliberately a

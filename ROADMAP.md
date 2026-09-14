@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-13. PRs #35–#75 merged. Migrations 016–023 are applied to
+Last updated: 2026-09-14. PRs #35–#76 merged. Migrations 016–023 are applied to
 production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -14,6 +14,18 @@ the unlock button called a function that did not exist — it failed soft and
 nobody had claimed, so the window cost nothing. Nothing has claimed since
 either: `premium_grants` is empty, so the round trip is still unproven against
 the live database.
+
+**The round trip is now proven against a real database, but not production.**
+`server/privilegedWrites.integration.test.js` (this PR) drives migration 020
+and 022 end to end — real confirmed users, the real RPCs, the shipping server
+modules — and passes: the grant lands in `premium_grants` *and*
+`profiles.is_premium`, re-claiming is idempotent, a direct client write to
+`premium_grants` is refused, one focus round records two participants once, a
+retry is idempotent, a conflicting key is rejected, and only completed rounds
+feed the pet total and `get_focus_stats`. Run it with
+`cd server && npm run test:integration` after `supabase start`. **This does not
+tick the release checklist's production items** — that still needs a real OAuth
+account and a browser, and `premium_grants` is still empty in production.
 
 Migration 022 was applied to production and recorded by Supabase as
 `20260828021445_atomic_focus_recording` on 2026-08-27. Production verification
