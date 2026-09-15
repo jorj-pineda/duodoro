@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-14. PRs #35–#77 merged. Migrations 016–023 are applied to
+Last updated: 2026-09-14. PRs #35–#78 merged. Migrations 016–023 are applied to
 production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -221,7 +221,14 @@ for exercising the deployed client → server → database flow.
 
 ## Next up (recommended order)
 
-- [x] **3a. One palette** — this PR. Every art colour now lives in
+- [x] **13-open. Break prop density** — this PR. The one sprite drawn a step
+      above the scene, reviewed with the owner and **kept that way** rather than
+      fixed: dropping it to `artPx` shrinks an approved visual by 25%, and
+      redrawing the maps at more cells came out worse than the current art. It
+      is a centred focal prop, not part of a world, so its density agrees with
+      nothing on screen. What is pinned now is the relationship (it tracks the
+      art pixel at both stops) instead of an open question. See item 13.
+- [x] **3a. One palette** — PR #76. Every art colour now lives in
       `lib/palette.ts`; the generated material ramps were already what the
       character and scenery art ran on, so the work left was the curated props,
       the UI sprites, and the fixed avatar ink. The eight `HORIZON` colours were
@@ -810,7 +817,7 @@ grid size, not whether a 5-row cat still reads as a cat.
 
 ---
 
-## 13. Mobile sprite scaling  ·  SHIPPED — this PR
+## 13. Mobile sprite scaling  ·  SHIPPED (PR #47; break prop decided 2026-09-14)
 
 The scene is a full-bleed background, so a 16x24 character was 48x72 CSS px on
 a 360px phone and 48x72 on a 27" monitor. `artPxFor(width, height)` picks
@@ -829,15 +836,30 @@ contact shadows, terrain bands and all eleven decor components.
   cards, not viewports, so a 224px-tall card would read as a phone on every
   screen.
 
-**Open decision — the break prop's density.** `BreakOverlay` has drawn at a
-hardcoded `scale={4}` against a scene at 3 since long before this PR, and
-nothing caught it because `GameWorld`'s density tests only ever looked at the
-character and pet maps. This PR did *not* fix it, because dropping it to the
-scene's pixel is a 25% shrink of an approved desktop visual and that is the
-owner's call, not a side effect of a mobile change. It now tracks the scene one
-step above it (`useArtPx() + 1`), so it is at least consistent across screens.
-Two real options: drop it to `artPx`, or redraw the prop maps with more cells so
-it keeps its size at one density. **Never** fix it by scaling the small map up.
+**Decided — the break prop's density, 2026-09-14. Keep it one step above the
+scene.** `BreakOverlay` has drawn at a hardcoded `scale={4}` against a scene at
+3 since long before this PR, and nothing caught it because `GameWorld`'s
+density tests only ever looked at the character and pet maps. It now tracks the
+scene one step above it (`useArtPx() + 1`), and that is now a decision rather
+than an open question.
+
+Both fixes were built and reviewed with the owner:
+
+- **Drop it to `artPx`** — one line, provably one density, shrinks an approved
+  desktop visual by 25% (controller 48→36px, cup 32→24px). Ranked below the
+  current look.
+- **Redraw the maps at more cells** — `CONTROLLER` 16×8 and `CUP` 11×7, which
+  hold 48×24 and 33×21 at `artPx`. Drawn, rendered, and rejected: it read worse
+  than the current art.
+
+Kept because the prop is a centred focal element on a break screen, not part of
+the world. The nineteen scenery sprites had a real defect — two densities in one
+frame, compared side by side against a person standing on the same ground. This
+one is alone in the middle of the screen with nothing at its scale to disagree
+with. `GameWorld.test.tsx` pins the *relationship* (tracks the scene at both
+stops) rather than a literal, so a future change to the art pixel carries it.
+**Never** fix it by scaling the small map up — that is the same picture with
+bigger pixels, which is what the redraw option was for.
 
 **Not verified:** nothing here has been looked at in a browser. The compact
 scene in particular needs an owner's eye on a real phone — the tests prove one
