@@ -157,15 +157,23 @@ function petShadow(stage: PetStage | null | undefined): number {
 
 function BreakOverlay({ worldId }: { worldId: WorldId }) {
   const prop = BREAK_PROP[worldId] ?? BREAK_PROP.forest;
-  // One step above the scene's pixel, which is the relationship this overlay
-  // has always had: it was a hardcoded scale={4} against a scene drawn at 3.
+  // One step above the scene's pixel, and that is now a decision rather than
+  // debt. The relationship predates the responsive pixel — a hardcoded scale={4}
+  // against a scene at 3 — and nothing caught it because the scene's density
+  // tests only looked at the character and pet maps.
   //
-  // That is a genuine density mismatch and it predates this change — nothing
-  // caught it because the scene's density tests only ever looked at the
-  // character and pet maps. It is *not* silently fixed here: putting the prop
-  // on artPx would shrink an approved desktop visual by 25% inside a PR about
-  // small screens. Written up in ROADMAP instead, where the two real options
-  // are a decision (drop to artPx) or a redraw (more cells at artPx).
+  // Both ways to remove the mismatch were reviewed on 2026-09-14 and rejected:
+  // dropping the prop to `artPx` shrinks an approved desktop visual by 25%, and
+  // redrawing the maps at more cells (16x8 controller, 11x7 cup, same on-screen
+  // size at `artPx`) came out visibly worse than the current art. The overlay is
+  // a centred focal prop on a break screen, not part of the world, so the extra
+  // resolution is not competing with anything the eye is comparing it against —
+  // unlike the nineteen scenery sprites, where two densities in one frame was
+  // the whole defect. Keeping the look wins over the purity of one grid.
+  //
+  // What is pinned instead is that it *tracks* the scene rather than sitting on
+  // a literal, so a future change to the art pixel carries this with it.
+  // `GameWorld.test.tsx` asserts both stops. See ROADMAP item 13.
   const artPx = useArtPx() + 1;
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">

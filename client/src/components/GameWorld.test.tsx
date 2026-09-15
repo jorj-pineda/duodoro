@@ -395,16 +395,22 @@ describe("art pixel follows the screen", () => {
 });
 
 /**
- * The two centred overlays are not part of the scene's one-density rule, and
- * that is a deviation worth stating rather than leaving for someone to find.
+ * The break prop is the one sprite in the scene deliberately drawn a step above
+ * the scene's own pixel, and this pins that rather than leaving it to be
+ * rediscovered as a defect.
  *
- * The break prop has drawn one step above the scene since long before the
- * responsive pixel — `scale={4}` against a scene at 3. Shrinking it to match
- * would have been a 25% change to an approved desktop visual inside a PR about
- * phones, so what is pinned here is that it *tracks* the scene rather than
- * sitting on a literal. ROADMAP carries the open decision.
+ * The mismatch predates the responsive pixel — a hardcoded `scale={4}` against
+ * a scene at 3. Both fixes were reviewed with the owner on 2026-09-14 and
+ * rejected on looks: dropping to `artPx` shrinks an approved desktop visual by
+ * 25%, and redrawing the maps at more cells came out worse than the current
+ * art. It is a centred focal prop on a break screen, not part of the world, so
+ * the extra resolution competes with nothing the eye is comparing it against.
+ *
+ * What must hold is the *relationship*: the prop tracks the scene's pixel at
+ * both stops instead of sitting on a literal. Celebration confetti, by
+ * contrast, is part of the scene and never out-resolves the characters.
  */
-describe("centred overlays track the scene without joining it", () => {
+describe("the break prop tracks the scene, one step above it", () => {
   function spriteScales(container: HTMLElement) {
     return allDensities(container);
   }
