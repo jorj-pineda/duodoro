@@ -16,6 +16,7 @@ import type {
 import { useSessionConnection } from "@/hooks/useSessionConnection";
 import { playSound } from "@/lib/sounds";
 import { worldAt } from "@/lib/rotation";
+import { readTimerPrefs, writeTimerPrefs } from "@/lib/timerPrefs";
 
 // sessionStorage key mirroring the active session id, so a full page reload
 // can silently rejoin within the server's reconnect grace window. localStorage
@@ -82,9 +83,37 @@ export function useGameSession(profile: Profile | null) {
   const [sessionId, setSessionId] = useState<string>("");
 
   // ── Session config ──────────────────────────────────────────────────────
-  const [timerMode, setTimerMode] = useState<"pomodoro" | "flow">("pomodoro");
-  const [focusDuration, setFocusDuration] = useState(25);
-  const [breakDuration, setBreakDuration] = useState(5);
+  // Seeded from storage rather than a literal, so a Flowmodoro user and their
+  // 50/10 survive a reload. `useState` is lazy, so the read happens once, and
+  // it is SSR-safe (no storage on the server → the defaults). Persisting is
+  // done by the wrapped setters below, not by an effect, because an effect
+  // would also fire on mount and write back the value it just read.
+  const [timerMode, setTimerModeState] = useState<"pomodoro" | "flow">(
+    () => readTimerPrefs().mode,
+  );
+  const [focusDuration, setFocusDurationState] = useState(
+    () => readTimerPrefs().focus,
+  );
+  const [breakDuration, setBreakDurationState] = useState(
+    () => readTimerPrefs().break,
+  );
+
+  // Persisted setters. The HUD's handlers keep their `(value) => void` shape, so
+  // the write lives here rather than at each call site — one place to see that
+  // these three are the persisted ones, and one place to change if that stops
+  // being true.
+  const setTimerMode = useCallback((mode: "pomodoro" | "flow") => {
+    setTimerModeState(mode);
+    writeTimerPrefs({ mode });
+  }, []);
+  const setFocusDuration = useCallback((minutes: number) => {
+    setFocusDurationState(minutes);
+    writeTimerPrefs({ focus: minutes });
+  }, []);
+  const setBreakDuration = useCallback((minutes: number) => {
+    setBreakDurationState(minutes);
+    writeTimerPrefs({ break: minutes });
+  }, []);
 
   // ── Game state ──────────────────────────────────────────────────────────
   const [serverMode, setServerMode] = useState<"pomodoro" | "flow">("pomodoro");
