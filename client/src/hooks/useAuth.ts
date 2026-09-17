@@ -7,6 +7,8 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { profileFromRow, type Profile } from "@/lib/types";
+import type { Json } from "@/lib/database.types";
+import { normalizeAvatarConfig } from "@/lib/storedData";
 import type { AppStep } from "@/lib/sessionTypes";
 
 const PROFILE_CACHE_KEY = "duodoro_profile";
@@ -22,10 +24,66 @@ function cacheProfile(p: Profile) {
   } catch {}
 }
 
+/**
+ * The cached profile, normalized rather than cast.
+ *
+ * This was `JSON.parse(raw) as Profile`, which trusts three things that are not
+ * guaranteed: that the blob is the *current* shape (it survives deploys, so an
+ * older version's fields are plausible), that it has not been hand-edited, and
+ * that its `avatar_config` is a valid one. That last one matters most — the
+ * cached avatar is what `createSession`/`joinSession`/`sendInvite` send, so a
+ * malformed value is a character the partner renders differently from its owner
+ * until the server's own validation rejects it.
+ *
+ * The repair mirrors `profileFromRow`: apply the same nullable-column defaults
+ * the database row would have, and drop an avatar that does not validate. A
+ * cache that cannot be repaired to something coherent is discarded, because the
+ * fetch that follows will supply the real row.
+ *
+ * `id` is the one field that cannot be defaulted — it is what the cache is
+ * keyed against — so a cached profile without one is not usable.
+ */
 function getCachedProfile(): Profile | null {
   try {
     const raw = localStorage.getItem(PROFILE_CACHE_KEY);
-    return raw ? (JSON.parse(raw) as Profile) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    const row = parsed as Record<string, unknown>;
+    // `id` is the one field that cannot be defaulted — the cache is keyed
+    // against it — so a blob without one is not usable. Everything else has a
+    // sensible null and is normalized by `profileFromRow`, exactly as it is for
+    // a database row.
+    if (typeof row.id !== "string" || row.id.length === 0) return null;
+    const avatar = normalizeAvatarConfig(row.avatar_config);
+    return profileFromRow({
+      id: row.id,
+      username: typeof row.username === "string" ? row.username : "",
+      discriminator:
+        typeof row.discriminator === "string" ? row.discriminator : "",
+      username_changed:
+        typeof row.username_changed === "boolean" ? row.username_changed : null,
+      display_name:
+        typeof row.display_name === "string" ? row.display_name : null,
+      display_name_changed_at:
+        typeof row.display_name_changed_at === "string"
+          ? row.display_name_changed_at
+          : null,
+      // An avatar that fails validation becomes null, which sends the user
+      // through the avatar step again rather than into a broken character.
+      avatar_config: avatar as Json | null,
+      is_premium: typeof row.is_premium === "boolean" ? row.is_premium : null,
+      current_room: typeof row.current_room === "string" ? row.current_room : null,
+      current_session_id:
+        typeof row.current_session_id === "string"
+          ? row.current_session_id
+          : null,
+      current_world_id:
+        typeof row.current_world_id === "string" ? row.current_world_id : null,
+      updated_at: typeof row.updated_at === "string" ? row.updated_at : null,
+    });
   } catch {
     return null;
   }
