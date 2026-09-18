@@ -125,9 +125,31 @@ describe("useGameSession connection lifecycle", () => {
   // that reads socketRef.current on mount sees null. Handlers registered that
   // way are silently never attached.
   it("reads a closed-tab resume id from localStorage", () => {
+    localStorage.setItem("duodoro:session", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+    const { result } = renderHook(() => useGameSession(null));
+    expect(result.current.resumeSessionId).toBe(
+      "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+    );
+  });
+
+  it("refuses to resume a stored id that is not a session id", () => {
+    // A value that is not a UUID cannot name a live session — they are keyed by
+    // the UUID the server generated — so resuming it only produces a doomed
+    // join and a "Session not found" toast for something that was never a
+    // session. It is dropped, and cleared so the next read is cheap.
     localStorage.setItem("duodoro:session", "kept-room");
     const { result } = renderHook(() => useGameSession(null));
-    expect(result.current.resumeSessionId).toBe("kept-room");
+    expect(result.current.resumeSessionId).toBeNull();
+    expect(localStorage.getItem("duodoro:session")).toBeNull();
+    expect(sessionStorage.getItem("duodoro:session")).toBeNull();
+  });
+
+  it("keeps a valid sessionStorage id when localStorage has none", () => {
+    sessionStorage.setItem("duodoro:session", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+    const { result } = renderHook(() => useGameSession(null));
+    expect(result.current.resumeSessionId).toBe(
+      "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+    );
   });
 
   it("registers presence after the socket exists, not on the first mount", async () => {

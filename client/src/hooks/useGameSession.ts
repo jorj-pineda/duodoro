@@ -17,6 +17,7 @@ import { useSessionConnection } from "@/hooks/useSessionConnection";
 import { playSound } from "@/lib/sounds";
 import { worldAt } from "@/lib/rotation";
 import { readTimerPrefs, writeTimerPrefs } from "@/lib/timerPrefs";
+import { isSessionId } from "@/lib/storedData";
 
 // sessionStorage key mirroring the active session id, so a full page reload
 // can silently rejoin within the server's reconnect grace window. localStorage
@@ -27,7 +28,17 @@ const RESUME_KEY = "duodoro:session";
 function readResumeSession() {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(RESUME_KEY) ?? sessionStorage.getItem(RESUME_KEY);
+    const stored =
+      localStorage.getItem(RESUME_KEY) ?? sessionStorage.getItem(RESUME_KEY);
+    // A stored value that is not a session id cannot name a live session, so
+    // resuming it only produces a doomed join and a "Session not found" toast
+    // for something that was never a session. Drop it instead, and clear it so
+    // the next read is cheap.
+    if (!isSessionId(stored)) {
+      if (stored !== null) clearResumeSession();
+      return null;
+    }
+    return stored;
   } catch {
     return null;
   }

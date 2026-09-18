@@ -128,4 +128,70 @@ describe("useAuth bootstrap", () => {
     // throw inside the effect and leave the app on `loading` forever.
     await waitFor(() => expect(result.current.profile).not.toBeNull());
   });
+
+  it("drops a cached avatar that does not validate", async () => {
+    // The cached avatar is what createSession/joinSession/sendInvite send, so
+    // a malformed one is a character the partner renders differently from its
+    // owner until the server refuses it. Invalid means the avatar editor, not
+    // a broken character — and the real row follows from the network anyway.
+    const cached = makeProfileRow({
+      avatar_config: { skinColor: "red", hairStyle: "bob" },
+    });
+    localStorage.setItem("duodoro_profile", JSON.stringify(cached));
+    fake.sessionResult.session = makeSession({ id: cached.id });
+    fake.selectResults.profile = { data: null, error: null };
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.profile).not.toBeNull());
+    expect(result.current.profile?.avatar_config).toBeNull();
+    // The avatar step, not home: there is no usable character to show.
+    expect(result.current.appStep).toBe("avatar");
+  });
+
+  it("repairs missing nullable fields rather than discarding the cache", async () => {
+    // A cache written by an older version can lack fields the current shape
+    // has. `id` is the only unusable one; the rest get the same defaults
+    // `profileFromRow` applies to a database row. Observed through the fast
+    // path, which needs a valid avatar — so the repair is what makes this
+    // cache usable at all.
+    localStorage.setItem(
+      "duodoro_profile",
+      JSON.stringify({
+        id: "user-1",
+        display_name: "River",
+        avatar_config: {
+          skinColor: "#FDDBB4",
+          hairStyle: "bob",
+          hairColor: "#5C3317",
+          eyeStyle: "normal",
+          outfitColor: "#3B5BDB",
+        },
+      }),
+    );
+    fake.sessionResult.session = makeSession({ id: "user-1" });
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.appStep).toBe("home"));
+    expect(result.current.profile?.display_name).toBe("River");
+    // The missing nullable fields got their row defaults, not `undefined`.
+    expect(result.current.profile?.is_premium).toBe(false);
+    expect(result.current.profile?.username).toBe("");
+  });
+
+  it("discards a cache with no id rather than keying on undefined", async () => {
+    localStorage.setItem(
+      "duodoro_profile",
+      JSON.stringify({ username: "nobody" }),
+    );
+    fake.sessionResult.session = makeSession();
+    fake.selectResults.profile = { data: makeProfileRow(), error: null };
+
+    const { result } = renderHook(() => useAuth());
+
+    // The cache is matched against the session's user id; a cache without one
+    // cannot be matched and must not become a profile with id undefined.
+    await waitFor(() => expect(result.current.profile?.id).toBe("user-1"));
+  });
 });
