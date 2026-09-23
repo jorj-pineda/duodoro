@@ -59,20 +59,53 @@ export function useSessionConnection({
       }) as DuodoroSocket;
       socketRef.current = socket;
 
-      socket.on("connect_error", async (error) => {
+      let authRecoveryAttempted = false;
+      let refreshInFlight: Promise<void> | null = null;
+
+      const refreshAndReconnect = () => {
+        if (refreshInFlight) return refreshInFlight;
+        setConnectionState("reconnecting");
+        refreshInFlight = (async () => {
+          try {
+            const { data: { session: fresh }, error } =
+              await sb.auth.refreshSession();
+            if (cancelled) return;
+            if (error || !fresh?.access_token) {
+              setConnectionState("offline");
+              return;
+            }
+            socket.auth = { token: fresh.access_token };
+            if (!socket.connected) socket.connect();
+          } catch {
+            if (!cancelled) setConnectionState("offline");
+          }
+        })().finally(() => {
+          refreshInFlight = null;
+        });
+        return refreshInFlight;
+      };
+
+      socket.on("connect_error", (error) => {
         if (
           error.message !== "Invalid or expired token" &&
           error.message !== "Authentication required"
-        ) return;
-        const {
-          data: { session: fresh },
-        } = await sb.auth.refreshSession();
-        if (!cancelled && fresh?.access_token) {
-          socket.auth = { token: fresh.access_token };
+        ) {
+          if (!socket.active) setConnectionState("offline");
+          return;
         }
+        // Middleware rejection disables Socket.IO's automatic reconnection.
+        // One refresh and explicit connect is enough per connection attempt;
+        // a second rejection waits for the user's Retry action.
+        if (authRecoveryAttempted) {
+          setConnectionState("offline");
+          return;
+        }
+        authRecoveryAttempted = true;
+        void refreshAndReconnect();
       });
 
       socket.on("connect", () => {
+        authRecoveryAttempted = false;
         setMyId(socket.id ?? "");
         setConnectionState("connected");
       });
@@ -89,13 +122,8 @@ export function useSessionConnection({
 
       const reconnectNow = async () => {
         if (socket.connected) return;
-        setConnectionState("reconnecting");
-        const {
-          data: { session: fresh },
-        } = await sb.auth.refreshSession();
-        if (cancelled) return;
-        if (fresh?.access_token) socket.auth = { token: fresh.access_token };
-        socket.connect();
+        if (!refreshInFlight) authRecoveryAttempted = true;
+        await refreshAndReconnect();
       };
 
       reconnectRef.current = () => void reconnectNow();
