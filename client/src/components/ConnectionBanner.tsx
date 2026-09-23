@@ -9,7 +9,7 @@ export type ConnectionState =
 
 interface Props {
   state: ConnectionState;
-  /** Shown only while in a session — outside one there's nothing to lose */
+  /** Reconnection is urgent during a session; an offline state also needs Retry at home. */
   inSession: boolean;
   onRetry: () => void;
 }
@@ -24,7 +24,7 @@ interface Props {
  * costs the React tree and re-runs auth for what is usually a brief outage.
  */
 export default function ConnectionBanner({ state, inSession, onRetry }: Props) {
-  const visible = inSession && (state === "reconnecting" || state === "offline");
+  const visible = state === "offline" || (inSession && state === "reconnecting");
   const offline = state === "offline";
 
   return (
