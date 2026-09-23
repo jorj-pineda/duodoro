@@ -14,3 +14,4 @@ test-results
 
 # Local planning notes, not for the repo
 *.local.md
+/docs/
