@@ -66,9 +66,10 @@ afterEach(async () => {
   apps.clear();
 });
 
-async function start(db) {
+async function start(db, { reconnectGraceMs } = {}) {
   const app = createRealtimeApp({
     supabase: db,
+    reconnectGraceMs,
     logger: createLogger({ sink: { log: vi.fn(), warn: vi.fn(), error: vi.fn() } }),
   });
   apps.add(app);
@@ -86,6 +87,32 @@ async function connectUser(url, userId) {
 }
 
 describe('graceful restart', () => {
+  it('does not record a disconnected solo player again when grace expires during shutdown', async () => {
+    const db = fakeDatabase({ recordDelayMs: 200 });
+    const { app, url } = await start(db, { reconnectGraceMs: 80 });
+    const host = await connectUser(url, HOST_ID);
+    const created = nextEvent(host, 'sync_state');
+    host.emit('create_session', { avatar: AVATAR, displayName: 'Host' });
+    const { sessionId } = await created;
+
+    const focusing = nextEvent(host, 'phase_change');
+    host.emit('start_session', { sessionId, focusDuration: 60, breakDuration: 30 });
+    await focusing;
+
+    const disconnected = nextEvent(app.io.sockets.sockets.get(host.id), 'disconnect');
+    host.close();
+    await disconnected;
+    await app.stop('shutdown');
+
+    expect(db.rpc.mock.calls.filter(([name]) => name === 'record_focus_session'))
+      .toHaveLength(1);
+    expect(db.records[0]).toMatchObject({
+      p_room_code: sessionId,
+      p_completed: false,
+      p_user_ids: [HOST_ID],
+    });
+  });
+
   it('saves one partial round for both users, ends the room, and clears presence', async () => {
     const db = fakeDatabase({ recordDelayMs: 100 });
     const { app, url } = await start(db);

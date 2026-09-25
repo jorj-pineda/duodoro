@@ -820,6 +820,11 @@ async function stop(reason = 'shutdown') {
     stopping = true;
     clearInterval(metricsInterval);
     metricsInterval = null;
+    // A player may already be in reconnect grace when shutdown begins. Its
+    // timer must not remove the last slot and queue a second recording while
+    // the shutdown snapshot is waiting for the first database write.
+    for (const timer of pendingDisconnects.values()) clearTimeout(timer);
+    pendingDisconnects.clear();
     // Freeze the phase chain before an overdue timer can complete the same
     // round. recordSession snapshots the key, elapsed time, and both users
     // synchronously, so later socket disconnects cannot change the record.
@@ -847,11 +852,6 @@ async function stop(reason = 'shutdown') {
       clearAllPresence(reason),
       closeSockets,
     ]);
-
-    // A process shutdown will never accept reconnects from sockets that were
-    // already disconnected when it began.
-    for (const timer of pendingDisconnects.values()) clearTimeout(timer);
-    pendingDisconnects.clear();
   })();
 
   return stopPromise;
