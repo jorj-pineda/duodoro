@@ -227,6 +227,7 @@ export function useGameSession(profile: Profile | null) {
       // the UI never sits in a session the server refused.
       if (
         message === "Session not found" ||
+        message === "Room ended during a server restart. Check History for your focus time." ||
         message === "This session is private" ||
         message === "Session is full" ||
         message === "Invite link is invalid or expired"
