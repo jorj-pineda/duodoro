@@ -37,8 +37,10 @@ function createFocusQueue(client) {
     },
 
     async *entries() {
-      for await (const { field, value } of client.hScanIterator(PENDING_KEY)) {
-        yield parseEntry(field, value);
+      for await (const entries of client.hScanIterator(PENDING_KEY)) {
+        for (const { field, value } of entries) {
+          yield parseEntry(field, value);
+        }
       }
     },
 
