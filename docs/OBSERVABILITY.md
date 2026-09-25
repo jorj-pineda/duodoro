@@ -65,13 +65,17 @@ total milliseconds, and maximum milliseconds for the life of that process.
 They reset on deploy or restart; `process_starts_total` and `uptime_seconds`
 make that boundary explicit.
 
-Before deploying this release, create a paid Render Key Value instance in the
-same region as the realtime service with Journal + Snapshot persistence and
-`noeviction`. Set `FOCUS_QUEUE_URL` to its internal URL in the Render service's
-environment. Keep the URL in Render only. Production refuses to start without
-the setting. A successful Key Value command is acknowledged before the database
-write is attempted; Render's persistence settings can still lose the most recent
-second of writes if Key Value itself fails.
+Before deploying this release, create an Upstash Redis Free database, with
+eviction disabled, in a region close to the Render realtime service. Claim it
+under an Upstash account rather than using an unclaimed temporary database.
+Set `FOCUS_QUEUE_URL` in the Render service's environment to its TLS Redis
+connection URL (`rediss://...`), including the credentials. Keep the URL in
+Render only. Production refuses to start without the setting. Upstash persists
+writes on the free tier, but that tier has no high-availability replica and
+is limited to 256 MB and 500,000 commands per month. An inactive free database
+can be archived after at least 30 days; an operator must restore it before the
+realtime service can start again. A successful queue command is acknowledged
+before the database write is attempted.
 
 ## Alerts and response
 
