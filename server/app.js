@@ -63,6 +63,7 @@ const checkReadiness = createReadinessChecker(supabase, {
 });
 
 const app = express();
+let stopping = false;
 
 app.use(cors({ origin: allowedOrigins }));
 app.use(helmet());
@@ -195,6 +196,7 @@ function onPayload(socket, event, handler, options = {}) {
   };
 
   socket.on(event, safeSocketHandler((payload, ...args) => {
+    if (stopping) return;
     if (!isPayloadObject(payload)) {
       metrics.increment('protocol_payload_rejections_total');
       logger.warn('protocol_payload_rejected', {
@@ -649,6 +651,7 @@ io.on('connection', (socket) => {
     cancelPendingDisconnect,
     totalFocusSeconds,
     setPresence,
+    isShuttingDown: () => stopping,
     createSessionRateLimit: rateLimits.createSession,
     shareInviteRateLimit: rateLimits.shareInvite,
     joinSessionRateLimit: rateLimits.joinSession,
@@ -674,6 +677,7 @@ io.on('connection', (socket) => {
   // skips its removal block too — the slot leaks permanently, the session is
   // never deleted, and its phase chain keeps recording fabricated focus.
   socket.on('leave_session', () => {
+    if (stopping) return;
     const sessionId = socketToSession[socket.id];
     if (sessionId) leaveSession(socket, sessionId);
   });
@@ -683,6 +687,7 @@ io.on('connection', (socket) => {
   // session state if this socket is still tracked in a session; silent no-op
   // otherwise (client treats absence of sync_state as "no session").
   socket.on('request_sync', () => {
+    if (stopping) return;
     const sessionId = socketToSession[socket.id];
     if (!sessionId) return;
     const session = getSession(sessionId);
@@ -700,7 +705,9 @@ io.on('connection', (socket) => {
       delete socketToSession[socket.id];
       const session = getSession(sessionId);
       const player = session?.players[socket.id];
-      if (session && player?.userId) {
+      // The shutdown snapshot owns the round and its participant list. Do not
+      // start reconnect grace or remove a participant while it is writing.
+      if (!stopping && session && player?.userId) {
         // Grace window: keep the player's slot (and a solo session's timer)
         // alive so a reconnect can resume instead of losing the pomodoro.
         markPlayerDisconnected(session, socket.id, true);
@@ -715,7 +722,7 @@ io.on('connection', (socket) => {
           socket_ref: correlationRef('socket', socket.id),
           grace_seconds: RECONNECT_GRACE_MS / 1000,
         });
-      } else if (session) {
+      } else if (!stopping && session) {
         // Unauthenticated (dev mode) players can't be matched on reconnect
         finalizePlayerRemoval(sessionId, socket.id);
       }
@@ -810,25 +817,41 @@ async function stop(reason = 'shutdown') {
   if (stopPromise) return stopPromise;
 
   stopPromise = (async () => {
+    stopping = true;
     clearInterval(metricsInterval);
     metricsInterval = null;
+    // Freeze the phase chain before an overdue timer can complete the same
+    // round. recordSession snapshots the key, elapsed time, and both users
+    // synchronously, so later socket disconnects cannot change the record.
+    let interruptedRounds = 0;
+    for (const [sessionId, session] of Object.entries(sessions)) {
+      if (session.phaseTimer) {
+        clearTimeout(session.phaseTimer);
+        session.phaseTimer = null;
+      }
+      if (session.phase === 'focus') {
+        queueSessionRecording(sessionId, session, false);
+        interruptedRounds += 1;
+      }
+      io.to(sessionId).emit('session_error', {
+        message: 'Room ended during a server restart. Check History for your focus time.',
+      });
+    }
+    logger.info('shutdown_focus_snapshot', { reason, interrupted_rounds: interruptedRounds });
+
+    const closeSockets = server.listening
+      ? new Promise((resolve) => io.close(resolve))
+      : Promise.resolve();
     await Promise.allSettled([
       drainPendingRecordings(),
       clearAllPresence(reason),
+      closeSockets,
     ]);
 
-    if (server.listening) {
-      await new Promise((resolve) => io.close(resolve));
-    }
-
-    // Socket.IO disconnect handlers intentionally schedule reconnect grace.
-    // A process shutdown will never accept those reconnects, so release every
-    // timer and phase chain to make factory teardown complete and reversible.
+    // A process shutdown will never accept reconnects from sockets that were
+    // already disconnected when it began.
     for (const timer of pendingDisconnects.values()) clearTimeout(timer);
     pendingDisconnects.clear();
-    for (const session of Object.values(sessions)) {
-      if (session.phaseTimer) clearTimeout(session.phaseTimer);
-    }
   })();
 
   return stopPromise;

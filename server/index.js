@@ -51,7 +51,12 @@ async function main() {
       logger.info('shutdown_started', { signal });
       // Bound the full drain: an upstream request can otherwise hang before
       // the HTTP server reaches its close callback.
-      setTimeout(() => process.exit(0), 5000).unref();
+      // Render's default SIGTERM window is 30 seconds. Leave five seconds for
+      // platform cleanup while allowing delayed focus writes to finish.
+      setTimeout(() => {
+        logger.error('shutdown_timed_out', { signal });
+        process.exit(1);
+      }, 25_000).unref();
       await realtime.stop('shutdown');
       process.exit(0);
     });

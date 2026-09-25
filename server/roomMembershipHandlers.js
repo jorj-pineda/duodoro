@@ -32,6 +32,7 @@ function registerRoomMembershipHandlers({
   cancelPendingDisconnect,
   totalFocusSeconds,
   setPresence,
+  isShuttingDown = () => false,
   createSessionRateLimit,
   shareInviteRateLimit,
   joinSessionRateLimit,
@@ -75,6 +76,7 @@ function registerRoomMembershipHandlers({
 
     const userId = socket.userId || null;
     const focusSeconds = await totalFocusSeconds(userId);
+    if (isShuttingDown()) return;
     const session = createSessionState(safeWorld, socket.id);
     const sessionId = session.id;
     sessions[sessionId] = session;
@@ -205,6 +207,7 @@ function registerRoomMembershipHandlers({
       reportJoinRejection('private', sessionId, userId);
       return;
     }
+    if (isShuttingDown()) return;
 
     // Reserve synchronously before the focus read. Existing users bypass the
     // new-seat count so reconnecting to a full room remains valid.
@@ -225,6 +228,7 @@ function registerRoomMembershipHandlers({
 
     try {
       const focusSeconds = await totalFocusSeconds(userId);
+      if (isShuttingDown()) return;
       const petStage = pet ? stageForTotal(focusSeconds) : null;
 
       // The room may have closed while the database request was in flight.
