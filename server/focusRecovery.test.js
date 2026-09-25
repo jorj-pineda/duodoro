@@ -97,4 +97,50 @@ describe('failed focus recovery', () => {
     expect(await coordinator.statusForUser('user-1')).toBe('unconfirmed');
     expect(queue.put).toHaveBeenCalledTimes(2);
   });
+
+  it('discards a queued shared round for account deletion and notifies the partner', async () => {
+    const queue = fakeQueue();
+    await queue.put(payload);
+    const status = vi.fn();
+    const coordinator = recovery(null, queue, status);
+
+    const prepared = await coordinator.prepareAccountDeletion('user-1');
+    expect(await queue.hasForUser('user-1')).toBe(false);
+    expect(await coordinator.save(payload)).toEqual({ state: 'discarded' });
+    prepared.commit();
+    await vi.waitFor(() => expect(status).toHaveBeenCalledWith('user-2', 'unconfirmed'));
+    expect(await coordinator.statusForUser('user-2')).toBe('unconfirmed');
+  });
+
+  it('restores a queued round if account deletion fails', async () => {
+    const queue = fakeQueue();
+    await queue.put(payload);
+    const coordinator = recovery(null, queue);
+
+    const prepared = await coordinator.prepareAccountDeletion('user-1');
+    expect(await queue.hasForUser('user-2')).toBe(false);
+    await prepared.rollback();
+    expect(await queue.hasForUser('user-2')).toBe(true);
+  });
+
+  it('does not make deletion wait for an unrelated stalled replay', async () => {
+    const queue = fakeQueue();
+    const unrelated = { ...payload, p_recording_key: 'other-round', p_user_ids: ['other'] };
+    await queue.put(unrelated);
+    await queue.put(payload);
+    let finishReplay;
+    const database = { rpc: vi.fn(() => new Promise((resolve) => { finishReplay = resolve; })) };
+    const coordinator = recovery(database, queue);
+    const replay = coordinator.replay();
+    await vi.waitFor(() => expect(database.rpc).toHaveBeenCalledOnce());
+
+    const prepared = await Promise.race([
+      coordinator.prepareAccountDeletion('user-1'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Deletion stalled')), 500)),
+    ]);
+    expect(await queue.hasForUser('user-1')).toBe(false);
+    prepared.commit();
+    finishReplay({ data: { session_id: 'saved-row', inserted: true }, error: null });
+    await replay;
+  });
 });

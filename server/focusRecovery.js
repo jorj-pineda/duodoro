@@ -12,8 +12,11 @@ function createFocusRecovery({
   isStopping = () => false,
 }) {
   const active = new Set();
+  const inFlightSaves = new Set();
+  const deletingUsers = new Set();
   const unconfirmedUsers = new Set();
   let replayPromise = null;
+  let activeReplay = null;
 
   async function statusForUser(userId) {
     if (!queue) return unconfirmedUsers.has(userId) ? 'unconfirmed' : 'clear';
@@ -32,7 +35,7 @@ function createFocusRecovery({
     }
   }
 
-  async function save(payload) {
+  async function saveOnce(payload) {
     const key = payload.p_recording_key;
     active.add(key);
     let queued = false;
@@ -104,6 +107,19 @@ function createFocusRecovery({
     }
   }
 
+  async function save(payload) {
+    if (payload.p_user_ids.some((userId) => deletingUsers.has(userId))) {
+      return { state: 'discarded' };
+    }
+    const operation = saveOnce(payload);
+    inFlightSaves.add(operation);
+    try {
+      return await operation;
+    } finally {
+      inFlightSaves.delete(operation);
+    }
+  }
+
   function replay() {
     if (!queue || !supabase || isStopping()) return Promise.resolve();
     if (replayPromise) return replayPromise;
@@ -111,10 +127,11 @@ function createFocusRecovery({
       try {
         for await (const payload of queue.entries()) {
           if (isStopping()) break;
+          if (payload.p_user_ids.some((userId) => deletingUsers.has(userId))) continue;
           const key = payload.p_recording_key;
           if (active.has(key)) continue;
           active.add(key);
-          try {
+          const operation = (async () => {
             const result = await recordFocusSession(supabase, payload, { observe });
             await queue.remove(key);
             metrics.increment('focus_replay_success_total');
@@ -124,6 +141,10 @@ function createFocusRecovery({
             });
             onReplaySaved(payload, result);
             await refreshStatuses(payload.p_user_ids);
+          })();
+          activeReplay = { userIds: payload.p_user_ids, operation };
+          try {
+            await operation;
           } catch (error) {
             metrics.increment('focus_replay_failures_total');
             logger.error('focus_replay_failed', {
@@ -131,6 +152,7 @@ function createFocusRecovery({
               ...safeErrorFields(error),
             });
           } finally {
+            activeReplay = null;
             active.delete(key);
           }
         }
@@ -142,14 +164,53 @@ function createFocusRecovery({
     return replayPromise;
   }
 
-  async function discardForUser(userId) {
-    if (!queue) return 0;
-    const removed = await queue.removeForUser(userId);
-    if (removed) {
-      metrics.increment('focus_queue_discarded_total', removed);
-      logger.warn('focus_queue_discarded_for_deletion', { count: removed });
+  async function prepareAccountDeletion(userId) {
+    if (deletingUsers.has(userId)) throw new Error('Account deletion already in progress');
+    deletingUsers.add(userId);
+    const removed = [];
+    try {
+      await Promise.allSettled([...inFlightSaves]);
+      if (activeReplay?.userIds.includes(userId)) {
+        await Promise.allSettled([activeReplay.operation]);
+      }
+      if (queue) {
+        for await (const payload of queue.entries()) {
+          if (payload.p_user_ids.includes(userId)) removed.push(payload);
+        }
+        for (const payload of removed) await queue.remove(payload.p_recording_key);
+      }
+    } catch (error) {
+      await Promise.allSettled(removed.map((payload) => queue.put(payload)));
+      deletingUsers.delete(userId);
+      throw error;
     }
-    return removed;
+
+    return {
+      commit() {
+        if (removed.length) {
+          metrics.increment('focus_queue_discarded_total', removed.length);
+          logger.warn('focus_queue_discarded_for_deletion', { count: removed.length });
+          const affected = new Set();
+          for (const payload of removed) {
+            for (const participantId of payload.p_user_ids) {
+              if (participantId === userId) continue;
+              unconfirmedUsers.add(participantId);
+              affected.add(participantId);
+            }
+          }
+          void refreshStatuses(affected);
+        }
+      },
+      async rollback() {
+        try {
+          if (queue) {
+            for (const payload of removed) await queue.put(payload);
+          }
+        } finally {
+          deletingUsers.delete(userId);
+        }
+      },
+    };
   }
 
   return {
@@ -157,7 +218,7 @@ function createFocusRecovery({
     replay,
     drain: () => replayPromise || Promise.resolve(),
     statusForUser,
-    discardForUser,
+    prepareAccountDeletion,
   };
 }
 

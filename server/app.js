@@ -386,7 +386,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
       p_user_ids: userIds,
     });
 
-    if (outcome.state === 'pending') return;
+    if (outcome.state === 'pending' || outcome.state === 'discarded') return;
     const { result } = outcome;
 
     metrics.increment('focus_record_success_total');
@@ -663,6 +663,7 @@ io.on('connection', (socket) => {
     presence,
     broadcastPresence,
     removeUserFromLiveSessions,
+    prepareAccountDeletion: recovery.prepareAccountDeletion,
     metrics,
     logger,
   });
