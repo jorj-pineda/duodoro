@@ -44,6 +44,11 @@ The most important events are:
 | `supabase_rpc_attempt` | One `record_focus_session` or `total_focus_seconds` attempt, including outcome, duration, attempt number, and retry intent |
 | `focus_record_completed` | The completed round was inserted or confirmed idempotent |
 | `focus_record_failed` | All persistence attempts failed |
+| `focus_record_deferred` | Supabase rejected a round that remains in the durable retry queue |
+| `focus_replay_completed` | A queued round was saved or confirmed idempotent and removed |
+| `focus_replay_failed` | A queued round remains pending after a retry |
+| `focus_queue_write_failed` / `focus_queue_read_failed` | Durable retry storage could not be reached |
+| `focus_queue_discarded_for_account_deletion` | Pending rounds containing an account under deletion were removed from the queue |
 | `database_readiness_probe` | The cached readiness probe refreshed successfully or failed |
 | `authentication_not_started` | A public client connected before it had a token; informational, not an auth failure |
 | `authentication_rejected` / `authentication_failed` | A supplied credential was invalid or the verification dependency failed |
@@ -60,11 +65,25 @@ total milliseconds, and maximum milliseconds for the life of that process.
 They reset on deploy or restart; `process_starts_total` and `uptime_seconds`
 make that boundary explicit.
 
+Before deploying this release, create an Upstash Redis Free database, with
+eviction disabled, in a region close to the Render realtime service. Claim it
+under an Upstash account rather than using an unclaimed temporary database.
+Set `FOCUS_QUEUE_URL` in the Render service's environment to its TLS Redis
+connection URL (`rediss://...`), including the credentials. Keep the URL in
+Render only. Production refuses to start without the setting. Upstash persists
+writes on the free tier, but that tier has no high-availability replica and
+is limited to 256 MB and 500,000 commands per month. An inactive free database
+can be archived after at least 30 days; an operator must restore it before the
+realtime service can start again. A successful queue command is acknowledged
+before the database write is attempted.
+
 ## Alerts and response
 
 Configure the log destination to alert immediately on either:
 
 - `event = focus_record_failed`; or
+- `event = focus_queue_write_failed` or `event = focus_queue_read_failed`; or
+- `event = focus_replay_failed` for repeated retries; or
 - `event = database_readiness_probe` and `outcome = failure` for two
   consecutive probe refreshes.
 
@@ -81,6 +100,20 @@ For a focus-record alert:
 3. Check `/ready`. If unavailable, inspect Supabase status and project health.
 4. After recovery, complete one designated two-account focus and confirm one
    row—not zero or two—was recorded for that round.
+
+`focus_record_deferred` means the browser will show a pending history message.
+Check that `focus_replay_completed` follows after Supabase recovers, then confirm
+both participants' histories. `focus_record_failed` with an `unconfirmed`
+browser status means both Supabase and Key Value were unavailable; this state
+cannot be recovered automatically after a process restart.
+
+Account deletion discards queued rounds containing that account, including a
+shared round. The other participant receives an unconfirmed-history warning.
+If Key Value cannot be checked and cleared, account deletion returns an error
+so identifiers are not left behind in the queue. If the account deletion request
+then fails or its response is lost, the queued round remains discarded because
+the account may already have been deleted. The process also refuses new focus
+writes for that identity until the deletion is retried or the process restarts.
 
 The repository provides alertable events and the response contract. The actual
 notification destination (for example, the owner's email or incident service)

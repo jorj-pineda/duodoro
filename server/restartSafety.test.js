@@ -24,15 +24,19 @@ function nextEvent(socket, event) {
 function fakeDatabase({ recordDelayMs = 0 } = {}) {
   const records = [];
   const presence = new Map();
-  return {
+  const db = {
     records,
     presence,
+    recordingUnavailable: false,
     auth: {
       getUser: vi.fn(async (token) => ({ data: { user: { id: token } }, error: null })),
     },
     rpc: vi.fn(async (name, payload) => {
       if (name === 'total_focus_seconds') return { data: 0, error: null };
       if (name === 'record_focus_session') {
+        if (db.recordingUnavailable) {
+          return { data: null, error: { code: '42501', message: 'permission denied' } };
+        }
         if (recordDelayMs) {
           await new Promise((resolve) => setTimeout(resolve, recordDelayMs));
         }
@@ -54,6 +58,7 @@ function fakeDatabase({ recordDelayMs = 0 } = {}) {
       }),
     }),
   };
+  return db;
 }
 
 const apps = new Set();
@@ -66,10 +71,12 @@ afterEach(async () => {
   apps.clear();
 });
 
-async function start(db, { reconnectGraceMs } = {}) {
+async function start(db, { reconnectGraceMs, focusQueue, replayIntervalMs } = {}) {
   const app = createRealtimeApp({
     supabase: db,
     reconnectGraceMs,
+    focusQueue,
+    replayIntervalMs,
     logger: createLogger({ sink: { log: vi.fn(), warn: vi.fn(), error: vi.fn() } }),
   });
   apps.add(app);
@@ -87,6 +94,53 @@ async function connectUser(url, userId) {
 }
 
 describe('graceful restart', () => {
+  it('replays a failed save after restart and clears the pending status', async () => {
+    const db = fakeDatabase();
+    const pending = new Map();
+    const focusQueue = {
+      put: async (payload) => { pending.set(payload.p_recording_key, payload); },
+      remove: async (key) => Number(pending.delete(key)),
+      entries: async function* () { yield* pending.values(); },
+      hasForUser: async (userId) => [...pending.values()]
+        .some((payload) => payload.p_user_ids.includes(userId)),
+      close: vi.fn(),
+    };
+    db.recordingUnavailable = true;
+    const { app, url } = await start(db, { focusQueue, replayIntervalMs: 100 });
+    const host = await connectUser(url, HOST_ID);
+    const created = nextEvent(host, 'sync_state');
+    host.emit('create_session', { avatar: AVATAR, displayName: 'Host' });
+    const { sessionId } = await created;
+    const focusing = nextEvent(host, 'phase_change');
+    host.emit('start_session', { sessionId, focusDuration: 60, breakDuration: 30 });
+    await focusing;
+
+    const pendingStatus = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Timed out waiting for pending save')), 5000);
+      const listener = ({ state }) => {
+        if (state !== 'pending') return;
+        clearTimeout(timeout);
+        host.off('focus_save_status', listener);
+        resolve();
+      };
+      host.on('focus_save_status', listener);
+    });
+    host.emit('stop_session', { sessionId });
+    await pendingStatus;
+    expect(pending.size).toBe(1);
+    expect(db.records).toHaveLength(0);
+    await app.stop('shutdown');
+
+    db.recordingUnavailable = false;
+    const replacement = await start(db, { focusQueue, replayIntervalMs: 100 });
+    await vi.waitFor(() => expect(db.records).toHaveLength(1));
+    await vi.waitFor(() => expect(pending.size).toBe(0));
+    const reconnected = await connectUser(replacement.url, HOST_ID);
+    const clearStatus = nextEvent(reconnected, 'focus_save_status');
+    reconnected.emit('request_focus_save_status');
+    expect(await clearStatus).toEqual({ state: 'clear' });
+  });
+
   it('does not record a disconnected solo player again when grace expires during shutdown', async () => {
     const db = fakeDatabase({ recordDelayMs: 200 });
     const { app, url } = await start(db, { reconnectGraceMs: 80 });

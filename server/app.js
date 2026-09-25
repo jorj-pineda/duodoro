@@ -17,7 +17,7 @@ const {
   buildSyncPayload,
 } = require('./session');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
-const { recordFocusSession } = require('./focusRecorder');
+const { createFocusRecovery } = require('./focusRecovery');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
   correlationRef,
@@ -40,6 +40,8 @@ function createRealtimeApp({
   supabase = null,
   allowedOrigins = ['http://localhost:3000'],
   reconnectGraceMs = 60_000,
+  focusQueue = null,
+  replayIntervalMs = 30_000,
   logger = createLogger(),
   metrics = createMetrics({ logger }),
 } = {}) {
@@ -313,6 +315,31 @@ function broadcastPresence(userId, online) {
 // Fire-and-forget phase transitions still need a handle during deployment.
 // Shutdown drains this set before exiting, within the process-wide deadline.
 const pendingRecordings = new Set();
+const recovery = createFocusRecovery({
+  supabase,
+  queue: focusQueue,
+  observe: observeRpc,
+  logger,
+  metrics,
+  isStopping: () => stopping,
+  onStatus: (userId, state) => {
+    for (const socketId of presence.socketsFor(userId)) {
+      io.to(socketId).emit('focus_save_status', { state });
+    }
+  },
+  onReplaySaved: (payload) => {
+    const session = sessions[payload.p_room_code];
+    if (!payload.p_completed || session?.focusRoundId !== payload.p_recording_key) return;
+    for (const update of creditFocusRound(
+      session,
+      payload.p_recording_key,
+      payload.p_user_ids,
+      payload.p_actual_focus,
+    )) {
+      io.to(payload.p_room_code).emit('pet_changed', update);
+    }
+  },
+});
 
 // participantIds lets callers pass a snapshot taken *before* they mutate
 // session.players — the abandoned-session path records the last player leaving,
@@ -347,7 +374,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
   }
 
   try {
-    const result = await recordFocusSession(supabase, {
+    const outcome = await recovery.save({
       p_recording_key: recordingKey,
       p_room_code: sessionId,
       p_world: session.world,
@@ -357,7 +384,10 @@ async function recordSession(sessionId, session, completed, participantIds) {
       p_completed: completed,
       p_started_at: new Date(startedAt).toISOString(),
       p_user_ids: userIds,
-    }, { observe: observeRpc });
+    });
+
+    if (outcome.state === 'pending' || outcome.state === 'discarded') return;
+    const { result } = outcome;
 
     metrics.increment('focus_record_success_total');
     logger.info('focus_record_completed', {
@@ -595,6 +625,11 @@ function removeUserFromLiveSessions(userId) {
 
 // ── Socket Handlers ────────────────────────────────────────────────────────
 
+async function sendFocusSaveStatus(socket) {
+  const state = await recovery.statusForUser(socket.userId);
+  if (socket.connected) socket.emit('focus_save_status', { state });
+}
+
 io.on('connection', (socket) => {
   metrics.increment('socket_connections_total');
   logger.info('socket_connected', {
@@ -613,7 +648,12 @@ io.on('connection', (socket) => {
       came_online: cameOnline,
       source: 'connection',
     });
+    void sendFocusSaveStatus(socket);
   }
+
+  socket.on('request_focus_save_status', () => {
+    if (!stopping && socket.userId) void sendFocusSaveStatus(socket);
+  });
 
   registerAccountHandlers({
     socket,
@@ -623,6 +663,7 @@ io.on('connection', (socket) => {
     presence,
     broadcastPresence,
     removeUserFromLiveSessions,
+    prepareAccountDeletion: recovery.prepareAccountDeletion,
     metrics,
     logger,
   });
@@ -777,6 +818,7 @@ function reportRuntimeSnapshot() {
 }
 
 let metricsInterval = null;
+let replayInterval = null;
 let startPromise = null;
 let stopPromise = null;
 
@@ -787,11 +829,17 @@ async function start(port = 3001) {
   metrics.increment('process_starts_total');
   metricsInterval = setInterval(reportRuntimeSnapshot, 60_000);
   metricsInterval.unref();
+  if (focusQueue) {
+    replayInterval = setInterval(() => void recovery.replay(), replayIntervalMs);
+    replayInterval.unref();
+  }
 
   startPromise = new Promise((resolve, reject) => {
     const onError = (error) => {
       clearInterval(metricsInterval);
       metricsInterval = null;
+      clearInterval(replayInterval);
+      replayInterval = null;
       startPromise = null;
       reject(error);
     };
@@ -806,6 +854,7 @@ async function start(port = 3001) {
       });
       reportRuntimeSnapshot();
       await clearAllPresence('boot');
+      void recovery.replay();
       resolve(server.address());
     });
   });
@@ -820,6 +869,8 @@ async function stop(reason = 'shutdown') {
     stopping = true;
     clearInterval(metricsInterval);
     metricsInterval = null;
+    clearInterval(replayInterval);
+    replayInterval = null;
     // A player may already be in reconnect grace when shutdown begins. Its
     // timer must not remove the last slot and queue a second recording while
     // the shutdown snapshot is waiting for the first database write.
@@ -849,9 +900,11 @@ async function stop(reason = 'shutdown') {
       : Promise.resolve();
     await Promise.allSettled([
       drainPendingRecordings(),
+      recovery.drain(),
       clearAllPresence(reason),
       closeSockets,
     ]);
+    focusQueue?.close();
   })();
 
   return stopPromise;

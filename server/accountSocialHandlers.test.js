@@ -63,6 +63,8 @@ describe('account handlers', () => {
     const matchingTab = { userId: 'verified-user', disconnect: vi.fn() };
     const otherTab = { userId: 'other-user', disconnect: vi.fn() };
     const deleteAccount = vi.fn().mockResolvedValue(undefined);
+    const commit = vi.fn();
+    const prepareAccountDeletion = vi.fn().mockResolvedValue({ commit, abort: vi.fn() });
     const removeUserFromLiveSessions = vi.fn();
     const respond = vi.fn();
 
@@ -77,6 +79,7 @@ describe('account handlers', () => {
       presence: { add: vi.fn() },
       broadcastPresence: vi.fn(),
       removeUserFromLiveSessions,
+      prepareAccountDeletion,
       metrics: fakeMetrics(),
       logger: fakeLogger(),
       deleteAccount,
@@ -91,6 +94,10 @@ describe('account handlers', () => {
       { privileged: true },
       { userId: 'verified-user', email: 'verified@example.com' },
     );
+    expect(prepareAccountDeletion).toHaveBeenCalledWith('verified-user');
+    expect(prepareAccountDeletion.mock.invocationCallOrder[0])
+      .toBeLessThan(deleteAccount.mock.invocationCallOrder[0]);
+    expect(commit).toHaveBeenCalledOnce();
     expect(removeUserFromLiveSessions).toHaveBeenCalledWith('verified-user');
     expect(respond).toHaveBeenCalledWith({ ok: true });
     expect(matchingTab.disconnect).toHaveBeenCalledWith(true);
@@ -102,6 +109,7 @@ describe('account handlers', () => {
     const socket = { id: 'socket-1', userId: 'user-1', on: vi.fn() };
     const metrics = fakeMetrics();
     const respond = vi.fn();
+    const abort = vi.fn();
 
     registerAccountHandlers({
       socket,
@@ -113,6 +121,7 @@ describe('account handlers', () => {
       removeUserFromLiveSessions: vi.fn(),
       metrics,
       logger: fakeLogger(),
+      prepareAccountDeletion: vi.fn().mockResolvedValue({ commit: vi.fn(), abort }),
       deleteAccount: vi.fn().mockRejectedValue(
         Object.assign(new Error('private detail'), { code: 'PGRST001' }),
       ),
@@ -120,7 +129,34 @@ describe('account handlers', () => {
     await payloads.handlers.get('delete_account')({ confirmation: 'DELETE' }, respond);
 
     expect(socket.accountDeletionPending).toBe(false);
+    expect(abort).toHaveBeenCalledOnce();
     expect(metrics.increment).toHaveBeenCalledWith('account_deletion_failures_total');
+    expect(respond).toHaveBeenCalledWith({
+      ok: false,
+      message: 'Account deletion could not be confirmed. Please retry before starting another focus session.',
+    });
+  });
+
+  it('does not delete the account when pending rounds cannot be discarded', async () => {
+    const payloads = capturePayloadHandlers();
+    const deleteAccount = vi.fn();
+    const respond = vi.fn();
+    registerAccountHandlers({
+      socket: { id: 'socket-1', userId: 'user-1', on: vi.fn() },
+      io: { sockets: { sockets: new Map() } },
+      onPayload: payloads.onPayload,
+      supabase: {},
+      presence: { add: vi.fn() },
+      broadcastPresence: vi.fn(),
+      removeUserFromLiveSessions: vi.fn(),
+      prepareAccountDeletion: vi.fn().mockRejectedValue(new Error('queue unavailable')),
+      metrics: fakeMetrics(),
+      logger: fakeLogger(),
+      deleteAccount,
+    });
+
+    await payloads.handlers.get('delete_account')({ confirmation: 'DELETE' }, respond);
+    expect(deleteAccount).not.toHaveBeenCalled();
     expect(respond).toHaveBeenCalledWith({
       ok: false,
       message: 'Could not delete your account. Please try again.',

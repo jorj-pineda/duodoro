@@ -94,7 +94,8 @@ export default function PrivacyPage() {
         <p>
           A shared session record needed for another participant’s history may
           remain after deletion, but the link to your deleted identity is
-          removed. Hosting providers may retain short-lived backups, security
+          removed. A shared round still waiting to save is discarded for both
+          participants. Hosting providers may retain short-lived backups, security
           records, and operational logs according to their own retention
           schedules or legal duties.
         </p>

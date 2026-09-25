@@ -5,6 +5,7 @@ import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
 import type { PetStage } from "@/lib/petLevel";
 import type {
+  FocusSaveState,
   PlayerData,
   SyncPayload,
   PhaseChangePayload,
@@ -147,6 +148,7 @@ export function useGameSession(profile: Profile | null) {
   // Surfaced as a toast by DuoTimer — these used to be console-only, which left
   // a refused join sitting on an empty game screen with no explanation.
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [focusSaveStatus, setFocusSaveStatus] = useState<FocusSaveState>("clear");
   const [inviteSentName, setInviteSentName] = useState<string | null>(null);
 
   // Pending outbound invite
@@ -249,6 +251,10 @@ export function useGameSession(profile: Profile | null) {
         setSessionStarted(false);
         setPlayers({});
       }
+    });
+
+    socket.on("focus_save_status", ({ state }) => {
+      setFocusSaveStatus(state);
     });
 
     socket.on("sync_state", (data: SyncPayload) => {
@@ -680,6 +686,7 @@ export function useGameSession(profile: Profile | null) {
     pendingInvite,
     dismissInvite,
     sessionError,
+    focusSaveStatus,
     clearSessionError: useCallback(() => setSessionError(null), []),
     inviteSentName,
   };

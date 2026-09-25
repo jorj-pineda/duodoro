@@ -114,6 +114,8 @@ export function useSessionConnection({
 
       registerSocketHandlers(socket);
 
+      socket.on("connect", () => socket.emit("request_focus_save_status"));
+
       const rejoinIfNeeded = () => {
         const snapshot = getResumeSnapshot();
         if (!snapshot?.avatar) return;
@@ -135,6 +137,7 @@ export function useSessionConnection({
           return;
         }
         if (getResumeSnapshot()) socket.emit("request_sync");
+        socket.emit("request_focus_save_status");
       };
       const onOnline = () => {
         if (!socket.connected) void reconnectNow();

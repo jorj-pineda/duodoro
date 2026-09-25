@@ -12,11 +12,13 @@ const CLIENT_EVENT_NAMES = Object.freeze([
   'set_pet',
   'leave_session',
   'request_sync',
+  'request_focus_save_status',
 ]);
 
 const SERVER_EVENT_NAMES = Object.freeze([
   'session_created',
   'session_error',
+  'focus_save_status',
   'sync_state',
   'phase_change',
   'player_joined',

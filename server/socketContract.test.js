@@ -18,6 +18,7 @@ const serverSource = readSources('.', [
 ]);
 const clientSource = readSources('../client/src', [
   'hooks/useGameSession.ts',
+  'hooks/useSessionConnection.ts',
   'hooks/useOnlineFriends.ts',
   'components/AccountSettingsModal.tsx',
 ]);

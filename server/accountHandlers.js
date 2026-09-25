@@ -10,6 +10,7 @@ function registerAccountHandlers({
   presence,
   broadcastPresence,
   removeUserFromLiveSessions,
+  prepareAccountDeletion = async () => ({ commit() {}, abort() {} }),
   metrics,
   logger,
   deleteAccount = deleteAccountData,
@@ -42,22 +43,15 @@ function registerAccountHandlers({
 
     socket.accountDeletionPending = true;
     const userId = socket.userId;
+    let prepared;
     try {
+      prepared = await prepareAccountDeletion(userId);
       await deleteAccount(supabase, {
         userId,
         email: socket.userEmail,
       });
-      removeUserFromLiveSessions(userId);
-      respond({ ok: true });
-
-      // Let the acknowledgement reach the requester before terminating every
-      // socket for this now-deleted verified account.
-      schedule(() => {
-        for (const client of io.sockets.sockets.values()) {
-          if (client.userId === userId) client.disconnect(true);
-        }
-      });
     } catch (error) {
+      prepared?.abort();
       socket.accountDeletionPending = false;
       metrics.increment('account_deletion_failures_total');
       logger.error('account_deletion_failed', {
@@ -66,9 +60,28 @@ function registerAccountHandlers({
       });
       respond({
         ok: false,
-        message: 'Could not delete your account. Please try again.',
+        message: prepared
+          ? 'Account deletion could not be confirmed. Please retry before starting another focus session.'
+          : 'Could not delete your account. Please try again.',
       });
+      return;
     }
+
+    prepared.commit();
+    try {
+      removeUserFromLiveSessions(userId);
+    } catch (error) {
+      logger.error('account_deletion_cleanup_failed', safeErrorFields(error));
+    }
+    respond({ ok: true });
+
+    // Let the acknowledgement reach the requester before terminating every
+    // socket for this now-deleted verified account.
+    schedule(() => {
+      for (const client of io.sockets.sockets.values()) {
+        if (client.userId === userId) client.disconnect(true);
+      }
+    });
   }, {
     errorEvent: null,
     onInvalid: (respond) => {

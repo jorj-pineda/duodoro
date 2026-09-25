@@ -266,6 +266,19 @@ export default function DuoTimer() {
         onRetry={game.reconnect}
       />
 
+      {game.focusSaveStatus !== "clear" && (
+        <div
+          role={game.focusSaveStatus === "unconfirmed" ? "alert" : "status"}
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[70] max-w-[min(90vw,32rem)] rounded-xl bg-black/85 px-4 py-3 text-center text-xs font-bold text-white shadow-lg"
+        >
+          {game.focusSaveStatus === "pending"
+            ? "Your focus history is waiting to save. We'll retry automatically."
+            : game.focusSaveStatus === "unknown"
+              ? "We can't check your focus history right now. Please check History later."
+              : "A focus round may be missing from History. Please check History."}
+        </div>
+      )}
+
       {game.pendingInvite && (
         <InvitePopup
           invite={game.pendingInvite}

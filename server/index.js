@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { createRealtimeApp } = require('./app');
 const { createLogger } = require('./observability');
+const { connectFocusQueue } = require('./focusQueue');
 require('dotenv').config({ quiet: true });
 
 function parseAllowedOrigins(value = 'http://localhost:3000') {
@@ -33,8 +34,19 @@ async function main() {
     logger.warn('persistence_disabled', { mode: 'development' });
   }
 
+  if (process.env.NODE_ENV === 'production' && !process.env.FOCUS_QUEUE_URL) {
+    logger.error('configuration_invalid', { dependency: 'focus_queue' });
+    process.exitCode = 1;
+    return;
+  }
+  let focusQueue = null;
+  if (process.env.FOCUS_QUEUE_URL) {
+    focusQueue = await connectFocusQueue(process.env.FOCUS_QUEUE_URL, logger);
+  }
+
   const realtime = createRealtimeApp({
     supabase,
+    focusQueue,
     allowedOrigins: parseAllowedOrigins(process.env.ALLOWED_ORIGIN),
     reconnectGraceMs: Number(process.env.RECONNECT_GRACE_MS) || 60_000,
     logger,
