@@ -275,7 +275,7 @@ export default function DuoTimer() {
             ? "Your focus history is waiting to save. We'll retry automatically."
             : game.focusSaveStatus === "unknown"
               ? "We can't check your focus history right now. Please check History later."
-              : "We couldn't confirm this focus was saved. Please check History later."}
+              : "A focus round may be missing from History. Please check History."}
         </div>
       )}
 

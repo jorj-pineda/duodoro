@@ -169,7 +169,8 @@ export default function AccountSettingsModal({
             participant links, companion access record, marketing consent, and
             matching waitlist address. Session records needed for another
             participant’s history may remain without a link to your deleted
-            identity.
+            identity. A shared round still waiting to save is discarded for both
+            participants.
           </p>
           <label className="block text-xs font-semibold text-muted mt-4">
             Type DELETE to confirm
