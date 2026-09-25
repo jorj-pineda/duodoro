@@ -58,10 +58,14 @@ npm run test:e2e
 - [ ] `https://duodoro.live` loads the intended commit.
 - [ ] The Render root and `/health` endpoints return success; `/ready` returns
       200 with `dependencies.database = "ready"`.
+- [ ] The paid Render Key Value instance uses Journal + Snapshot persistence and
+      `noeviction`; its internal URL is set as `FOCUS_QUEUE_URL` on the realtime
+      service before deployment. The URL is absent from Git and browser settings.
 - [ ] Render logs show `server_started` and a `runtime_snapshot` as valid JSON,
       without raw account, socket, session, email, token, or payload values.
 - [ ] The connected log platform alerts on `focus_record_failed` and repeated
-      failed `database_readiness_probe` events; the destination is current.
+      failed `database_readiness_probe` events, plus Key Value read/write
+      failures and repeated replay failures; the destination is current.
 - [ ] Both `https://duodoro.live` and `https://www.duodoro.live` receive a
       matching CORS allow-origin response from the realtime server.
 - [ ] No new errors appear in Vercel, Render, or Supabase logs during smoke.

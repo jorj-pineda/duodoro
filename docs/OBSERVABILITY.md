@@ -44,6 +44,10 @@ The most important events are:
 | `supabase_rpc_attempt` | One `record_focus_session` or `total_focus_seconds` attempt, including outcome, duration, attempt number, and retry intent |
 | `focus_record_completed` | The completed round was inserted or confirmed idempotent |
 | `focus_record_failed` | All persistence attempts failed |
+| `focus_record_deferred` | Supabase rejected a round that remains in the durable retry queue |
+| `focus_replay_completed` | A queued round was saved or confirmed idempotent and removed |
+| `focus_replay_failed` | A queued round remains pending after a retry |
+| `focus_queue_write_failed` / `focus_queue_read_failed` | Durable retry storage could not be reached |
 | `database_readiness_probe` | The cached readiness probe refreshed successfully or failed |
 | `authentication_not_started` | A public client connected before it had a token; informational, not an auth failure |
 | `authentication_rejected` / `authentication_failed` | A supplied credential was invalid or the verification dependency failed |
@@ -60,11 +64,21 @@ total milliseconds, and maximum milliseconds for the life of that process.
 They reset on deploy or restart; `process_starts_total` and `uptime_seconds`
 make that boundary explicit.
 
+Before deploying this release, create a paid Render Key Value instance in the
+same region as the realtime service with Journal + Snapshot persistence and
+`noeviction`. Set `FOCUS_QUEUE_URL` to its internal URL in the Render service's
+environment. Keep the URL in Render only. Production refuses to start without
+the setting. A successful Key Value command is acknowledged before the database
+write is attempted; Render's persistence settings can still lose the most recent
+second of writes if Key Value itself fails.
+
 ## Alerts and response
 
 Configure the log destination to alert immediately on either:
 
 - `event = focus_record_failed`; or
+- `event = focus_queue_write_failed` or `event = focus_queue_read_failed`; or
+- `event = focus_replay_failed` for repeated retries; or
 - `event = database_readiness_probe` and `outcome = failure` for two
   consecutive probe refreshes.
 
@@ -81,6 +95,12 @@ For a focus-record alert:
 3. Check `/ready`. If unavailable, inspect Supabase status and project health.
 4. After recovery, complete one designated two-account focus and confirm one
    row—not zero or two—was recorded for that round.
+
+`focus_record_deferred` means the browser will show a pending history message.
+Check that `focus_replay_completed` follows after Supabase recovers, then confirm
+both participants' histories. `focus_record_failed` with an `unconfirmed`
+browser status means both Supabase and Key Value were unavailable; this state
+cannot be recovered automatically after a process restart.
 
 The repository provides alertable events and the response contract. The actual
 notification destination (for example, the owner's email or incident service)
