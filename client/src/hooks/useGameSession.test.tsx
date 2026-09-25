@@ -185,6 +185,23 @@ describe("useGameSession connection lifecycle", () => {
     );
   });
 
+  it("clears the old room when the server ends it for a restart", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("connect")).toBeGreaterThan(0));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("session_created", { sessionId: "sess-1" }));
+    await waitFor(() => expect(result.current.sessionId).toBe("sess-1"));
+
+    act(() => fakeSocket.fire("session_error", {
+      message: "Room ended during a server restart. Check History for your focus time.",
+    }));
+
+    expect(result.current.sessionId).toBe("");
+    expect(result.current.sessionStarted).toBe(false);
+    expect(result.current.sessionError).toContain("Room ended");
+    expect(localStorage.getItem("duodoro:session")).toBeNull();
+  });
+
   // The core bug: after reconnect_failed nothing ever called socket.connect()
   // again, so a tab backgrounded past the retry budget was stranded even
   // though the server still held the slot.
