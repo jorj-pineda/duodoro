@@ -1,5 +1,6 @@
 export type TimerMode = 'pomodoro' | 'flow';
 export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning';
+export type FocusSaveState = 'clear' | 'pending' | 'unknown' | 'unconfirmed';
 export type PetType = 'cat' | 'dog' | 'dragon' | 'rabbit';
 export type PetStage = 'young' | 'grown' | 'full';
 export type HairStyle = 'bob' | 'mohawk' | 'long' | 'spiky' | 'bald';
@@ -103,11 +104,13 @@ export interface ClientToServerEvents {
   set_pet: (payload: { sessionId: string; pet: PetType | null }) => void;
   leave_session: (payload: { sessionId: string }) => void;
   request_sync: () => void;
+  request_focus_save_status: () => void;
 }
 
 export interface ServerToClientEvents {
   session_created: (payload: { sessionId: string }) => void;
   session_error: (payload: { message: string }) => void;
+  focus_save_status: (payload: { state: FocusSaveState }) => void;
   sync_state: (payload: SyncPayload) => void;
   phase_change: (payload: PhaseChangePayload) => void;
   player_joined: (payload: {
