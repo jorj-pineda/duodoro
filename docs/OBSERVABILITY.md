@@ -22,8 +22,10 @@ values for outcomes and reasons.
 
 - `GET /health` is process liveness only. It does not contact Supabase and
   returns `200 {"ok":true}` whenever Express can answer.
-- `GET /ready` is traffic readiness. In production it makes a data-free HEAD
-  query against `profiles`, cached for five seconds and bounded to two seconds.
+- `GET /ready` is traffic readiness. In production it calls the service-role-only
+  `total_focus_seconds` function for the zero UUID, without reading any user's
+  history. This catches a reachable database configured with an anon key. The
+  probe is cached for five seconds and bounded to two seconds.
   It returns 200 with `database: "ready"`, or 503 with
   `database: "unavailable"`. It never returns the upstream error.
 - Without Supabase configuration, local/test mode returns 200 with
