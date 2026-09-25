@@ -48,7 +48,7 @@ The most important events are:
 | `focus_replay_completed` | A queued round was saved or confirmed idempotent and removed |
 | `focus_replay_failed` | A queued round remains pending after a retry |
 | `focus_queue_write_failed` / `focus_queue_read_failed` | Durable retry storage could not be reached |
-| `focus_queue_discarded_for_deletion` | Pending rounds containing a deleted account were removed from the queue |
+| `focus_queue_discarded_for_account_deletion` | Pending rounds containing an account under deletion were removed from the queue |
 | `database_readiness_probe` | The cached readiness probe refreshed successfully or failed |
 | `authentication_not_started` | A public client connected before it had a token; informational, not an auth failure |
 | `authentication_rejected` / `authentication_failed` | A supplied credential was invalid or the verification dependency failed |
@@ -106,7 +106,10 @@ cannot be recovered automatically after a process restart.
 Account deletion discards queued rounds containing that account, including a
 shared round. The other participant receives an unconfirmed-history warning.
 If Key Value cannot be checked and cleared, account deletion returns an error
-so identifiers are not left behind in the queue.
+so identifiers are not left behind in the queue. If the account deletion request
+then fails or its response is lost, the queued round remains discarded because
+the account may already have been deleted. The process also refuses new focus
+writes for that identity until the deletion is retried or the process restarts.
 
 The repository provides alertable events and the response contract. The actual
 notification destination (for example, the owner's email or incident service)

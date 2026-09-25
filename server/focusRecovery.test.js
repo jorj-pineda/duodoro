@@ -112,15 +112,18 @@ describe('failed focus recovery', () => {
     expect(await coordinator.statusForUser('user-2')).toBe('unconfirmed');
   });
 
-  it('restores a queued round if account deletion fails', async () => {
+  it('keeps a queued round discarded after an uncertain deletion failure', async () => {
     const queue = fakeQueue();
     await queue.put(payload);
     const coordinator = recovery(null, queue);
 
     const prepared = await coordinator.prepareAccountDeletion('user-1');
     expect(await queue.hasForUser('user-2')).toBe(false);
-    await prepared.rollback();
-    expect(await queue.hasForUser('user-2')).toBe(true);
+    prepared.abort();
+    expect(await queue.hasForUser('user-2')).toBe(false);
+    expect(await coordinator.save(payload)).toEqual({ state: 'discarded' });
+    const retry = await coordinator.prepareAccountDeletion('user-1');
+    retry.commit();
   });
 
   it('does not make deletion wait for an unrelated stalled replay', async () => {

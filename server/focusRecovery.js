@@ -14,6 +14,7 @@ function createFocusRecovery({
   const active = new Set();
   const inFlightSaves = new Set();
   const deletingUsers = new Set();
+  const deletionsInProgress = new Set();
   const unconfirmedUsers = new Set();
   let replayPromise = null;
   let activeReplay = null;
@@ -165,7 +166,8 @@ function createFocusRecovery({
   }
 
   async function prepareAccountDeletion(userId) {
-    if (deletingUsers.has(userId)) throw new Error('Account deletion already in progress');
+    if (deletionsInProgress.has(userId)) throw new Error('Account deletion already in progress');
+    deletionsInProgress.add(userId);
     deletingUsers.add(userId);
     const removed = [];
     try {
@@ -181,34 +183,40 @@ function createFocusRecovery({
       }
     } catch (error) {
       await Promise.allSettled(removed.map((payload) => queue.put(payload)));
+      deletionsInProgress.delete(userId);
       deletingUsers.delete(userId);
       throw error;
     }
 
+    let finalized = false;
+    function finalize() {
+      if (finalized) return;
+      finalized = true;
+      if (removed.length) {
+        metrics.increment('focus_queue_discarded_total', removed.length);
+        logger.warn('focus_queue_discarded_for_account_deletion', { count: removed.length });
+        const affected = new Set();
+        for (const payload of removed) {
+          for (const participantId of payload.p_user_ids) {
+            if (participantId === userId) continue;
+            unconfirmedUsers.add(participantId);
+            affected.add(participantId);
+          }
+        }
+        void refreshStatuses(affected);
+      }
+    }
+
     return {
       commit() {
-        if (removed.length) {
-          metrics.increment('focus_queue_discarded_total', removed.length);
-          logger.warn('focus_queue_discarded_for_deletion', { count: removed.length });
-          const affected = new Set();
-          for (const payload of removed) {
-            for (const participantId of payload.p_user_ids) {
-              if (participantId === userId) continue;
-              unconfirmedUsers.add(participantId);
-              affected.add(participantId);
-            }
-          }
-          void refreshStatuses(affected);
-        }
+        finalize();
+        deletionsInProgress.delete(userId);
       },
-      async rollback() {
-        try {
-          if (queue) {
-            for (const payload of removed) await queue.put(payload);
-          }
-        } finally {
-          deletingUsers.delete(userId);
-        }
+      abort() {
+        // A lost response can mean auth deletion actually committed. Never
+        // restore identifiers or allow new writes after the delete request ran.
+        finalize();
+        deletionsInProgress.delete(userId);
       },
     };
   }

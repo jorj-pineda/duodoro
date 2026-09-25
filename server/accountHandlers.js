@@ -10,7 +10,7 @@ function registerAccountHandlers({
   presence,
   broadcastPresence,
   removeUserFromLiveSessions,
-  prepareAccountDeletion = async () => ({ commit() {}, async rollback() {} }),
+  prepareAccountDeletion = async () => ({ commit() {}, abort() {} }),
   metrics,
   logger,
   deleteAccount = deleteAccountData,
@@ -51,11 +51,7 @@ function registerAccountHandlers({
         email: socket.userEmail,
       });
     } catch (error) {
-      try {
-        await prepared?.rollback();
-      } catch (rollbackError) {
-        logger.error('focus_queue_restore_failed', safeErrorFields(rollbackError));
-      }
+      prepared?.abort();
       socket.accountDeletionPending = false;
       metrics.increment('account_deletion_failures_total');
       logger.error('account_deletion_failed', {
@@ -64,7 +60,9 @@ function registerAccountHandlers({
       });
       respond({
         ok: false,
-        message: 'Could not delete your account. Please try again.',
+        message: prepared
+          ? 'Account deletion could not be confirmed. Please retry before starting another focus session.'
+          : 'Could not delete your account. Please try again.',
       });
       return;
     }
