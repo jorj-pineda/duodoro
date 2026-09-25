@@ -158,7 +158,11 @@ export default function DuoTimer() {
       handleJoinSession(fallbackSid);
       return;
     }
-    showError(game.sessionError);
+    showError(
+      game.sessionError === "Session not found"
+        ? "This room has ended. Start a new session; check History for saved focus."
+        : game.sessionError,
+    );
     game.clearSessionError();
     if (!game.sessionId) setAppStep((step) => (step === "game" ? "home" : step));
     // showError/setAppStep are stable; re-running on sessionId would re-fire
