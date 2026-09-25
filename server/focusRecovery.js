@@ -105,7 +105,7 @@ function createFocusRecovery({
   }
 
   function replay() {
-    if (!queue || isStopping()) return Promise.resolve();
+    if (!queue || !supabase || isStopping()) return Promise.resolve();
     if (replayPromise) return replayPromise;
     replayPromise = (async () => {
       try {

@@ -46,6 +46,13 @@ function recovery(supabase, queue, onStatus = vi.fn()) {
 }
 
 describe('failed focus recovery', () => {
+  it('keeps queued rounds when local mode has no database client', async () => {
+    const queue = fakeQueue();
+    await queue.put(payload);
+    await recovery(null, queue).replay();
+    expect(await queue.hasForUser('user-1')).toBe(true);
+  });
+
   it('keeps a failed write and replays the identical round after a server restart', async () => {
     const queue = fakeQueue();
     const unavailable = { rpc: vi.fn(async () => ({
