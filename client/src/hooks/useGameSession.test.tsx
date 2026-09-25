@@ -202,6 +202,17 @@ describe("useGameSession connection lifecycle", () => {
     expect(localStorage.getItem("duodoro:session")).toBeNull();
   });
 
+  it("shows delayed focus history until the server confirms replay", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("focus_save_status")).toBe(1));
+
+    act(() => fakeSocket.fire("focus_save_status", { state: "pending" }));
+    expect(result.current.focusSaveStatus).toBe("pending");
+
+    act(() => fakeSocket.fire("focus_save_status", { state: "clear" }));
+    expect(result.current.focusSaveStatus).toBe("clear");
+  });
+
   // The core bug: after reconnect_failed nothing ever called socket.connect()
   // again, so a tab backgrounded past the retry budget was stranded even
   // though the server still held the slot.
