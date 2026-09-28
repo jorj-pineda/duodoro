@@ -15,6 +15,10 @@ jobs:
   database:
     name: Database migrations
     runs-on: ubuntu-latest
+    # GitHub-hosted runners share ECR's anonymous pull quota. Supabase publishes
+    # the same pinned images on GHCR; use that registry for this job.
+    env:
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v3
@@ -30,6 +34,21 @@ jobs:
 
       - name: Rebuild from the committed migration chain
         run: supabase db reset --local --no-seed
+
+      # CLI 2.116.0 uses postgres-meta:v0.98.0 for `gen types`. Tag the GHCR
+      # image with the ECR name as well so a CLI path that ignores the registry
+      # override still uses the local image instead of hitting ECR's quota.
+      # Update the tag when upgrading the pinned CLI above.
+      - name: Stage postgres-meta image for type generation
+        run: |
+          for attempt in 1 2 3; do
+            if docker pull ghcr.io/supabase/postgres-meta:v0.98.0; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep "$((attempt * 10))"
+          done
+          docker tag ghcr.io/supabase/postgres-meta:v0.98.0 public.ecr.aws/supabase/postgres-meta:v0.98.0
 
       - name: Verify generated database types
         run: |
