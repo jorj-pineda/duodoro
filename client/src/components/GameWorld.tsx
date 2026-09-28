@@ -33,7 +33,8 @@ export type GamePhase =
   | "focus"
   | "celebration"
   | "break"
-  | "returning";
+  | "returning"
+  | "ready";
 
 interface PlayerInfo {
   id: string;
@@ -421,7 +422,7 @@ export default function GameWorld({
       </AnimatePresence>
 
       {/* Waiting state — partner slot empty */}
-      {!partner && phase === "waiting" && (
+      {!partner && (phase === "waiting" || phase === "ready") && (
         <div
           className="absolute right-4 flex flex-col items-center opacity-40"
           style={{ bottom: GROUND }}

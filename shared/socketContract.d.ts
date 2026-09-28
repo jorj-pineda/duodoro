@@ -1,5 +1,5 @@
 export type TimerMode = 'pomodoro' | 'flow';
-export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning';
+export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning' | 'ready';
 export type FocusSaveState = 'clear' | 'pending' | 'unknown' | 'unconfirmed';
 export type PetType = 'cat' | 'dog' | 'dragon' | 'rabbit';
 export type PetStage = 'young' | 'grown' | 'full';

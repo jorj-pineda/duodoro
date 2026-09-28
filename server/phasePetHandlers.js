@@ -32,8 +32,9 @@ function registerPhasePetHandlers({
     const session = getSession(sessionId);
     if (!session || Object.keys(session.players).length < 1) return;
     if (!session.players[socket.id]) return;
-    // A duplicate or racing start must not reset elapsed focus.
-    if (session.phase !== 'waiting') return;
+    // A duplicate or racing start must not reset elapsed focus. A completed
+    // pomodoro stays in this room until either player starts another round.
+    if (session.phase !== 'waiting' && session.phase !== 'ready') return;
 
     session.mode = mode;
     if (mode === 'flow') {

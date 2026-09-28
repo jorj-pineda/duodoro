@@ -31,6 +31,7 @@ const { fetchFriendIds } = require('./friendLookup');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
+const { nextPhaseFor } = require('./phaseSequence');
 const { registerRoomMembershipHandlers } = require('./roomMembershipHandlers');
 
 /** @typedef {import('../shared/socketContract').ClientToServerEvents} ClientToServerEvents */
@@ -444,39 +445,17 @@ function advancePhase(sessionId) {
     session.phaseTimer = null;
   }
 
-  const CELEBRATION_MS = 4000;
-  const RETURNING_MS = 3500;
-
-  let nextPhase;
-  let delay;
-
-  switch (session.phase) {
-    case 'focus':
-      nextPhase = 'celebration';
-      delay = CELEBRATION_MS;
-      queueSessionRecording(sessionId, session, true);
-      break;
-    case 'celebration':
-      nextPhase = 'break';
-      delay = session.breakDuration * 1000;
-      break;
-    case 'break':
-      nextPhase = 'returning';
-      delay = RETURNING_MS;
-      break;
-    case 'returning':
-      nextPhase = 'focus';
-      delay = session.focusDuration * 1000;
-      break;
-    default:
-      return;
-  }
+  const transition = nextPhaseFor(session);
+  if (!transition) return;
+  const { phase: nextPhase, delay } = transition;
+  if (session.phase === 'focus') queueSessionRecording(sessionId, session, true);
 
   if (nextPhase === 'focus') {
     beginFocusRound(session);
   } else {
     session.phase = nextPhase;
-    session.phaseStartTime = Date.now();
+    session.phaseStartTime = nextPhase === 'ready' ? null : Date.now();
+    if (nextPhase === 'ready') session.focusRoundId = null;
   }
 
   io.to(sessionId).emit('phase_change', {
@@ -492,11 +471,9 @@ function advancePhase(sessionId) {
     phase: nextPhase,
   });
 
-  // Flow focus is open-ended and ends only when a player emits
-  // finish_flow_focus — same as the initial start_session, which also skips
-  // the timer for flow. Scheduling one here is what made rounds 2+ silently
-  // auto-complete while the UI still offered a "take break" button.
-  if (session.mode === 'flow' && nextPhase === 'focus') {
+  // Pomodoro pauses after a full cycle until someone presses Go again. Flow
+  // focus remains open-ended until a player emits finish_flow_focus.
+  if (delay === null) {
     session.phaseTimer = null;
     return;
   }

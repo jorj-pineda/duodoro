@@ -95,6 +95,7 @@ interface SessionHUDProps {
   onPremiumClick: () => void;
   // Actions
   onStart: () => void;
+  onGoAgain: () => void;
   onStop: () => void;
   onFinishFlow: () => void;
   onShareInvite: () => void;
@@ -108,6 +109,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
   celebration: () => "You met!",
   break: () => "Break time",
   returning: () => "Heading back...",
+  ready: () => "Ready for another round?",
 };
 
 export default function SessionHUD({
@@ -129,6 +131,7 @@ export default function SessionHUD({
   isPremium,
   onPremiumClick,
   onStart,
+  onGoAgain,
   onStop,
   onFinishFlow,
   onShareInvite,
@@ -136,8 +139,9 @@ export default function SessionHUD({
   onLeave,
 }: SessionHUDProps) {
   const showTimer = phase === "focus" || phase === "break";
-  const canStart = playerCount >= 1 && !sessionStarted && phase === "waiting";
-  const canStop = sessionStarted && phase !== "waiting";
+  const idle = phase === "waiting" || phase === "ready";
+  const canStart = playerCount >= 1 && !sessionStarted && idle;
+  const canStop = sessionStarted && !idle;
 
   return (
     // The bottom inset goes on the scroll container, not the card, so the last
@@ -233,7 +237,7 @@ export default function SessionHUD({
           </div>
         )}
 
-        {phase === "waiting" && (
+        {idle && (
           <PetPicker
             selected={myPet}
             onSelect={onPetSelect}
@@ -272,7 +276,7 @@ export default function SessionHUD({
 
         {/* Start / stop */}
         <div className="flex flex-col items-center gap-2">
-          {canStart && (
+          {canStart && phase === "waiting" && (
             <Button
               variant={timerMode === "flow" ? "calm" : "accent"}
               onClick={onStart}
@@ -280,7 +284,12 @@ export default function SessionHUD({
               Start{playerCount < 2 ? " solo" : " session"}
             </Button>
           )}
-          {playerCount < 2 && phase === "waiting" && (
+          {canStart && phase === "ready" && (
+            <Button variant="accent" onClick={onGoAgain}>
+              Go again
+            </Button>
+          )}
+          {playerCount < 2 && idle && (
             <div className="flex flex-col items-center gap-1.5">
               <Button
                 variant="surface"

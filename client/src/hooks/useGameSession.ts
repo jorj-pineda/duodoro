@@ -283,12 +283,9 @@ export function useGameSession(profile: Profile | null) {
       if (self) {
         setMyPetStage(self.pet ? (self.petStage ?? "grown") : null);
       }
-      // Mirror the phase in both directions. Only ever setting this to true
-      // left the *other* player stuck after someone pressed end-session:
-      // phase went back to "waiting" but sessionStarted stayed true, which
-      // makes both canStart and canStop false in SessionHUD — no Start
-      // button, no mode toggle, no sliders, only "leave session".
-      setSessionStarted(data.phase !== "waiting");
+      // Mirror both idle phases too. A stale true value would leave the other
+      // player without Start after a stop, or Go again after a completed break.
+      setSessionStarted(data.phase !== "waiting" && data.phase !== "ready");
     });
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
@@ -297,7 +294,7 @@ export function useGameSession(profile: Profile | null) {
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
       setServerBreakDuration(data.breakDuration);
-      setSessionStarted(data.phase !== "waiting");
+      setSessionStarted(data.phase !== "waiting" && data.phase !== "ready");
     });
 
     socket.on(
@@ -585,6 +582,18 @@ export function useGameSession(profile: Profile | null) {
     playSound("click");
   }, [sessionId, focusDuration, breakDuration, timerMode, socketRef]);
 
+  const goAgain = useCallback(() => {
+    // A partner may have started the previous round with settings different
+    // from this browser's saved preferences. Repeat the room's actual round.
+    socketRef.current?.emit("start_session", {
+      sessionId,
+      focusDuration: serverFocusDuration,
+      breakDuration: serverBreakDuration,
+      mode: serverMode,
+    });
+    playSound("click");
+  }, [sessionId, serverFocusDuration, serverBreakDuration, serverMode, socketRef]);
+
   const finishFlowFocus = useCallback(() => {
     socketRef.current?.emit("finish_flow_focus", { sessionId });
     playSound("click");
@@ -679,6 +688,7 @@ export function useGameSession(profile: Profile | null) {
     createShareInvite,
     leaveSession,
     startSession,
+    goAgain,
     finishFlowFocus,
     stopSession,
     sendInvite,

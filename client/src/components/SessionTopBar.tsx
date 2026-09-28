@@ -17,12 +17,12 @@ function SessionStatusDot({ phase }: { phase: GamePhase }) {
   const color =
     phase === "focus"
       ? "bg-go"
-      : phase === "waiting"
+      : phase === "waiting" || phase === "ready"
         ? "bg-faint"
         : "bg-gold";
   return (
     <div
-      className={`w-2 h-2 ${color} ${phase !== "waiting" ? "animate-pulse" : ""}`}
+      className={`w-2 h-2 ${color} ${phase !== "waiting" && phase !== "ready" ? "animate-pulse" : ""}`}
       role="status"
       aria-label={`Session phase: ${phase}`}
     />
