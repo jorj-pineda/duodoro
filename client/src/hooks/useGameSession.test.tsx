@@ -213,6 +213,32 @@ describe("useGameSession connection lifecycle", () => {
     expect(result.current.focusSaveStatus).toBe("clear");
   });
 
+  it("repeats the server's completed round settings from a ready room", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.fire("sync_state", {
+      sessionId: "room-1",
+      mode: "pomodoro",
+      phase: "ready",
+      phaseStartTime: null,
+      focusDuration: 50 * 60,
+      breakDuration: 10 * 60,
+      players: {},
+    }));
+
+    expect(result.current.sessionStarted).toBe(false);
+    act(() => result.current.goAgain());
+    expect(fakeSocket.emitted.at(-1)).toMatchObject({
+      ev: "start_session",
+      payload: {
+        sessionId: "room-1",
+        focusDuration: 50 * 60,
+        breakDuration: 10 * 60,
+        mode: "pomodoro",
+      },
+    });
+  });
+
   // The core bug: after reconnect_failed nothing ever called socket.connect()
   // again, so a tab backgrounded past the retry budget was stranded even
   // though the server still held the slot.

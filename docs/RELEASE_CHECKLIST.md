@@ -104,8 +104,9 @@ Use account A in one browser profile and account B in another.
       invalidates the first; a link older than 15 minutes reports expiry.
 - [ ] A third distinct test account is rejected from the two-seat room.
 - [ ] Starting focus synchronizes mode, duration, world, and countdown.
-- [ ] A normal focus completion advances both clients through celebration,
-      break, returning, and the next focus round.
+- [ ] A normal Pomodoro completion advances both clients through celebration,
+      break, returning, and a paused ready state. Either player can press
+      Go again to start the next focus round in the same room.
 - [ ] Stopping focus early returns both clients to waiting.
 - [ ] Leaving removes the correct player and clears their presence.
 - [ ] Refresh during focus rejoins within the reconnect grace window.

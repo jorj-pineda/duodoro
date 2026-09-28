@@ -5,7 +5,7 @@ that does the work, not afterwards. Ordered by value; each line names the real
 files. Was `ROADMAP.local.md` and gitignored until PR #38 — it is tracked now,
 so the file:line references land in diffs and want keeping honest.
 
-Last updated: 2026-09-14. PRs #35–#78 merged. Migrations 016–023 are applied to
+Last updated: 2026-09-28. PRs #35–#88 merged. Migrations 016–023 are applied to
 production. **020 verified in production**
 2026-08-15: RLS on, one SELECT-only policy, zero client write grants, EXECUTE
 limited to authenticated/service_role, SECURITY DEFINER with a pinned
@@ -220,6 +220,13 @@ for exercising the deployed client → server → database flow.
       from waiting, instead of treating Focus as “create a new session.”
 
 ## Next up (recommended order)
+
+- [x] **15. Go again after a Pomodoro cycle** — After celebration, break, and
+      the return animation, both players remain in their room at a ready state.
+      Either can start another focus round with Go again; Flowmodoro keeps its
+      open-ended cycle. See `server/phaseSequence.js`, `server/phasePetHandlers.js`,
+      and `client/src/components/SessionHUD.tsx`. Live two-account verification
+      remains on the release checklist.
 
 - [x] **13-open. Break prop density** — this PR. The one sprite drawn a step
       above the scene, reviewed with the owner and **kept that way** rather than

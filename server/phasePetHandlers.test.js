@@ -144,6 +144,25 @@ describe('phase handlers', () => {
     });
   });
 
+  it('lets a participant start a new focus round from ready without changing rooms', () => {
+    const session = waitingSession();
+    session.phase = 'ready';
+    session.focusRoundId = 'finished-round';
+    const { handlers, schedule, emissions } = setup(session);
+
+    handlers.get('start_session')({
+      sessionId: 'room', focusDuration: 25 * 60, breakDuration: 5 * 60,
+      mode: 'pomodoro',
+    });
+
+    expect(session.phase).toBe('focus');
+    expect(session.focusRoundId).not.toBe('finished-round');
+    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(emissions.at(-1)).toMatchObject({
+      roomId: 'room', event: 'phase_change', payload: { phase: 'focus' },
+    });
+  });
+
   it('derives a flow break from elapsed server time before advancing', () => {
     const session = waitingSession();
     Object.assign(session, {

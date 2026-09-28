@@ -613,6 +613,7 @@ export default function DuoTimer() {
           isPremium={isPremium}
           onPremiumClick={() => setPremiumOpen(true)}
           onStart={game.startSession}
+          onGoAgain={game.goAgain}
           onStop={game.stopSession}
           onFinishFlow={game.finishFlowFocus}
           onShareInvite={handleShareInvite}
