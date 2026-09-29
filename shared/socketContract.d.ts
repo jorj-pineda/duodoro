@@ -24,6 +24,7 @@ export interface PlayerData {
 }
 
 export interface SyncPayload {
+  completedRounds?: number;
   mode: TimerMode;
   phase: GamePhase;
   focusDuration: number;
@@ -36,6 +37,7 @@ export interface SyncPayload {
 }
 
 export interface PhaseChangePayload {
+  completedRounds?: number;
   mode: TimerMode;
   phase: GamePhase;
   phaseStartTime: number | null;

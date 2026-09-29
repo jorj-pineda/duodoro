@@ -49,6 +49,7 @@ function registerPhasePetHandlers({
     if (session.phaseTimer) cancel(session.phaseTimer);
 
     io.to(sessionId).emit('phase_change', {
+      completedRounds: session.completedRounds,
       mode: session.mode,
       phase: 'focus',
       phaseStartTime: session.phaseStartTime,
@@ -112,6 +113,7 @@ function registerPhasePetHandlers({
     session.phaseStartTime = null;
     session.focusRoundId = null;
     io.to(sessionId).emit('phase_change', {
+      completedRounds: session.completedRounds,
       mode: session.mode,
       phase: 'waiting',
       phaseStartTime: null,

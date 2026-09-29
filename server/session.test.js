@@ -7,6 +7,7 @@ import {
   findSessionByShareInvite,
   consumeShareInvite,
   beginFocusRound,
+  completeFocusRound,
   addPlayer,
   removePlayer,
   setPlayerPet,
@@ -482,5 +483,29 @@ describe("findUserSessions", () => {
 
   it("handles no sessions at all", () => {
     expect(findUserSessions({}, "u1")).toEqual([]);
+  });
+});
+
+ describe("room round count", () => {
+  it("counts completion once, preserves it for another round and syncs it", () => {
+    const s = createSessionState("forest", "host");
+    expect(completeFocusRound(s)).toBe(false);
+    beginFocusRound(s, 1, "round-1");
+    expect(completeFocusRound(s)).toBe(true);
+    expect(completeFocusRound(s)).toBe(false);
+    s.phase = "ready";
+    beginFocusRound(s, 2, "round-2");
+    expect(buildSyncPayload(s).completedRounds).toBe(1);
+    completeFocusRound(s);
+    expect(buildSyncPayload(s).completedRounds).toBe(2);
+    expect(createSessionState("forest", "host").completedRounds).toBe(0);
+  });
+  it("does not count an interrupted round", () => {
+    const s = createSessionState("forest", "host");
+    beginFocusRound(s);
+    s.phase = "waiting";
+    s.focusRoundId = null;
+    expect(completeFocusRound(s)).toBe(false);
+    expect(s.completedRounds).toBe(0);
   });
 });

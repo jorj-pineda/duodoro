@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const { createPresenceRegistry } = require('./presence');
 const {
   beginFocusRound,
+  completeFocusRound,
   removePlayer,
   creditFocusRound,
   isInvited,
@@ -448,7 +449,10 @@ function advancePhase(sessionId) {
   const transition = nextPhaseFor(session);
   if (!transition) return;
   const { phase: nextPhase, delay } = transition;
-  if (session.phase === 'focus') queueSessionRecording(sessionId, session, true);
+  if (session.phase === 'focus') {
+    completeFocusRound(session);
+    queueSessionRecording(sessionId, session, true);
+  }
 
   if (nextPhase === 'focus') {
     beginFocusRound(session);
@@ -459,6 +463,7 @@ function advancePhase(sessionId) {
   }
 
   io.to(sessionId).emit('phase_change', {
+    completedRounds: session.completedRounds,
     mode: session.mode,
     phase: nextPhase,
     phaseStartTime: session.phaseStartTime,

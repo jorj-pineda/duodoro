@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Clear Stop timer / Leave room controls and server-synced completed rounds per room (2026-09-29).
+
 - [x] **5. Mobile game screen** — PR #31, merged
 - [x] **6. Silent failures read as data loss** — PR #32, merged
 - [x] **7a. Sprite geometry** — PR #33, merged. The objectively-checkable half of 7.

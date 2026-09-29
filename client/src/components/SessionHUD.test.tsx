@@ -9,6 +9,7 @@ function renderReady(onGoAgain = vi.fn()) {
       serverMode="pomodoro"
       sessionStarted={false}
       playerCount={2}
+      completedRounds={2}
       timeLeft={0}
       flowElapsed={0}
       phaseProgress={0}
@@ -40,7 +41,9 @@ describe("completed Pomodoro cycle", () => {
     expect(screen.getByText("Ready for another round?")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Go again" }));
     expect(onGoAgain).toHaveBeenCalledOnce();
+    expect(screen.getByText("2 rounds completed in this room")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "← Leave room" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Pomodoro" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "end session" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop timer" })).toBeNull();
   });
 });
