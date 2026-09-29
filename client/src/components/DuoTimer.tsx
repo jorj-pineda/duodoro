@@ -19,6 +19,7 @@ import UsernameChangeModal from "./UsernameChangeModal";
 import DisplayNameChangeModal from "./DisplayNameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
+import { useGameTitle } from "@/hooks/useGameTitle";
 import {
   clearPendingShareInvite,
   readPendingShareInvite,
@@ -59,6 +60,7 @@ export default function DuoTimer() {
   const { appStep, setAppStep, profile, myAvatar, isPremium, displayName, sb, refreshProfilePresence } =
     auth;
   const initial = displayName.charAt(0).toUpperCase();
+  useGameTitle(appStep === "game" && !!profile, game);
 
   // ── Wrappers that bridge auth + game ────────────────────────────────────
   const handleCreateSession = () => {

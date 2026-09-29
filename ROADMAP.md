@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Browser-tab timer using the HUD's server-derived countdown/Flow elapsed time, clear phase labels, immediate tab-return refresh and normal-title restoration (`useGameTitle.ts`, `DuoTimer.tsx`, `useGameSession.ts`; 2026-09-29).
+
 - [x] Break-finished chime in both timer modes, respecting mute and avoiding snapshot/duplicate replay (2026-09-29).
 
 - [x] Daily focus goal on Home, with a browser-saved account target and local-day completed-focus progress (2026-09-29).

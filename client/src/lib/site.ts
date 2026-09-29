@@ -16,6 +16,8 @@ export const SITE_NAME = "Duodoro";
 /** One period. The openGraph description used to have two. */
 export const SITE_TAGLINE = "Focus together, anywhere.";
 
+export const SITE_TITLE = `${SITE_NAME} — ${SITE_TAGLINE}`;
+
 export const SITE_DESCRIPTION =
   "A real-time focus timer for long-distance couples and friends. Walk toward each other, meet in the middle, and celebrate your session together.";
 
