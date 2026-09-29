@@ -141,8 +141,18 @@ export function useGameSession(profile: Profile | null) {
   // ── Timer tick ──────────────────────────────────────────────────────────
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
+    const refreshClock = () => setNow(Date.now());
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshClock();
+    };
+    const id = setInterval(refreshClock, 500);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", refreshClock);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", refreshClock);
+    };
   }, []);
 
   // ── UI state ────────────────────────────────────────────────────────────
@@ -260,6 +270,7 @@ export function useGameSession(profile: Profile | null) {
     });
 
     socket.on("sync_state", (data: SyncPayload) => {
+      setNow(Date.now());
       // A sync for the attempted room confirms the switch. A sync for the
       // previous room can race with the join response and must not erase the
       // rollback target.
@@ -293,6 +304,7 @@ export function useGameSession(profile: Profile | null) {
     });
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
+      setNow(Date.now());
       // Only a live break completion rings: snapshots establish a baseline,
       // and duplicate phase events must not replay the chime.
       if (observedPhaseRef.current === "break" && data.phase === "returning") {

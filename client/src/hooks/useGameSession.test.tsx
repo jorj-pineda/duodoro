@@ -89,6 +89,8 @@ vi.mock("@/lib/sounds", () => ({ playSound: vi.fn() }));
 import { playSound } from "@/lib/sounds";
 
 import { useGameSession } from "./useGameSession";
+import { useGameTitle } from "./useGameTitle";
+import { SITE_TITLE } from "@/lib/site";
 import type { Profile } from "@/lib/types";
 
 const profile: Profile = {
@@ -122,6 +124,65 @@ describe("useGameSession connection lifecycle", () => {
     localStorage.clear();
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("keeps the title aligned with live phases, Go again, reconnect snapshots and tab return", async () => {
+    vi.useFakeTimers();
+    const { result, unmount } = renderHook(() => {
+      const game = useGameSession(null);
+      useGameTitle(true, game);
+      return game;
+    });
+    try {
+      await act(async () => {});
+      expect(fakeSocket.listenerCount("sync_state")).toBe(1);
+      const start = 1_800_000_000_000;
+      vi.setSystemTime(start);
+      const snapshot = {
+        sessionId: "room-1", mode: "pomodoro", phase: "focus",
+        phaseStartTime: start, focusDuration: 1500, breakDuration: 300, players: {},
+      };
+      act(() => fakeSocket.fire("sync_state", snapshot));
+      expect(document.title).toBe("25:00 · Focus · Duodoro");
+      act(() => vi.advanceTimersByTime(1000));
+      expect(document.title).toBe("24:59 · Focus · Duodoro");
+
+      // Jump the clock without running intervals, like a throttled/sleeping tab.
+      setVisibility("hidden");
+      act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+      vi.setSystemTime(start + 90_000);
+      setVisibility("visible");
+      act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+      expect(result.current.timeLeft).toBe(1410);
+      expect(document.title).toBe("23:30 · Focus · Duodoro");
+      vi.setSystemTime(start + 120_000);
+      act(() => { window.dispatchEvent(new Event("focus")); });
+      expect(document.title).toBe("23:00 · Focus · Duodoro");
+
+      act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "celebration" }));
+      expect(document.title).toBe("Celebration · Duodoro");
+      act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "break", phaseStartTime: Date.now() }));
+      act(() => vi.advanceTimersByTime(1000));
+      expect(document.title).toBe("04:59 · Break · Duodoro");
+      act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "returning" }));
+      expect(document.title).toBe("Returning · Duodoro");
+      act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "ready", phaseStartTime: null }));
+      expect(document.title).toBe("Ready · Go again · Duodoro");
+      act(() => result.current.goAgain());
+      act(() => fakeSocket.fire("phase_change", { ...snapshot, phaseStartTime: Date.now() }));
+      expect(document.title).toBe("25:00 · Focus · Duodoro");
+
+      // Reconnection can change both the mode and phase baseline before a tick.
+      vi.setSystemTime(start + 600_000);
+      act(() => fakeSocket.fire("sync_state", { ...snapshot, mode: "flow", phaseStartTime: Date.now() - 492_000 }));
+      expect(result.current.flowElapsed).toBe(492);
+      expect(document.title).toBe("08:12 · Flow · Duodoro");
+      unmount();
+      expect(document.title).toBe(SITE_TITLE);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
 
   // The socket is created after an await inside connectSocket(), so any effect
   // that reads socketRef.current on mount sees null. Handlers registered that

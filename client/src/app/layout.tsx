@@ -9,6 +9,7 @@ import {
   SITE_DESCRIPTION,
   SITE_NAME,
   SITE_TAGLINE,
+  SITE_TITLE,
   SITE_URL,
 } from "@/lib/site";
 
@@ -32,7 +33,7 @@ const themeInitScript = `(function(){try{var t=localStorage.getItem("duodoro-the
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
