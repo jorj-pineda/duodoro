@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Break-finished chime in both timer modes, respecting mute and avoiding snapshot/duplicate replay (2026-09-29).
+
 - [x] Daily focus goal on Home, with a browser-saved account target and local-day completed-focus progress (2026-09-29).
 
 - [x] Clear Stop timer / Leave room controls and server-synced completed rounds per room (2026-09-29).

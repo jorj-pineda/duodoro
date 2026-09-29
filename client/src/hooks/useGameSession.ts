@@ -131,6 +131,7 @@ export function useGameSession(profile: Profile | null) {
   const [serverMode, setServerMode] = useState<"pomodoro" | "flow">("pomodoro");
   const [completedRounds, setCompletedRounds] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("waiting");
+  const observedPhaseRef = useRef<GamePhase>("waiting");
   const [phaseStartTime, setPhaseStartTime] = useState<number | null>(null);
   const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60);
   const [serverBreakDuration, setServerBreakDuration] = useState(5 * 60);
@@ -271,6 +272,7 @@ export function useGameSession(profile: Profile | null) {
         pendingJoinSessionIdRef.current = "";
       }
       if (data.mode) setServerMode(data.mode);
+      observedPhaseRef.current = data.phase;
       setCompletedRounds(data.completedRounds ?? 0);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
@@ -291,6 +293,12 @@ export function useGameSession(profile: Profile | null) {
     });
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
+      // Only a live break completion rings: snapshots establish a baseline,
+      // and duplicate phase events must not replay the chime.
+      if (observedPhaseRef.current === "break" && data.phase === "returning") {
+        playSound("break-finished");
+      }
+      observedPhaseRef.current = data.phase;
       if (data.mode) setServerMode(data.mode);
       setCompletedRounds(data.completedRounds ?? 0);
       setPhase(data.phase);
@@ -469,6 +477,7 @@ export function useGameSession(profile: Profile | null) {
       if (sessionId) {
         socket.emit("leave_session", { sessionId });
         setSessionStarted(false);
+        observedPhaseRef.current = "waiting";
         setCompletedRounds(0);
         setPhase("waiting");
         setPlayers({});
@@ -566,6 +575,7 @@ export function useGameSession(profile: Profile | null) {
     if (!socket) return;
     socket.emit("leave_session", { sessionId });
     setSessionStarted(false);
+    observedPhaseRef.current = "waiting";
     setCompletedRounds(0);
     setPhase("waiting");
     setPlayers({});
