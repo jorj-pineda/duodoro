@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Daily focus goal on Home, with a browser-saved account target and local-day completed-focus progress (2026-09-29).
+
 - [x] Clear Stop timer / Leave room controls and server-synced completed rounds per room (2026-09-29).
 
 - [x] **5. Mobile game screen** — PR #31, merged
