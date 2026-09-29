@@ -17,6 +17,8 @@ function createSessionState(world, hostSocketId) {
     // focus begins, not when persistence begins, so every completion/stop and
     // every retry refers to the same real-world event.
     focusRoundId: null,
+    completedRounds: 0,
+    lastCompletedFocusRoundId: null,
     // A lost RPC response can make the retry return an existing DB row. Keep
     // pet credit idempotent in memory too; this is intentionally server-only.
     creditedFocusRoundIds: new Set(),
@@ -78,6 +80,15 @@ function beginFocusRound(
   session.phaseStartTime = startedAt;
   session.focusRoundId = recordingKey;
   return recordingKey;
+}
+
+// Count completion separately from asynchronous history persistence.
+function completeFocusRound(session) {
+  if (session.phase !== "focus" || !session.focusRoundId ||
+      session.lastCompletedFocusRoundId === session.focusRoundId) return false;
+  session.completedRounds += 1;
+  session.lastCompletedFocusRoundId = session.focusRoundId;
+  return true;
 }
 
 function inviteUser(session, userId) {
@@ -236,6 +247,7 @@ function buildSyncPayload(session) {
     players[id] = publicPlayer(player);
   }
   return {
+    completedRounds: session.completedRounds,
     mode: session.mode,
     phase: session.phase,
     focusDuration: session.focusDuration,
@@ -257,6 +269,7 @@ module.exports = {
   findSessionByShareInvite,
   consumeShareInvite,
   beginFocusRound,
+  completeFocusRound,
   addPlayer,
   removePlayer,
   setPlayerPet,

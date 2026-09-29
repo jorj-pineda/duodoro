@@ -129,6 +129,7 @@ export function useGameSession(profile: Profile | null) {
 
   // ── Game state ──────────────────────────────────────────────────────────
   const [serverMode, setServerMode] = useState<"pomodoro" | "flow">("pomodoro");
+  const [completedRounds, setCompletedRounds] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("waiting");
   const [phaseStartTime, setPhaseStartTime] = useState<number | null>(null);
   const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60);
@@ -270,6 +271,7 @@ export function useGameSession(profile: Profile | null) {
         pendingJoinSessionIdRef.current = "";
       }
       if (data.mode) setServerMode(data.mode);
+      setCompletedRounds(data.completedRounds ?? 0);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -290,6 +292,7 @@ export function useGameSession(profile: Profile | null) {
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
       if (data.mode) setServerMode(data.mode);
+      setCompletedRounds(data.completedRounds ?? 0);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -466,6 +469,7 @@ export function useGameSession(profile: Profile | null) {
       if (sessionId) {
         socket.emit("leave_session", { sessionId });
         setSessionStarted(false);
+        setCompletedRounds(0);
         setPhase("waiting");
         setPlayers({});
         setSessionId("");
@@ -562,6 +566,7 @@ export function useGameSession(profile: Profile | null) {
     if (!socket) return;
     socket.emit("leave_session", { sessionId });
     setSessionStarted(false);
+    setCompletedRounds(0);
     setPhase("waiting");
     setPlayers({});
     setSessionId("");
@@ -659,6 +664,7 @@ export function useGameSession(profile: Profile | null) {
     setBreakDuration,
     // Game state
     serverMode,
+    completedRounds,
     phase,
     sessionStarted,
     myId,

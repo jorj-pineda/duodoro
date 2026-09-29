@@ -220,6 +220,7 @@ describe("useGameSession connection lifecycle", () => {
       sessionId: "room-1",
       mode: "pomodoro",
       phase: "ready",
+      completedRounds: 2,
       phaseStartTime: null,
       focusDuration: 50 * 60,
       breakDuration: 10 * 60,
@@ -227,6 +228,7 @@ describe("useGameSession connection lifecycle", () => {
     }));
 
     expect(result.current.sessionStarted).toBe(false);
+    expect(result.current.completedRounds).toBe(2);
     act(() => result.current.goAgain());
     expect(fakeSocket.emitted.at(-1)).toMatchObject({
       ev: "start_session",
@@ -237,6 +239,17 @@ describe("useGameSession connection lifecycle", () => {
         mode: "pomodoro",
       },
     });
+  });
+
+  it("syncs completed rounds without adding duplicates and clears them on leave", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("phase_change")).toBe(1));
+    const change = { mode: "pomodoro", phase: "celebration", phaseStartTime: 1,
+      focusDuration: 1500, breakDuration: 300, completedRounds: 1 };
+    act(() => { fakeSocket.fire("phase_change", change); fakeSocket.fire("phase_change", change); });
+    expect(result.current.completedRounds).toBe(1);
+    act(() => result.current.leaveSession());
+    expect(result.current.completedRounds).toBe(0);
   });
 
   // The core bug: after reconnect_failed nothing ever called socket.connect()

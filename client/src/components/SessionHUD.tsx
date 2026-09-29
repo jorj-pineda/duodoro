@@ -77,6 +77,7 @@ interface SessionHUDProps {
   serverMode: "pomodoro" | "flow";
   sessionStarted: boolean;
   playerCount: number;
+  completedRounds: number;
   timeLeft: number;
   flowElapsed: number;
   /** 0–1 through the current focus/break phase */
@@ -117,6 +118,7 @@ export default function SessionHUD({
   serverMode,
   sessionStarted,
   playerCount,
+  completedRounds,
   timeLeft,
   flowElapsed,
   phaseProgress,
@@ -145,13 +147,17 @@ export default function SessionHUD({
 
   return (
     // The bottom inset goes on the scroll container, not the card, so the last
-    // controls ("end session" / "leave session") can scroll clear of the home
+    // controls ("Stop timer" / "Leave room") can scroll clear of the home
     // indicator instead of sitting under it.
     <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
       <div className="hud-card bg-surface border-2 border-line border-b-4 px-6 sm:px-8 py-5 flex flex-col items-center gap-3 mb-4">
         <div role="status" aria-live="polite" className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
         </div>
+
+        <p className="text-xs text-muted">
+          {completedRounds} {completedRounds === 1 ? "round" : "rounds"} completed in this room
+        </p>
 
         {(phase === "break" ||
           (phase === "focus" && serverMode === "pomodoro")) && (
@@ -318,14 +324,14 @@ export default function SessionHUD({
               onClick={onStop}
               className="text-muted hover:text-danger text-xs transition-colors mt-2 px-4 py-2.5 sm:px-0 sm:py-0 rounded-lg"
             >
-              end session
+              Stop timer
             </button>
           )}
           <button
             onClick={onLeave}
             className="text-xs text-danger/60 hover:text-danger transition-colors mt-2 px-4 py-2.5 sm:px-0 sm:py-0 rounded-lg"
           >
-            {"←"} leave session
+            {"←"} Leave room
           </button>
         </div>
       </div>

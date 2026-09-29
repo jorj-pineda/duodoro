@@ -599,6 +599,7 @@ export default function DuoTimer() {
           serverMode={game.serverMode}
           sessionStarted={game.sessionStarted}
           playerCount={game.playerCount}
+          completedRounds={game.completedRounds}
           timeLeft={game.timeLeft}
           flowElapsed={game.flowElapsed}
           phaseProgress={game.phaseProgress}
