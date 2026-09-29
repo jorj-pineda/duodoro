@@ -85,7 +85,8 @@ vi.mock("@/lib/supabase", () => ({
   }),
 }));
 
-vi.mock("@/lib/sounds", () => ({ playSound: () => {} }));
+vi.mock("@/lib/sounds", () => ({ playSound: vi.fn() }));
+import { playSound } from "@/lib/sounds";
 
 import { useGameSession } from "./useGameSession";
 import type { Profile } from "@/lib/types";
@@ -114,6 +115,7 @@ const setVisibility = (state: "visible" | "hidden") => {
 
 describe("useGameSession connection lifecycle", () => {
   beforeEach(() => {
+    vi.mocked(playSound).mockClear();
     fakeSocket = createFakeSocket();
     setVisibility("visible");
     sessionStorage.clear();
@@ -250,6 +252,36 @@ describe("useGameSession connection lifecycle", () => {
     expect(result.current.completedRounds).toBe(1);
     act(() => result.current.leaveSession());
     expect(result.current.completedRounds).toBe(0);
+  });
+
+  it.each(["pomodoro", "flow"])("chimes once per live break completion in %s mode", async (mode) => {
+    renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("phase_change")).toBe(1));
+    const payload = { mode, phase: "break", phaseStartTime: 1, focusDuration: 1500, breakDuration: 300, players: {} };
+    act(() => fakeSocket.fire("sync_state", payload));
+    vi.mocked(playSound).mockClear();
+    act(() => {
+      fakeSocket.fire("phase_change", { ...payload, phase: "returning" });
+      fakeSocket.fire("phase_change", { ...payload, phase: "returning" });
+    });
+    expect(vi.mocked(playSound).mock.calls.filter(([name]) => name === "break-finished")).toHaveLength(1);
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "break", phaseStartTime: 2 }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "returning", phaseStartTime: 3 }));
+    expect(vi.mocked(playSound).mock.calls.filter(([name]) => name === "break-finished")).toHaveLength(2);
+  });
+
+  it("does not chime for snapshots, stopping, or leaving during a break", async () => {
+    const { result } = renderHook(() => useGameSession(null));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const payload = { mode: "pomodoro", phase: "break", phaseStartTime: 1, focusDuration: 1500, breakDuration: 300, players: {} };
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => fakeSocket.fire("sync_state", { ...payload, phase: "returning" }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "returning" }));
+    act(() => fakeSocket.fire("phase_change", payload));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "waiting" }));
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => result.current.leaveSession());
+    expect(vi.mocked(playSound).mock.calls.filter(([name]) => name === "break-finished")).toHaveLength(0);
   });
 
   // The core bug: after reconnect_failed nothing ever called socket.connect()

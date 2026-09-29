@@ -6,6 +6,7 @@
 // Expected files (see FILES below for the exact name each key maps to):
 //   victory.mp3       — celebration jingle (played when focus session ends)
 //   break-start.mp3   — short chime for break start
+//   break-finished.wav — short chime when the break ends
 //   session-start.mp3 — short chime for focus start
 //   click.wav         — UI click feedback
 //
@@ -15,17 +16,18 @@
 // the extension is explicit precisely so formats can be mixed.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type SoundName = 'victory' | 'break-start' | 'session-start' | 'click';
+type SoundName = 'victory' | 'break-start' | 'session-start' | 'break-finished' | 'click';
 
 const FILES: Record<SoundName, string> = {
   victory: 'victory.mp3',
   'break-start': 'break-start.mp3',
+  'break-finished': 'break-finished.wav',
   'session-start': 'session-start.mp3',
   click: 'click.wav',
 };
 
 // Clicks fire constantly; at full volume the tick gets tiring fast.
-const DEFAULT_VOLUME: Partial<Record<SoundName, number>> = { click: 0.25 };
+const DEFAULT_VOLUME: Partial<Record<SoundName, number>> = { click: 0.25, 'break-finished': 0.65 };
 
 const cache: Partial<Record<SoundName, HTMLAudioElement>> = {};
 

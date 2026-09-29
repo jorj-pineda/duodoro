@@ -70,8 +70,26 @@ describe("sound mute", () => {
     setMuted(true);
     playSound("victory");
     playSound("click");
+    playSound("break-finished");
     // Not merely silenced — no element is even constructed.
     expect(FakeAudio.instances).toHaveLength(0);
+  });
+
+  it("plays and caches the break-finished asset and stops it on mute", async () => {
+    const { playSound, setMuted } = await loadSounds();
+    playSound("break-finished");
+    const clip = FakeAudio.instances[0];
+    expect(clip.src).toBe("/sounds/break-finished.wav");
+    expect(clip.volume).toBe(0.65);
+    clip.currentTime = 0.5;
+    playSound("break-finished");
+    expect(FakeAudio.instances).toHaveLength(1);
+    expect(clip.currentTime).toBe(0);
+    expect(clip.playCalls).toBe(2);
+    setMuted(true);
+    expect(clip.pauseCalls).toBe(1);
+    playSound("break-finished");
+    expect(clip.playCalls).toBe(2);
   });
 
   it("resumes playing after unmuting", async () => {
