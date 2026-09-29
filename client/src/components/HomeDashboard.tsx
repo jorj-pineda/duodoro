@@ -4,6 +4,8 @@ import { useStats } from "@/lib/useStats";
 import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
 import { useOnlineFriends } from "@/hooks/useOnlineFriends";
+import DailyFocusGoal from "./DailyFocusGoal";
+import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
@@ -126,6 +128,7 @@ export default function HomeDashboard({
   }, [profileMenuOpen]);
   const {
     personalStats,
+    dailyFocus,
     loading,
     fetchStats,
     error: statsError,
@@ -158,9 +161,19 @@ export default function HomeDashboard({
   const initial = displayName.charAt(0).toUpperCase();
   const isPremium = profile.is_premium ?? false;
 
+  const today = useLocalDay();
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (!today) return;
+    // Refresh after returning from a round, even inside the shared cache TTL.
+    void fetchStats(true);
+    const refresh = () => { if (document.visibilityState === "visible") void fetchStats(true); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [fetchStats, today]);
 
   const onlineFriends = friends.filter(
     (f) => onlineFriendIds.has(f.id) || !!f.current_session_id,
@@ -361,6 +374,9 @@ export default function HomeDashboard({
               </Button>
             </div>
           )}
+
+          <DailyFocusGoal key={profile.id} userId={profile.id} today={today} dailyFocus={dailyFocus}
+            loading={loading} loaded={loaded} error={statsError} />
 
           <TaskSection
             tasks={tasks}
