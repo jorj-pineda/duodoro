@@ -117,6 +117,7 @@ export interface ServerToClientEvents {
   phase_change: (payload: PhaseChangePayload) => void;
   player_joined: (payload: {
     playerId: string;
+    userId?: string | null;
     avatar: AvatarConfig;
     displayName?: string;
     pet?: PetType | null;

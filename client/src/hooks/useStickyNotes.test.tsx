@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
 // ── Fake Supabase ────────────────────────────────────────────────────────────
@@ -139,6 +139,64 @@ const mountShared = async () => {
 describe("useStickyNotes shared-goal writes", () => {
   beforeEach(() => {
     fake = createFakeSupabase();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("reconciles a deleted shared goal when no filtered realtime event arrives", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const hook = renderHook(() => useStickyNotes(true, ME, ROOM));
+    await act(async () => {});
+    await act(async () => hook.result.current.setTab("shared"));
+    expect(hook.result.current.activeTasks).toHaveLength(1);
+    fake.results.selectShared = { data: [], error: null };
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(hook.result.current.activeTasks).toEqual([]);
+    hook.unmount();
+  });
+
+  it("pauses shared refreshes while hidden, catches up on return, and cleans up closed/personal boards", async () => {
+    vi.useFakeTimers();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const hook = renderHook(({ open, roomCode }) => useStickyNotes(open, ME, roomCode), {
+      initialProps: { open: true, roomCode: ROOM as string | null },
+    });
+    await act(async () => {});
+    await act(async () => hook.result.current.setTab("shared"));
+    const reads = () => fake.ops.filter((op) => op.kind === "selectShared").length;
+    let before = reads();
+    visibility.mockReturnValue("hidden");
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(reads()).toBe(before);
+    fake.results.selectShared = { data: [], error: null };
+    visibility.mockReturnValue("visible");
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    expect(hook.result.current.activeTasks).toEqual([]);
+    expect(reads()).toBe(before + 1);
+
+    hook.rerender({ open: false, roomCode: ROOM });
+    before = reads();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); window.dispatchEvent(new Event("focus")); });
+    expect(reads()).toBe(before);
+    hook.rerender({ open: true, roomCode: ROOM });
+    await act(async () => {});
+    await act(async () => hook.result.current.setTab("mine"));
+    before = reads();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); window.dispatchEvent(new Event("focus")); });
+    expect(reads()).toBe(before);
+
+    await act(async () => hook.result.current.setTab("shared"));
+    hook.rerender({ open: true, roomCode: null });
+    before = reads();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); window.dispatchEvent(new Event("focus")); });
+    expect(reads()).toBe(before);
+    hook.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); document.dispatchEvent(new Event("visibilitychange")); });
+    expect(reads()).toBe(before);
   });
 
   // The whole point of the branch. tasks_update is owner-only, so a plain

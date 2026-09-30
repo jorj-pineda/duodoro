@@ -87,6 +87,28 @@ export function useStickyNotes(
   }, [sb, roomCode, fetchShared]);
 
   useEffect(() => {
+    if (!open || tab !== "shared" || !roomCode) return;
+    // Filtered Postgres Changes can miss DELETEs when the old row only carries
+    // its primary key. Reconcile the visible board through its scoped RLS read,
+    // rather than subscribe to every user's task deletions. Also catch up after
+    // a background tab returns. Never poll closed, hidden or personal boards.
+    let inFlight = false;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible" || inFlight) return;
+      inFlight = true;
+      try { await fetchShared(); } finally { inFlight = false; }
+    };
+    const interval = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [open, tab, roomCode, fetchShared]);
+
+  useEffect(() => {
     if (!showOptions) return;
     const handler = (e: MouseEvent) => {
       if (

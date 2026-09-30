@@ -279,6 +279,7 @@ function registerRoomMembershipHandlers({
 
       socket.to(sessionId).emit('player_joined', {
         playerId: socket.id,
+        userId,
         avatar,
         displayName,
         pet,

@@ -128,6 +128,17 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("retains the verified partner identity from a live join for goal attribution", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("player_joined")).toBe(1));
+    act(() => fakeSocket.fire("player_joined", {
+      playerId: "partner-socket", userId: "partner-account", displayName: "Alex",
+      avatar: profile.avatar_config, pet: null,
+    }));
+    expect(result.current.partnerUserId).toBe("partner-account");
+    expect(result.current.partnerName).toBe("Alex");
+  });
+
   it.each(["pomodoro", "flow"])("notifies once per live %s completion, avoiding snapshots, duplicates and stops", async (mode) => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
