@@ -44,6 +44,8 @@ for exercising the deployed client → server → database flow.
 
 - [x] Restore production dependency audit gates with patched Next.js 16.3.6 / matching lint config and Engine.IO 6.6.11 (`client/package.json`, both package lockfiles; 2026-09-30).
 
+- [x] Authenticated two-account browser gate using local Supabase and the production client: signed-out invite preservation, onboarding, a real five-minute focus, both histories, refresh/reconnect, Go again and scoped cleanup (`client/e2e-auth/`, `client/playwright.auth.config.ts`, `.github/workflows/ci.yml`; 2026-09-30). External OAuth, production deployment and sleeping mobile tabs remain manual release checks.
+
 - [x] Opt-in focus-completion browser notifications for live background-tab rounds in both modes, with permission controls in both account menus and no snapshot/duplicate replay (`focusNotifications.ts`, `FocusNotificationSetting.tsx`, `useGameSession.ts`; 2026-09-29).
 
 - [x] Browser-tab timer using the HUD's server-derived countdown/Flow elapsed time, clear phase labels, immediate tab-return refresh and normal-title restoration (`useGameTitle.ts`, `DuoTimer.tsx`, `useGameSession.ts`; 2026-09-29).

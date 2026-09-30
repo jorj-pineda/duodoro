@@ -2,8 +2,8 @@
 
 Use this for every production release, after CI passes and before calling the
 release complete. The browser smoke suite covers stable public behavior; this
-checklist covers authenticated, two-account, live-database, device, and visual
-behavior that dummy CI credentials cannot prove.
+authenticated duo gate covers two accounts against local Supabase. This checklist
+still covers production OAuth, deployed data, devices and visual behavior.
 
 Record evidence without copying private task text, access tokens, OAuth codes,
 or real user data into issues or pull requests. A failed required check blocks
@@ -27,6 +27,7 @@ the release until it is fixed or explicitly rolled back.
 - [ ] GitHub `Server tests` passes.
 - [ ] GitHub `Client tests & build` passes.
 - [ ] GitHub `Browser release smoke` passes.
+- [ ] GitHub `Authenticated duo journey` passes against a freshly migrated local database.
 - [ ] The automated axe baseline reports no WCAG A/AA violations on landing,
       Terms, or Privacy in the tested light/dark appearances.
 - [ ] The browser-smoke job confirms the app and realtime health endpoints,
@@ -50,6 +51,31 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-dummy-anon-key \
 NEXT_PUBLIC_SOCKET_URL=http://localhost:3001 \
 npm run test:e2e
 ```
+
+The authenticated gate creates two confirmed local Auth users, injects their real
+sessions in isolated browsers, and exercises signed-out invite preservation,
+onboarding, synchronized focus, refresh/reconnect, exactly one completed record
+in both histories, Go again and leaving. It uses the normal UI's five-minute
+focus and one-minute break without advancing clocks or forging socket events.
+External Google/Discord OAuth is not exercised. Failure artifacts include traces
+and screenshots of synthetic local accounts; retain them for seven days.
+
+Local reproduction (Docker, Node 22 and Supabase CLI 2.116.0):
+
+```sh
+supabase start -x storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+cd client
+npx playwright install chromium
+npm run test:e2e:auth
+```
+
+The runner reads credentials silently from the local CLI, rejects remote URLs,
+runs server database integration tests, rebuilds the client for that stack, and
+starts isolated services on ports 3300/3301. Allow about seven minutes for the
+browser journey. It removes its own records/accounts, leaving other local data
+untouched. CI resets its disposable database; the local runner does not reset it.
+This gate does not prove deployed OAuth, Redis recovery, physical device sleep,
+or production deployment success.
 
 ## 2. Deployment and schema
 

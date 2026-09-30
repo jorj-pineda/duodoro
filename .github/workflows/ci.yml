@@ -160,3 +160,49 @@ jobs:
             client/playwright-report
             client/test-results
           retention-days: 7
+
+  authenticated-duo:
+    name: Authenticated duo journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - run: npm ci
+        working-directory: server
+      - run: npm ci
+        working-directory: client
+      - run: npx playwright install --with-deps chromium
+        working-directory: client
+      - name: Start disposable local Auth, database and HTTP services
+        run: >-
+          supabase start -x
+          storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - name: Rebuild the committed database schema
+        run: supabase db reset --local --no-seed
+      - name: Run real database integration and two-account browser journey
+        run: npm run test:e2e:auth
+        working-directory: client
+      - name: Upload authenticated browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-duo-failure
+          path: |
+            client/playwright-report/authenticated
+            client/test-results/authenticated
+          retention-days: 7
+      - name: Stop disposable local services
+        if: always()
+        run: supabase stop --no-backup
