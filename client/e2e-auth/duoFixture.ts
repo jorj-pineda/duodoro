@@ -76,6 +76,7 @@ export const test = base.extend<{
           if (tracePath) await testInfo.attach(`actor-${label}-trace`, { path: tracePath, contentType: "application/zip" });
         } catch { failures.push("capture browser evidence"); }
         try {
+          if (!page.isClosed() && await page.getByRole("dialog").count()) await page.keyboard.press("Escape");
           const leave = page.getByRole("button", { name: /Leave room/ });
           if (!page.isClosed() && await leave.count()) await leave.click({ timeout: 5000 });
         } catch { failures.push("leave test room"); }
@@ -110,6 +111,8 @@ export const test = base.extend<{
       if (userIds.length) {
         const remaining = await admin.from("profiles").select("id").in("id", userIds);
         if (remaining.error || remaining.data?.length !== 0) failures.push("verify user cleanup");
+        const tasks = await admin.from("tasks").select("id").in("owner_id", userIds);
+        if (tasks.error || tasks.data?.length !== 0) failures.push("verify goal cleanup");
       }
       if (failures.length) throw new Error(`Local browser fixture cleanup failed: ${failures.join(", ")}.`);
     }

@@ -55,8 +55,15 @@ npm run test:e2e
 The authenticated gate creates two confirmed local Auth users, injects their real
 sessions in isolated browsers, and exercises signed-out invite preservation,
 onboarding, synchronized focus, refresh/reconnect, exactly one completed record
-in both histories, Go again and leaving. It uses the normal UI's five-minute
-focus and one-minute break without advancing clocks or forging socket events.
+in both histories, Go again and leaving. A separate short goal journey verifies
+live partner completion, correct credit after both browsers refresh, undo,
+owner-only content edits/deletes and rejection of forged completion credit.
+Edits use authenticated API requests because there is no edit control yet.
+Missed goal deletions reconcile through a scoped read every five seconds while
+Our Goals is open and visible; returning to the tab triggers an immediate read.
+
+The focus journey uses the normal UI's five-minute focus and one-minute break
+without advancing clocks or forging socket events.
 External Google/Discord OAuth is not exercised. Failure artifacts include traces
 and screenshots of synthetic local accounts; retain them for seven days.
 
@@ -67,6 +74,8 @@ supabase start -x storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime
 cd client
 npx playwright install chromium
 npm run test:e2e:auth
+# Run only the short shared-goal journey:
+npm run test:e2e:auth -- shared-goals.spec.ts
 ```
 
 The runner reads credentials silently from the local CLI, rejects remote URLs,

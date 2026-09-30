@@ -343,6 +343,7 @@ export function useGameSession(profile: Profile | null) {
       "player_joined",
       ({
         playerId,
+        userId,
         avatar,
         displayName,
         pet,
@@ -351,6 +352,7 @@ export function useGameSession(profile: Profile | null) {
         setPlayers((prev) => ({
           ...prev,
           [playerId]: {
+            userId: userId ?? null,
             avatar,
             displayName,
             pet: pet ?? null,

@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Shared-goal two-account browser coverage for partner completion, persisted credit after refresh, undo, owner-only edits/deletes and rejected forged credit. Fixed missing verified identity on live joins and reconciled missed goal deletions while Our Goals is visible (`client/e2e-auth/shared-goals.spec.ts`, `useStickyNotes.ts`, `useGameSession.ts`, `server/roomMembershipHandlers.js`; 2026-09-30).
+
 - [x] Restore production dependency audit gates with patched Next.js 16.3.6 / matching lint config and Engine.IO 6.6.11 (`client/package.json`, both package lockfiles; 2026-09-30).
 
 - [x] Authenticated two-account browser gate using local Supabase and the production client: signed-out invite preservation, onboarding, a real five-minute focus, both histories, refresh/reconnect, Go again and scoped cleanup (`client/e2e-auth/`, `client/playwright.auth.config.ts`, `.github/workflows/ci.yml`; 2026-09-30). External OAuth, production deployment and sleeping mobile tabs remain manual release checks.

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Page, WebSocketRoute } from "@playwright/test";
 import type { SyncPayload, PhaseChangePayload } from "../src/lib/sessionTypes";
 import { test, expect, AUTH_STORAGE_KEY, requireSuccess } from "./duoFixture";
+import { onboard } from "./onboard";
 import { APP_ORIGIN, SOCKET_ORIGIN } from "./localEnvironment";
 
 // A transparent WebSocket proxy observes the shipping protocol and lets us drop
@@ -33,12 +34,6 @@ class RoomTransport {
   }
 }
 
-async function onboard(page: Page, name: string, username: string) {
-  await expect(page.getByRole("heading", { name: "Design your hero" })).toBeVisible();
-  await page.getByRole("textbox", { name: "Display name" }).fill(name);
-  await page.getByRole("textbox", { name: "Username", exact: true }).fill(username);
-  await page.getByRole("button", { name: "Ready to focus →" }).click();
-}
 
 test("two users preserve an invite, complete focus once, reconnect and go again", async ({ duo, request }) => {
   const { a, b, admin, roomCodes } = duo;

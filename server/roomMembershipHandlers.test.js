@@ -92,6 +92,20 @@ function roomWithHost() {
 }
 
 describe('room creation and share invites', () => {
+  it('announces the verified account identity on live joins instead of a payload claim', async () => {
+    const harness = setup();
+    const room = roomWithHost();
+    harness.sessions[room.id] = room;
+    await harness.handlers.get('join_session')({
+      sessionId: room.id, avatar: AVATAR, displayName: 'Partner',
+      userId: '33333333-3333-4333-8333-333333333333',
+    });
+    expect(harness.roomEmissions).toContainEqual({
+      roomId: room.id, event: 'player_joined',
+      payload: expect.objectContaining({ playerId: harness.socket.id, userId: harness.socket.userId }),
+    });
+  });
+
   it('leaves the old room and derives world and pet stage on the server', async () => {
     const focus = deferred();
     const harness = setup({ totalFocusSeconds: vi.fn(() => focus.promise) });
