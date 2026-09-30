@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Restore production dependency audit gates with patched Next.js 16.3.6 / matching lint config and Engine.IO 6.6.11 (`client/package.json`, both package lockfiles; 2026-09-30).
+
 - [x] Opt-in focus-completion browser notifications for live background-tab rounds in both modes, with permission controls in both account menus and no snapshot/duplicate replay (`focusNotifications.ts`, `FocusNotificationSetting.tsx`, `useGameSession.ts`; 2026-09-29).
 
 - [x] Browser-tab timer using the HUD's server-derived countdown/Flow elapsed time, clear phase labels, immediate tab-return refresh and normal-title restoration (`useGameTitle.ts`, `DuoTimer.tsx`, `useGameSession.ts`; 2026-09-29).
