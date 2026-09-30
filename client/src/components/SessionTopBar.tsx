@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { GamePhase } from "./GameWorld";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
+import FocusNotificationSetting from "./FocusNotificationSetting";
 import {
   UsersIcon,
   ChartIcon,
@@ -178,7 +179,7 @@ export default function SessionTopBar({
             <div
               id="session-account-menu"
               aria-label="Account menu"
-              className="absolute top-9 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48"
+              className="absolute top-9 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-ink font-bold text-sm mb-0.5">
@@ -207,6 +208,7 @@ export default function SessionTopBar({
               >
                 <SignOutIcon className="w-3.5 h-3.5" /> Sign out
               </button>
+              <FocusNotificationSetting />
             </div>
           )}
         </div>

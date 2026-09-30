@@ -16,6 +16,7 @@ import type {
 } from "@/lib/socketContract";
 import { useSessionConnection } from "@/hooks/useSessionConnection";
 import { playSound } from "@/lib/sounds";
+import { notifyFocusComplete } from "@/lib/focusNotifications";
 import { worldAt } from "@/lib/rotation";
 import { readTimerPrefs, writeTimerPrefs } from "@/lib/timerPrefs";
 import { isSessionId } from "@/lib/storedData";
@@ -79,9 +80,15 @@ export function useGameSession(profile: Profile | null) {
   // handler using profile=null, i.e. from "Someone".
   const myPetRef = useRef<PetType | null>(null);
   const profileRef = useRef<Profile | null>(null);
+  const notificationScopeRef = useRef({ version: 0 });
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+  useEffect(() => {
+    const scope = notificationScopeRef.current;
+    scope.version++;
+    return () => { scope.version++; };
+  }, [profile?.id]);
 
   const inviterName = useCallback(
     () =>
@@ -305,6 +312,18 @@ export function useGameSession(profile: Profile | null) {
 
     socket.on("phase_change", (data: PhaseChangePayload) => {
       setNow(Date.now());
+      if (observedPhaseRef.current === "focus" && data.phase === "celebration") {
+        const userId = profileRef.current?.id;
+        const sessionId = sessionIdRef.current;
+        const scope = notificationScopeRef.current.version;
+        if (userId && sessionId) {
+          void notifyFocusComplete(() =>
+            notificationScopeRef.current.version === scope &&
+            profileRef.current?.id === userId &&
+            sessionIdRef.current === sessionId,
+          );
+        }
+      }
       // Only a live break completion rings: snapshots establish a baseline,
       // and duplicate phase events must not replay the chime.
       if (observedPhaseRef.current === "break" && data.phase === "returning") {
@@ -583,6 +602,7 @@ export function useGameSession(profile: Profile | null) {
   );
 
   const leaveSession = useCallback(() => {
+    notificationScopeRef.current.version++;
     const socket = socketRef.current;
     if (!socket) return;
     socket.emit("leave_session", { sessionId });

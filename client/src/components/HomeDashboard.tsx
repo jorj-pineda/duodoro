@@ -10,6 +10,7 @@ import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
+import FocusNotificationSetting from "./FocusNotificationSetting";
 import WorldNowCard from "./WorldNowCard";
 import Button from "./Button";
 import AccountSettingsModal from "./AccountSettingsModal";
@@ -242,7 +243,7 @@ export default function HomeDashboard({
               <div
                 id="home-account-menu"
                 aria-label="Account menu"
-                className="absolute top-10 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48"
+                className="absolute top-10 right-0 z-50 bg-surface border border-line rounded-xl p-3 shadow-xl min-w-48 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-5rem-env(safe-area-inset-bottom))] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <p className="text-ink font-bold text-sm mb-0.5">
@@ -309,6 +310,7 @@ export default function HomeDashboard({
                 >
                   <SignOutIcon className="w-3.5 h-3.5" /> Sign out
                 </button>
+                <FocusNotificationSetting />
               </div>
             )}
           </div>

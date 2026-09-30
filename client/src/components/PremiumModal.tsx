@@ -17,9 +17,9 @@ interface Props {
 }
 
 // Only what actually exists. The old list promised premium character skins,
-// stats and history (open to everyone), friend notifications (the Notification
-// API appears nowhere in this codebase) and all world themes (the rotation in
-// PR #38 removed the choice entirely). Pets are the feature; saying so is
+// stats and history (open to everyone), friend notifications (never implemented)
+// and all world themes (PR #38 removed the choice entirely).
+// Pets are the feature; saying so is
 // better than four claims and one truth.
 const FEATURES = [
   "Four pixel companions that walk with you",
