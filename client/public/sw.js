@@ -51,3 +51,17 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+// Notifications are requested by an open page, never scheduled or pushed.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const home = windows.find((client) => {
+      const url = new URL(client.url);
+      return url.origin === self.location.origin && url.pathname === "/";
+    });
+    if (home) return home.focus();
+    return self.clients.openWindow("/");
+  })());
+});

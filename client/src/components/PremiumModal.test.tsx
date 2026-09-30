@@ -103,7 +103,7 @@ describe("PremiumModal", () => {
   it("only promises features that exist", async () => {
     // The old list claimed premium skins, stats and history, friend
     // notifications, and all world themes. Stats are open to everyone, the
-    // Notification API appears nowhere in the codebase, world themes stopped
+    // focus-completion notifications are free, world themes stopped
     // being a choice in PR #38, and there are no premium skins.
     open();
     await screen.findByText("jorge@example.com");

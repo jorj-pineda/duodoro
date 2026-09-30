@@ -112,6 +112,13 @@ Use account A in one browser profile and account B in another.
 - [ ] Refresh during focus rejoins within the reconnect grace window.
 - [ ] Background a phone tab for at least 90 seconds, return, and confirm timer
       and room state resynchronize.
+- [ ] Focus notifications default to off. Enabling them from either account menu
+      prompts only on click; denied/unsupported browsers explain the state.
+      In a supported browser, complete a focus round with the tab hidden and
+      confirm one silent notification; click it to return to Duodoro. Repeat in
+      Flow mode. Reconnect snapshots, stopping early and visible-tab completions
+      do not notify. Disabling persists after reload. Closed/suspended tabs are
+      not promised notification delivery; verify physical devices separately.
 
 ## 5. Durable collaboration data
 

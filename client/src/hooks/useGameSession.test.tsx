@@ -87,6 +87,8 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/sounds", () => ({ playSound: vi.fn() }));
 import { playSound } from "@/lib/sounds";
+vi.mock("@/lib/focusNotifications", () => ({ notifyFocusComplete: vi.fn().mockResolvedValue(undefined) }));
+import { notifyFocusComplete } from "@/lib/focusNotifications";
 
 import { useGameSession } from "./useGameSession";
 import { useGameTitle } from "./useGameTitle";
@@ -118,12 +120,53 @@ const setVisibility = (state: "visible" | "hidden") => {
 describe("useGameSession connection lifecycle", () => {
   beforeEach(() => {
     vi.mocked(playSound).mockClear();
+    vi.mocked(notifyFocusComplete).mockClear();
     fakeSocket = createFakeSocket();
     setVisibility("visible");
     sessionStorage.clear();
     localStorage.clear();
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["pomodoro", "flow"])("notifies once per live %s completion, avoiding snapshots, duplicates and stops", async (mode) => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const payload = { sessionId: "room-1", mode, phase: "focus", phaseStartTime: Date.now(), focusDuration: 1500, breakDuration: 300, players: {} };
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "celebration" }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "celebration" }));
+    expect(notifyFocusComplete).toHaveBeenCalledOnce();
+
+    act(() => fakeSocket.fire("sync_state", { ...payload, phase: "break" }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "returning" }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "ready" }));
+    act(() => result.current.goAgain());
+    act(() => fakeSocket.fire("phase_change", payload));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "celebration" }));
+    expect(notifyFocusComplete).toHaveBeenCalledTimes(2);
+
+    act(() => fakeSocket.fire("phase_change", payload));
+    act(() => fakeSocket.fire("sync_state", { ...payload, phase: "celebration" }));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "celebration" }));
+    expect(notifyFocusComplete).toHaveBeenCalledTimes(2);
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "waiting" }));
+    expect(notifyFocusComplete).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["leave", "sign-out", "unmount"])("invalidates pending notification delivery on %s", async (action) => {
+    const { result, rerender, unmount } = renderHook((current: Profile | null) => useGameSession(current), { initialProps: profile as Profile | null });
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const payload = { sessionId: "room-1", phase: "focus", phaseStartTime: Date.now(), focusDuration: 1500, breakDuration: 300, players: {} };
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "celebration" }));
+    const isCurrent = vi.mocked(notifyFocusComplete).mock.calls[0][0];
+    expect(isCurrent()).toBe(true);
+    if (action === "leave") act(() => result.current.leaveSession());
+    if (action === "sign-out") rerender(null);
+    if (action === "unmount") unmount();
+    expect(isCurrent()).toBe(false);
+  });
 
   it("keeps the title aligned with live phases, Go again, reconnect snapshots and tab return", async () => {
     vi.useFakeTimers();
