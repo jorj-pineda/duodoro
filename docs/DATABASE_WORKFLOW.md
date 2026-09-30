@@ -29,7 +29,9 @@ cd server && npm run test:integration
 
 It creates real confirmed users, drives migrations 020 and 022 through
 PostgREST, and removes everything it created. It is excluded from `test:run`
-because CI's server job has no Supabase.
+because CI's server job has no Supabase. The `Authenticated duo journey` job
+starts a freshly migrated local stack and runs this integration suite before
+the two-account production-browser journey (`client/scripts/run-authenticated-e2e.mjs`).
 
 `supabase/tests/schema_contract.sql` checks the application tables, important
 columns and indexes, final RLS policy set, realtime publication, signup trigger,
