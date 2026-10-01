@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 
 interface Props {
   content: string;
+  unavailable?: string;
   label: string;
   variant: "home" | "note";
   onSave: (content: string) => Promise<string | null>;
@@ -11,7 +12,7 @@ interface Props {
 }
 
 export default function InlineTaskEditor({
-  content, label, variant, onSave, onClose, onSavingChange,
+  content, unavailable, label, variant, onSave, onClose, onSavingChange,
 }: Props) {
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
@@ -20,7 +21,7 @@ export default function InlineTaskEditor({
   const note = variant === "note";
   const save = async () => {
     const text = draft.trim();
-    if (savingRef.current || !text || text.length > 500) return;
+    if (unavailable || savingRef.current || !text || text.length > 500) return;
     if (text === content) {
       onClose();
       return;
@@ -79,7 +80,7 @@ export default function InlineTaskEditor({
       <div className="flex gap-2 mt-1">
         <button
           onClick={() => void save()}
-          disabled={saving || !draft.trim() || draft.trim().length > 500}
+          disabled={Boolean(unavailable) || saving || !draft.trim() || draft.trim().length > 500}
           className={`${buttonClass} font-bold`}
         >
           {saving ? "Saving…" : "Save"}
@@ -88,9 +89,9 @@ export default function InlineTaskEditor({
           Cancel
         </button>
       </div>
-      {error && (
+      {(unavailable || error) && (
         <p role="alert" className={`text-xs mt-1 ${note ? "text-red-700" : "text-danger"}`}>
-          {error}
+          {unavailable || error}
         </p>
       )}
     </div>

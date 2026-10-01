@@ -56,3 +56,35 @@ describe("Home goal editing", () => {
     expect(p.editTask).toHaveBeenCalledTimes(2);
   });
 });
+
+
+describe("drafts during goal synchronization", () => {
+  it("keeps the draft while another tab edits and completes the goal", () => {
+    const p = props();
+    const { rerender } = render(<TaskSection {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit goal text" }), { target: { value: "My unsaved draft" } });
+    const updated = { ...task, content: "Remote text", is_done: false };
+    rerender(<TaskSection {...p} tasks={[updated]} pendingTasks={[updated]} completedTasks={[]} />);
+    expect(screen.getByRole("textbox", { name: "Edit goal text" })).toHaveValue("My unsaved draft");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByText("Remote text")).toBeInTheDocument();
+  });
+
+  it("retains a deleted goal's draft for copying and prevents recreating it on Save", async () => {
+    const p = props();
+    const { rerender } = render(<TaskSection {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit goal" }));
+    const input = screen.getByRole("textbox", { name: "Edit goal text" });
+    fireEvent.change(input, { target: { value: "Keep this draft" } });
+    rerender(<TaskSection {...p} tasks={[]} pendingTasks={[]} completedTasks={[]} />);
+    expect(screen.getByRole("textbox", { name: "Edit goal text" })).toHaveValue("Keep this draft");
+    expect(screen.getByRole("alert")).toHaveTextContent("deleted elsewhere");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(p.editTask).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Edit goal text" })).toBeNull());
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "New goal", exact: true })).toHaveFocus());
+  });
+});

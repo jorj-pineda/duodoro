@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { taskFromRow, type Task } from "@/lib/types";
 
@@ -12,33 +12,80 @@ export function useTasks(ownerId: string) {
   const [error, setError] = useState<string | null>(null);
   const sb = getSupabase();
 
-  const fetchTasks = useCallback(async () => {
-    const { data, error: err } = await sb
-      .from("tasks")
-      .select("*")
-      .eq("owner_id", ownerId)
-      .is("room_code", null)
-      .order("created_at", { ascending: true });
-    // A failed read used to fall through to `if (data)` and leave the list
-    // empty, so a broken query was indistinguishable from having no tasks.
-    // That is exactly how the 42P17 policy recursion fixed in migration 018
-    // stayed invisible: every read was erroring and the UI said "No tasks yet".
-    if (err) {
-      setError("Couldn't load your tasks.");
-      return;
-    }
-    setError(null);
-    if (data) setTasks(data.map(taskFromRow));
-  }, [sb, ownerId]);
+  const writeRevision = useRef(0);
 
   useEffect(() => {
-    // The rule can't see through the async boundary: these fetchers await a
-    // network round trip before any setState, so nothing here is a synchronous
-    // cascading render. Suppressed rather than restructured — the alternative
-    // is a data-fetching library, which is a bigger change than this earns.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTasks();
-  }, [fetchTasks]);
+    let disposed = false;
+    let inFlight = false;
+    let queued = false;
+    const refresh = async () => {
+      if (disposed || document.visibilityState !== "visible") return;
+      queued = true;
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        while (queued && !disposed && document.visibilityState === "visible") {
+          queued = false;
+          const revision = writeRevision.current;
+          try {
+            const { data, error: err } = await sb
+              .from("tasks")
+              .select("*")
+              .eq("owner_id", ownerId)
+              .is("room_code", null)
+              .order("created_at", { ascending: true });
+            if (disposed) return;
+            // A read started before a successful write must not roll it back.
+            // Re-read once, also coalescing events received during this request.
+            if (revision !== writeRevision.current) {
+              queued = true;
+              continue;
+            }
+            if (err || !data) {
+              setError("Couldn't load your tasks.");
+              continue;
+            }
+            setTasks(data.map(taskFromRow));
+            setError((current) => current === "Couldn't load your tasks." ? null : current);
+          } catch {
+            if (!disposed) setError("Couldn't load your tasks.");
+          }
+          if (document.visibilityState !== "visible") queued = false;
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+    const invalidate = () => {
+      writeRevision.current += 1;
+      void refresh();
+    };
+    const channel = sb
+      .channel(`tasks-personal-${ownerId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "tasks",
+        filter: `owner_id=eq.${ownerId}`,
+      }, invalidate)
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") void refresh();
+      });
+    // Filtered DELETE events may contain only the primary key. Reconcile with
+    // an owner-scoped read while Home is visible, and catch up after tab return.
+    const interval = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    // The initial read updates React state only after its network await.
+    void refresh();
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      void sb.removeChannel(channel);
+    };
+  }, [sb, ownerId]);
 
   const addTask = async () => {
     const text = newTask.trim();
@@ -53,7 +100,8 @@ export function useTasks(ownerId: string) {
       setError("Couldn't save that task.");
       return;
     }
-    setTasks((p) => [...p, taskFromRow(data)]);
+    writeRevision.current += 1;
+    setTasks((rows) => rows.some((row) => row.id === data.id) ? rows : [...rows, taskFromRow(data)]);
     setNewTask("");
   };
 
@@ -68,6 +116,7 @@ export function useTasks(ownerId: string) {
       setError("Couldn't update that task.");
       return;
     }
+    writeRevision.current += 1;
     setTasks((p) => p.map((t) => (t.id === id ? { ...t, is_done: done } : t)));
   };
 
@@ -89,6 +138,7 @@ export function useTasks(ownerId: string) {
       if (err || data?.length !== 1 || data[0].id !== id) {
         return "Couldn't save your changes. Try again.";
       }
+      writeRevision.current += 1;
       const content = data[0].content;
       setTasks((rows) => rows.map((row) => row.id === id ? { ...row, content } : row));
       return null;
@@ -108,6 +158,7 @@ export function useTasks(ownerId: string) {
       setError("Couldn't delete that task.");
       return;
     }
+    writeRevision.current += 1;
     setTasks((p) => p.filter((t) => t.id !== id));
   };
 
@@ -130,6 +181,7 @@ export function useTasks(ownerId: string) {
       setError("Couldn't clear those tasks.");
       return;
     }
+    writeRevision.current += 1;
     const deletedIds = new Set(data.map((row) => row.id));
     setTasks((p) => p.filter((task) => !deletedIds.has(task.id)));
     if (deletedIds.size !== ids.length) {

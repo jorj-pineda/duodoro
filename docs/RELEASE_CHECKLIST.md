@@ -64,6 +64,11 @@ refusals and forged credit are also checked using authenticated API requests.
 A Home-goal journey at phone width simulates a failed edit, retries against the
 real database, preserves completion and verifies the same text after refresh and
 a Home → session My Tasks → Home round trip.
+A two-tab Home-goal journey verifies creation, edits, completion, deletion,
+draft preservation, failed-read recovery and a simulated visibility-return event.
+Home uses owner-filtered live events and owner-scoped reads on focus, visibility,
+online and subscription recovery. A visible-only five-second read catches missed
+deletions; refreshes coalesce and late reads cannot undo successful local writes.
 Missed goal deletions reconcile through a scoped read every five seconds while
 Our Goals is open and visible; returning to the tab triggers an immediate read.
 
@@ -79,6 +84,9 @@ supabase start -x storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime
 cd client
 npx playwright install chromium
 npm run test:e2e:auth
+# Run only the two-tab goal synchronization journey:
+npm run test:e2e:auth -- goal-sync.spec.ts
+
 # Run only the short Home-goal journey:
 npm run test:e2e:auth -- home-goals.spec.ts
 
