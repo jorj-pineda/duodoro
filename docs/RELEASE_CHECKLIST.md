@@ -58,7 +58,9 @@ onboarding, synchronized focus, refresh/reconnect, exactly one completed record
 in both histories, Go again and leaving. A separate short goal journey verifies
 live partner completion, correct credit after both browsers refresh, undo,
 owner-only content edits/deletes and rejection of forged completion credit.
-Edits use authenticated API requests because there is no edit control yet.
+Owner edits use the inline UI (Enter/Save and Escape cancellation), including
+editing completed goals without changing completion credit. Partner edit/delete
+refusals and forged credit are also checked using authenticated API requests.
 Missed goal deletions reconcile through a scoped read every five seconds while
 Our Goals is open and visible; returning to the tab triggers an immediate read.
 
@@ -166,6 +168,9 @@ Use account A in one browser profile and account B in another.
       increase completed-focus pet progress.
 - [ ] A creates a shared goal; B completes it; both clients show B's persisted
       completion byline after refresh.
+- [ ] A edits the goal through Save/Enter; both clients receive the text and
+      retain completion credit after refresh. B has no edit/delete controls.
+      Escape cancels the draft without closing the notes panel.
 - [ ] Temporarily interrupting a read shows an unavailable/retry state rather
       than an empty-history or empty-friends claim.
 

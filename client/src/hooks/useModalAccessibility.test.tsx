@@ -34,6 +34,15 @@ describe("useModalAccessibility", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("leaves the modal open when an editor has already handled Escape", () => {
+    const onClose = vi.fn();
+    render(<Harness open onClose={onClose} />);
+    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    event.preventDefault();
+    document.dispatchEvent(event);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("wraps Tab at both ends", () => {
     render(<Harness open onClose={() => {}} />);
     const first = screen.getByText("First");

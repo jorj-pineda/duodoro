@@ -47,6 +47,8 @@ export function useModalAccessibility<T extends HTMLElement>(
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // An inline editor may consume Escape without dismissing its dialog.
+      if (event.defaultPrevented) return;
       const container = containerRef.current;
       if (!container) return;
       if (event.key === "Escape") {
