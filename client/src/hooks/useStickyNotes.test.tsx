@@ -43,7 +43,7 @@ const mySharedGoal = {
 };
 
 function createFakeSupabase() {
-  const ops: { kind: string; table?: string; rpc?: string; args?: unknown }[] =
+  const ops: { kind: string; table?: string; rpc?: string; args?: unknown; values?: unknown; filters?: unknown[] }[] =
     [];
   const results: Record<string, Result> = {
     // fetchMine reads room_code IS NULL, fetchShared reads room_code = ROOM.
@@ -61,9 +61,11 @@ function createFakeSupabase() {
   const makeBuilder = (kind: string, table: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const b: any = {};
+    b._filters = [];
     const chain =
       (name: string) =>
       (...args: unknown[]) => {
+        if (name === "eq") b._filters.push(args);
         if (name === "is" && args[0] === "room_code") b._which = "selectMine";
         if (name === "eq" && args[0] === "room_code") b._which = "selectShared";
         return b;
@@ -80,7 +82,7 @@ function createFakeSupabase() {
         // First mount fetches mine then shared; after that, trust the filter.
         key = b._which ?? (selectCount++ === 0 ? "selectMine" : "selectShared");
       }
-      ops.push({ kind: key, table });
+      ops.push({ kind: key, table, values: b._values, filters: b._filters });
       return Promise.resolve(
         results[key] ?? { data: null, error: null },
       ).then(resolve, reject);
@@ -96,7 +98,7 @@ function createFakeSupabase() {
           return b.select(...a);
         },
         insert: () => makeBuilder("insert", table),
-        update: () => makeBuilder("update", table),
+        update: (values: unknown) => { const b = makeBuilder("update", table); b._values = values; return b; },
         delete: () => makeBuilder("delete", table),
       };
     },
@@ -197,6 +199,48 @@ describe("useStickyNotes shared-goal writes", () => {
     hook.unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); document.dispatchEvent(new Event("visibilitychange")); });
     expect(reads()).toBe(before);
+  });
+
+  it("edits only returned owner text while retaining completion attribution", async () => {
+    fake.results.selectShared = { data: [{ ...mySharedGoal, is_done: true, completed_by: PARTNER }], error: null };
+    fake.results.update = { data: [{ id: mySharedGoal.id, content: "server returned text" }], error: null };
+    const hook = await mountShared();
+    let error;
+    await act(async () => { error = await hook.result.current.editTask(mySharedGoal.id, "  new text  "); });
+    expect(error).toBeNull();
+    expect(hook.result.current.activeTasks[0]).toMatchObject({ content: "server returned text", is_done: true, completed_by: PARTNER });
+    expect(fake.ops.find((op) => op.kind === "update")).toMatchObject({
+      values: { content: "new text" }, filters: [["id", mySharedGoal.id], ["owner_id", ME]],
+    });
+  });
+
+  it.each([
+    { data: [], error: null },
+    { data: null, error: { code: "42501" } },
+  ])("keeps an edit unchanged when no row is returned or the request fails: %j", async (response) => {
+    fake.results.selectShared = { data: [mySharedGoal], error: null };
+    fake.results.update = response;
+    const hook = await mountShared();
+    let error;
+    await act(async () => { error = await hook.result.current.editTask(mySharedGoal.id, "new text"); });
+    expect(error).toMatch(/Couldn't save/);
+    expect(hook.result.current.activeTasks[0].content).toBe(mySharedGoal.content);
+  });
+
+  it("refuses partner edits and invalid content without sending a mutation", async () => {
+    const hook = await mountShared();
+    expect(await hook.result.current.editTask(partnersGoal.id, "new text")).toMatch(/own notes/);
+    expect(await hook.result.current.editTask(myPersonalNote.id, "   ")).toMatch(/500 characters/);
+    expect(await hook.result.current.editTask(myPersonalNote.id, "x".repeat(501))).toMatch(/500 characters/);
+    expect(fake.ops.filter((op) => op.kind === "update")).toHaveLength(0);
+  });
+
+  it("edits a personal note through the same owner grant", async () => {
+    fake.results.update = { data: [{ id: myPersonalNote.id, content: "edited private note" }], error: null };
+    const hook = await mountShared();
+    await act(async () => { await hook.result.current.editTask(myPersonalNote.id, "edited private note"); });
+    await act(async () => hook.result.current.setTab("mine"));
+    expect(hook.result.current.activeTasks[0].content).toBe("edited private note");
   });
 
   // The whole point of the branch. tasks_update is owner-only, so a plain

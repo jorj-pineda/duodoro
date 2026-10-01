@@ -18,7 +18,7 @@ test("partners share goal completion and credit while edits and deletes stay own
   const alpha = "Goal Alpha";
   const beta = "Goal Beta";
   const original = "Plan our next focus session";
-  const edited = "Plan our next focus session together";
+  let edited = "Plan our next focus session together";
   const pageErrors: string[] = [];
   for (const actor of [a, b]) actor.page.on("pageerror", () => pageErrors.push("browser error"));
 
@@ -55,6 +55,7 @@ test("partners share goal completion and credit while edits and deletes stay own
   for (const notes of [notesA, notesB]) await expect(notes.getByText(original, { exact: true })).toHaveCount(1);
   await expect(notesB.getByText(`added by ${alpha}`, { exact: true })).toBeVisible();
   await expect(notesB.getByRole("button", { name: "Delete note" })).toHaveCount(0);
+  await expect(notesB.getByRole("button", { name: "Edit note" })).toHaveCount(0);
   const created = await a.client.from("tasks").select("id, owner_id, is_shared, is_done, completed_by").eq("owner_id", a.id).eq("content", original).single();
   requireSuccess(created.error, "Read created goal through owner RLS");
   expect(created.data).toMatchObject({ owner_id: a.id, is_shared: true, is_done: false, completed_by: null });
@@ -78,15 +79,36 @@ test("partners share goal completion and credit while edits and deletes stay own
     const forged = await a.client.from("tasks").update({ completed_by: b.id }).eq("id", goalId).select("id");
     expect(forged.error?.code).toBe("42501");
     expect(await storedGoal()).toEqual({ content: original, is_done: false, completed_by: null });
-    // Content editing has no UI yet; exercise the owner's existing grant.
-    const ownerEdit = await a.client.from("tasks").update({ content: edited }).eq("id", goalId).select("id");
-    requireSuccess(ownerEdit.error, "Edit own shared goal");
-    expect(ownerEdit.data).toEqual([{ id: goalId }]);
+  });
+
+  await test.step("owner cancels a draft with Escape, then saves through the UI with Enter", async () => {
+    await notesA.getByRole("button", { name: "Edit note", exact: true }).click();
+    const editor = notesA.getByRole("textbox", { name: "Edit note text" });
+    await expect(editor).toBeFocused();
+    await editor.fill("Discard this draft");
+    await editor.press("Escape");
+    await expect(editor).toBeHidden();
+    await expect(notesA.getByRole("button", { name: "Edit note", exact: true })).toBeFocused();
+    await expect(notesA).toBeVisible();
+    await expect(notesA.getByText(original, { exact: true })).toBeVisible();
+    expect(await storedGoal()).toEqual({ content: original, is_done: false, completed_by: null });
+    await notesA.getByRole("button", { name: "Edit note", exact: true }).click();
+    await editor.fill(edited);
+    await editor.press("Enter");
+    await expect(editor).toBeHidden();
     for (const notes of [notesA, notesB]) await expect(notes.getByText(edited, { exact: true })).toHaveCount(1);
   });
 
   await test.step("B completes A's goal and both browsers receive persisted attribution", async () => {
     await notesB.getByRole("button", { name: "Mark as done", exact: true }).click();
+    await expect(notesA.getByText(`✓ by ${beta}`, { exact: true })).toBeVisible();
+    await expect(notesB.getByText("✓ by you", { exact: true })).toBeVisible();
+    await expect.poll(storedGoal).toEqual({ content: edited, is_done: true, completed_by: b.id });
+    edited = "Keep our completed plan for tomorrow";
+    await notesA.getByRole("button", { name: "Edit note", exact: true }).click();
+    await notesA.getByRole("textbox", { name: "Edit note text" }).fill(edited);
+    await notesA.getByRole("button", { name: "Save", exact: true }).click();
+    for (const notes of [notesA, notesB]) await expect(notes.getByText(edited, { exact: true })).toHaveCount(1);
     await expect(notesA.getByText(`✓ by ${beta}`, { exact: true })).toBeVisible();
     await expect(notesB.getByText("✓ by you", { exact: true })).toBeVisible();
     await expect.poll(storedGoal).toEqual({ content: edited, is_done: true, completed_by: b.id });

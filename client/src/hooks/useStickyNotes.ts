@@ -192,6 +192,36 @@ export function useStickyNotes(
     );
   };
 
+  const editTask = async (id: string, content: string): Promise<string | null> => {
+    const text = content.trim();
+    const task = [...myTasks, ...sharedTasks].find((row) => row.id === id);
+    if (!task || task.owner_id !== userId) {
+      return "You can only edit your own notes.";
+    }
+    if (!text || text.length > 500) return "Use between 1 and 500 characters.";
+    try {
+      const { data, error: err } = await sb
+        .from("tasks")
+        .update({ content: text })
+        .eq("id", id)
+        .eq("owner_id", userId)
+        .select("id, content");
+      if (err || data?.length !== 1 || data[0].id !== id) {
+        return "Couldn't save your changes. Try again.";
+      }
+      // Only reconcile returned text. A partner may have changed completion
+      // during this request; editing must never overwrite their attribution.
+      const content = data[0].content;
+      const patch = (rows: Task[]) =>
+        rows.map((row) => row.id === id ? { ...row, content } : row);
+      setMyTasks(patch);
+      setSharedTasks(patch);
+      return null;
+    } catch {
+      return "Couldn't save your changes. Try again.";
+    }
+  };
+
   const deleteTask = async (id: string) => {
     setError(null);
     const { data, error: err } = await sb
@@ -250,6 +280,7 @@ export function useStickyNotes(
     completedCount,
     addTask,
     toggleTask,
+    editTask,
     deleteTask,
     clearCompleted,
     error,

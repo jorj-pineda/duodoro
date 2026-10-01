@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStickyNotes } from "@/hooks/useStickyNotes";
 import type { Task } from "@/lib/types";
-import { CloseIcon } from "./Icons";
+import { CloseIcon, PencilIcon } from "./Icons";
 
 interface Props {
   open: boolean;
@@ -42,22 +42,53 @@ const NOTE_COLORS = [
 ];
 const TASK_TABS = ["mine", "shared"] as const;
 
-function TaskRow({
+export function TaskRow({
   task,
   isOwn,
   nameFor,
   onToggle,
+  onEdit,
   onDelete,
 }: {
   task: Task;
-  /** Deletion stays owner-only in the database (migration 017), so the close
-   *  control is only drawn for notes where it can actually succeed. Ticking is
-   *  open to both partners, so the checkbox is always live. */
+  /** Editing and deletion are owner-only; either partner can toggle completion. */
   isOwn: boolean;
   nameFor: (userId: string) => string;
   onToggle: (id: string, done: boolean) => void;
+  onEdit: (id: string, content: string) => Promise<string | null>;
   onDelete: (id: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.content);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const savingRef = useRef(false);
+  const finishEditing = () => {
+    setEditing(false);
+    window.requestAnimationFrame(() => editButton.current?.focus());
+  };
+  const save = async () => {
+    const text = draft.trim();
+    if (savingRef.current || !text || text.length > 500) return;
+    if (text === task.content) {
+      finishEditing();
+      return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    setEditError(null);
+    try {
+      const error = await onEdit(task.id, text);
+      if (error) setEditError(error);
+      else finishEditing();
+    } catch {
+      setEditError("Couldn't save your changes. Try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
   const credit = task.completed_by ? nameFor(task.completed_by) : null;
   return (
     <motion.div
@@ -69,6 +100,7 @@ function TaskRow({
     >
       <button
         onClick={() => onToggle(task.id, !task.is_done)}
+        disabled={saving}
         aria-label={task.is_done ? "Mark as not done" : "Mark as done"}
         className={`flex-shrink-0 mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
           task.is_done
@@ -79,13 +111,65 @@ function TaskRow({
         {task.is_done && <span className="text-white text-xs">✓</span>}
       </button>
       <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm leading-snug font-mono transition-colors ${
-            task.is_done ? "line-through text-amber-500" : "text-amber-900"
-          }`}
-        >
-          {task.content}
-        </p>
+        {editing && isOwn ? (
+          <div
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                event.preventDefault();
+                if (!savingRef.current) finishEditing();
+              }
+            }}
+          >
+            <textarea
+              autoFocus
+              aria-label="Edit note text"
+              rows={2}
+              maxLength={500}
+              value={draft}
+              disabled={saving}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing
+                ) {
+                  event.preventDefault();
+                  void save();
+                }
+              }}
+              className="w-full rounded border border-amber-600 bg-white/60 p-1.5 text-sm font-mono text-amber-900 focus:outline-amber-700 resize-y disabled:opacity-60"
+            />
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => void save()}
+                disabled={saving || !draft.trim() || draft.trim().length > 500}
+                className="min-h-11 sm:min-h-9 px-2 text-xs font-mono font-bold text-amber-900 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={finishEditing}
+                disabled={saving}
+                className="min-h-11 sm:min-h-9 px-2 text-xs font-mono text-amber-900 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {editError && (
+              <p role="alert" className="text-xs text-red-700 mt-1">{editError}</p>
+            )}
+          </div>
+        ) : (
+          <p
+            className={`text-sm leading-snug font-mono break-words whitespace-pre-wrap transition-colors ${
+              task.is_done ? "line-through text-amber-500" : "text-amber-900"
+            }`}
+          >
+            {task.content}
+          </p>
+        )}
         {credit && (
           <p className="text-[10px] font-mono text-amber-600/80 mt-0.5">
             ✓ by {credit}
@@ -98,13 +182,29 @@ function TaskRow({
         )}
       </div>
       {isOwn && (
-        <button
-          onClick={() => onDelete(task.id)}
-          aria-label="Delete note"
-          className="text-amber-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 text-xs mt-0.5 flex-shrink-0"
-        >
-          <CloseIcon className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex flex-col flex-shrink-0">
+          <button
+            ref={editButton}
+            onClick={() => {
+              setDraft(task.content);
+              setEditError(null);
+              setEditing(true);
+            }}
+            aria-label="Edit note"
+            disabled={editing || saving}
+            className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-amber-700 hover:text-amber-900 disabled:opacity-40"
+          >
+            <PencilIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onDelete(task.id)}
+            aria-label="Delete note"
+            disabled={editing || saving}
+            className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-amber-600 hover:text-red-600 disabled:opacity-40"
+          >
+            <CloseIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
     </motion.div>
   );
@@ -170,6 +270,7 @@ export default function StickyNote({
     completedCount,
     addTask,
     toggleTask,
+    editTask,
     deleteTask,
     clearCompleted,
     error,
@@ -434,11 +535,12 @@ export default function StickyNote({
                   <AnimatePresence mode="popLayout">
                     {activeTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={`${roomCode}:${tab}:${task.id}`}
                         task={task}
                         isOwn={task.owner_id === userId}
                         nameFor={nameFor}
                         onToggle={toggleTask}
+                        onEdit={editTask}
                         onDelete={deleteTask}
                       />
                     ))}
