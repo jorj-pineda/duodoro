@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStickyNotes } from "@/hooks/useStickyNotes";
+import InlineTaskEditor from "./InlineTaskEditor";
 import type { Task } from "@/lib/types";
 import { CloseIcon, PencilIcon } from "./Icons";
 
@@ -59,35 +60,11 @@ export function TaskRow({
   onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(task.content);
   const [saving, setSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
   const editButton = useRef<HTMLButtonElement>(null);
-  const savingRef = useRef(false);
   const finishEditing = () => {
     setEditing(false);
     window.requestAnimationFrame(() => editButton.current?.focus());
-  };
-  const save = async () => {
-    const text = draft.trim();
-    if (savingRef.current || !text || text.length > 500) return;
-    if (text === task.content) {
-      finishEditing();
-      return;
-    }
-    savingRef.current = true;
-    setSaving(true);
-    setEditError(null);
-    try {
-      const error = await onEdit(task.id, text);
-      if (error) setEditError(error);
-      else finishEditing();
-    } catch {
-      setEditError("Couldn't save your changes. Try again.");
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
   };
   const credit = task.completed_by ? nameFor(task.completed_by) : null;
   return (
@@ -112,55 +89,14 @@ export function TaskRow({
       </button>
       <div className="flex-1 min-w-0">
         {editing && isOwn ? (
-          <div
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.stopPropagation();
-                event.preventDefault();
-                if (!savingRef.current) finishEditing();
-              }
-            }}
-          >
-            <textarea
-              autoFocus
-              aria-label="Edit note text"
-              rows={2}
-              maxLength={500}
-              value={draft}
-              disabled={saving}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.preventDefault();
-                  void save();
-                }
-              }}
-              className="w-full rounded border border-amber-600 bg-white/60 p-1.5 text-sm font-mono text-amber-900 focus:outline-amber-700 resize-y disabled:opacity-60"
-            />
-            <div className="flex gap-2 mt-1">
-              <button
-                onClick={() => void save()}
-                disabled={saving || !draft.trim() || draft.trim().length > 500}
-                className="min-h-11 sm:min-h-9 px-2 text-xs font-mono font-bold text-amber-900 disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
-              <button
-                onClick={finishEditing}
-                disabled={saving}
-                className="min-h-11 sm:min-h-9 px-2 text-xs font-mono text-amber-900 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-            {editError && (
-              <p role="alert" className="text-xs text-red-700 mt-1">{editError}</p>
-            )}
-          </div>
+          <InlineTaskEditor
+            content={task.content}
+            label="Edit note text"
+            variant="note"
+            onSave={(content) => onEdit(task.id, content)}
+            onClose={finishEditing}
+            onSavingChange={setSaving}
+          />
         ) : (
           <p
             className={`text-sm leading-snug font-mono break-words whitespace-pre-wrap transition-colors ${
@@ -186,8 +122,6 @@ export function TaskRow({
           <button
             ref={editButton}
             onClick={() => {
-              setDraft(task.content);
-              setEditError(null);
               setEditing(true);
             }}
             aria-label="Edit note"

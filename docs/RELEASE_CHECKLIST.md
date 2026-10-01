@@ -61,6 +61,9 @@ owner-only content edits/deletes and rejection of forged completion credit.
 Owner edits use the inline UI (Enter/Save and Escape cancellation), including
 editing completed goals without changing completion credit. Partner edit/delete
 refusals and forged credit are also checked using authenticated API requests.
+A Home-goal journey at phone width simulates a failed edit, retries against the
+real database, preserves completion and verifies the same text after refresh and
+a Home → session My Tasks → Home round trip.
 Missed goal deletions reconcile through a scoped read every five seconds while
 Our Goals is open and visible; returning to the tab triggers an immediate read.
 
@@ -76,6 +79,9 @@ supabase start -x storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime
 cd client
 npx playwright install chromium
 npm run test:e2e:auth
+# Run only the short Home-goal journey:
+npm run test:e2e:auth -- home-goals.spec.ts
+
 # Run only the short shared-goal journey:
 npm run test:e2e:auth -- shared-goals.spec.ts
 ```

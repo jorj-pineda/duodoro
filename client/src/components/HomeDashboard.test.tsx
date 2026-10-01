@@ -33,6 +33,7 @@ vi.mock("@/hooks/useTasks", () => ({
     addTask: vi.fn(),
     toggleTask: vi.fn(),
     deleteTask: vi.fn(),
+    editTask: vi.fn().mockResolvedValue(null),
     pendingTasks: [],
     completedTasks: [],
     clearCompleted: vi.fn(),

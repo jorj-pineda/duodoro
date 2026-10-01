@@ -144,6 +144,7 @@ export default function HomeDashboard({
     addTask,
     toggleTask,
     deleteTask,
+    editTask,
     pendingTasks,
     completedTasks,
     clearCompleted,
@@ -389,6 +390,7 @@ export default function HomeDashboard({
             addTask={addTask}
             toggleTask={toggleTask}
             deleteTask={deleteTask}
+            editTask={editTask}
             clearCompleted={clearCompleted}
             error={taskError}
             onDismissError={clearTaskError}
