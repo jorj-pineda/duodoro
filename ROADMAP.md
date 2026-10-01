@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Home goal editing with the same reusable Save/Cancel and keyboard editor as session notes. Failed saves retain drafts, content-only writes preserve completion, and a phone-width authenticated browser test covers retry, refresh and a Home → My Tasks → Home round trip (`TaskSection.tsx`, `InlineTaskEditor.tsx`, `useTasks.ts`, `client/e2e-auth/home-goals.spec.ts`; 2026-10-01).
+
 - [x] Inline editing for owned session notes and shared goals, with Save/Cancel, Enter/Escape, retryable errors and live partner updates. Content-only writes preserve completion and credit; two-account browser coverage exercises editing before/after completion and refresh (`StickyNote.tsx`, `useStickyNotes.ts`, `client/e2e-auth/shared-goals.spec.ts`; 2026-09-30).
 
 - [x] Shared-goal two-account browser coverage for partner completion, persisted credit after refresh, undo, owner-only edits/deletes and rejected forged credit. Fixed missing verified identity on live joins and reconciled missed goal deletions while Our Goals is visible (`client/e2e-auth/shared-goals.spec.ts`, `useStickyNotes.ts`, `useGameSession.ts`, `server/roomMembershipHandlers.js`; 2026-09-30).

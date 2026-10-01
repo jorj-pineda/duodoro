@@ -71,6 +71,32 @@ export function useTasks(ownerId: string) {
     setTasks((p) => p.map((t) => (t.id === id ? { ...t, is_done: done } : t)));
   };
 
+  const editTask = async (id: string, content: string): Promise<string | null> => {
+    const text = content.trim();
+    const task = tasks.find((row) => row.id === id);
+    if (!task || task.owner_id !== ownerId || task.room_code !== null) {
+      return "You can only edit your own goals.";
+    }
+    if (!text || text.length > 500) return "Use between 1 and 500 characters.";
+    try {
+      const { data, error: err } = await sb
+        .from("tasks")
+        .update({ content: text })
+        .eq("id", id)
+        .eq("owner_id", ownerId)
+        .is("room_code", null)
+        .select("id, content");
+      if (err || data?.length !== 1 || data[0].id !== id) {
+        return "Couldn't save your changes. Try again.";
+      }
+      const content = data[0].content;
+      setTasks((rows) => rows.map((row) => row.id === id ? { ...row, content } : row));
+      return null;
+    } catch {
+      return "Couldn't save your changes. Try again.";
+    }
+  };
+
   const deleteTask = async (id: string) => {
     setError(null);
     const { data, error: err } = await sb
@@ -118,6 +144,7 @@ export function useTasks(ownerId: string) {
     addTask,
     toggleTask,
     deleteTask,
+    editTask,
     pendingTasks,
     completedTasks,
     clearCompleted,

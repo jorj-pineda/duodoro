@@ -24,11 +24,15 @@ function createFakeSupabase() {
     delete: { data: [{ id: "deleted" }], error: null },
   };
 
-  const builder = (kind: string) => {
+  const updates: { values: unknown; filters: unknown[] }[] = [];
+  const builder = (kind: string, filters: unknown[] = []) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain: any = {};
     for (const method of ["select", "eq", "is", "order", "in"]) {
-      chain[method] = () => chain;
+      chain[method] = (...args: unknown[]) => {
+        if (method === "eq" || method === "is") filters.push([method, ...args]);
+        return chain;
+      };
     }
     chain.then = (
       resolve: (value: Result) => unknown,
@@ -39,10 +43,16 @@ function createFakeSupabase() {
 
   return {
     results,
+    updates,
     sb: {
       from: () => ({
         select: () => builder("select"),
         delete: () => builder("delete"),
+        update: (values: unknown) => {
+          const filters: unknown[] = [];
+          updates.push({ values, filters });
+          return builder("update", filters);
+        },
       }),
     },
   };
@@ -72,5 +82,50 @@ describe("useTasks bulk deletion", () => {
       "refused",
     ]);
     expect(hook.result.current.error).toMatch(/clear all completed tasks/i);
+  });
+});
+
+
+describe("useTasks editing", () => {
+  beforeEach(() => { fake = createFakeSupabase(); });
+
+  async function mount() {
+    const hook = renderHook(() => useTasks(OWNER));
+    await waitFor(() => expect(hook.result.current.tasks).toHaveLength(3));
+    return hook;
+  }
+
+  it("writes trimmed content only and preserves completed goal state", async () => {
+    fake.results.update = { data: [{ id: "deleted", content: "Returned text" }], error: null };
+    const hook = await mount();
+    let error;
+    await act(async () => { error = await hook.result.current.editTask("deleted", "  Edited goal  "); });
+    expect(error).toBeNull();
+    expect(fake.updates).toEqual([{ values: { content: "Edited goal" }, filters: [
+      ["eq", "id", "deleted"], ["eq", "owner_id", OWNER], ["is", "room_code", null],
+    ] }]);
+    expect(hook.result.current.completedTasks.find((row) => row.id === "deleted"))
+      .toMatchObject({ content: "Returned text", is_done: true, completed_by: null });
+  });
+
+  it.each([
+    { data: [], error: null },
+    { data: null, error: { code: "42501" } },
+    { data: [{ id: "another-row", content: "Wrong goal" }], error: null },
+  ])("keeps the original text on a refused or failed save: %j", async (result) => {
+    fake.results.update = result;
+    const hook = await mount();
+    let error;
+    await act(async () => { error = await hook.result.current.editTask("pending", "New draft"); });
+    expect(error).toMatch(/Couldn't save/);
+    expect(hook.result.current.tasks[0].content).toBe("pending");
+  });
+
+  it("rejects unknown goals and invalid drafts without a mutation", async () => {
+    const hook = await mount();
+    expect(await hook.result.current.editTask("unknown", "text")).toMatch(/own goals/);
+    expect(await hook.result.current.editTask("pending", " ")).toMatch(/500 characters/);
+    expect(await hook.result.current.editTask("pending", "x".repeat(501))).toMatch(/500 characters/);
+    expect(fake.updates).toEqual([]);
   });
 });

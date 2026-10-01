@@ -1,7 +1,9 @@
 "use client";
+import { useRef, useState } from "react";
+import InlineTaskEditor from "./InlineTaskEditor";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Task } from "@/lib/types";
-import { CloseIcon } from "./Icons";
+import { CloseIcon, PencilIcon } from "./Icons";
 
 interface Props {
   tasks: Task[];
@@ -12,9 +14,76 @@ interface Props {
   addTask: () => void;
   toggleTask: (id: string, done: boolean) => void;
   deleteTask: (id: string) => void;
+  editTask: (id: string, content: string) => Promise<string | null>;
   clearCompleted: () => void;
   error?: string | null;
   onDismissError?: () => void;
+}
+
+function GoalRow({ task, toggleTask, deleteTask, editTask }: {
+  task: Task;
+} & Pick<Props, "toggleTask" | "deleteTask" | "editTask">) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const finishEditing = () => {
+    setEditing(false);
+    window.requestAnimationFrame(() => editButton.current?.focus());
+  };
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -16 }}
+      className="flex items-start gap-2.5 group"
+    >
+      <button
+        onClick={() => toggleTask(task.id, !task.is_done)}
+        disabled={saving}
+        aria-label={`Mark ${task.content} ${task.is_done ? "incomplete" : "complete"}`}
+        className={`flex-shrink-0 mt-1 w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-colors ${task.is_done
+          ? "border-go bg-go" : "border-line hover:border-go"}`}
+      >
+        {task.is_done && <span className="text-white text-[10px]">✓</span>}
+      </button>
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <InlineTaskEditor
+            content={task.content}
+            label="Edit goal text"
+            variant="home"
+            onSave={(content) => editTask(task.id, content)}
+            onClose={finishEditing}
+            onSavingChange={setSaving}
+          />
+        ) : (
+          <p className={`text-sm break-words whitespace-pre-wrap ${task.is_done ? "text-faint line-through" : "text-ink"}`}>
+            {task.content}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col flex-shrink-0">
+        <button
+          ref={editButton}
+          onClick={() => setEditing(true)}
+          aria-label="Edit goal"
+          disabled={editing || saving}
+          className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-faint hover:text-ink disabled:opacity-40"
+        >
+          <PencilIcon className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => deleteTask(task.id)}
+          aria-label="Delete task"
+          disabled={editing || saving}
+          className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-faint hover:text-danger disabled:opacity-40"
+        >
+          <CloseIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function TaskSection({
@@ -26,6 +95,7 @@ export default function TaskSection({
   addTask,
   toggleTask,
   deleteTask,
+  editTask,
   clearCompleted,
   error,
   onDismissError,
@@ -72,59 +142,14 @@ export default function TaskSection({
 
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         <AnimatePresence mode="popLayout">
-          {pendingTasks.map((task) => (
-            <motion.div
+          {[...pendingTasks, ...completedTasks].map((task) => (
+            <GoalRow
               key={task.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -16 }}
-              className="flex items-center gap-2.5 group"
-            >
-              <button
-                onClick={() => toggleTask(task.id, true)}
-                aria-label={`Mark ${task.content} complete`}
-                className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-line hover:border-go flex items-center justify-center transition-colors"
-              />
-              <p className="flex-1 text-sm text-ink truncate">
-                {task.content}
-              </p>
-              <button
-                onClick={() => deleteTask(task.id)}
-                aria-label="Delete task"
-                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
-              >
-                <CloseIcon className="w-3.5 h-3.5" />
-              </button>
-            </motion.div>
-          ))}
-          {completedTasks.map((task) => (
-            <motion.div
-              key={task.id}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-2.5 group"
-            >
-              <button
-                onClick={() => toggleTask(task.id, false)}
-                aria-label={`Mark ${task.content} incomplete`}
-                className="flex-shrink-0 w-[18px] h-[18px] rounded border-2 border-go bg-go flex items-center justify-center"
-              >
-                <span className="text-white text-[10px]">{"✓"}</span>
-              </button>
-              <p className="flex-1 text-sm text-faint truncate line-through">
-                {task.content}
-              </p>
-              <button
-                onClick={() => deleteTask(task.id)}
-                aria-label="Delete task"
-                className="text-faint hover:text-danger text-xs opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
-              >
-                <CloseIcon className="w-3.5 h-3.5" />
-              </button>
-            </motion.div>
+              task={task}
+              toggleTask={toggleTask}
+              deleteTask={deleteTask}
+              editTask={editTask}
+            />
           ))}
         </AnimatePresence>
       </div>
