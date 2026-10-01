@@ -85,6 +85,6 @@ describe("drafts during goal synchronization", () => {
     expect(p.editTask).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: "Edit goal text" })).toBeNull());
-    await waitFor(() => expect(screen.getByRole("textbox", { name: "New goal", exact: true })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "New goal" })).toHaveFocus());
   });
 });
