@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Home goal synchronization across tabs: owner-filtered live updates, refresh on focus/visibility/online/reconnect, and a visible-only scoped fallback for missed deletions. Refreshes coalesce and cannot roll back successful writes. Open drafts survive remote edits/completion/deletion, with deleted drafts available to copy or cancel (`useTasks.ts`, `TaskSection.tsx`, `client/e2e-auth/goal-sync.spec.ts`; 2026-10-01).
+
 - [x] Home goal editing with the same reusable Save/Cancel and keyboard editor as session notes. Failed saves retain drafts, content-only writes preserve completion, and a phone-width authenticated browser test covers retry, refresh and a Home → My Tasks → Home round trip (`TaskSection.tsx`, `InlineTaskEditor.tsx`, `useTasks.ts`, `client/e2e-auth/home-goals.spec.ts`; 2026-10-01).
 
 - [x] Inline editing for owned session notes and shared goals, with Save/Cancel, Enter/Escape, retryable errors and live partner updates. Content-only writes preserve completion and credit; two-account browser coverage exercises editing before/after completion and refresh (`StickyNote.tsx`, `useStickyNotes.ts`, `client/e2e-auth/shared-goals.spec.ts`; 2026-09-30).

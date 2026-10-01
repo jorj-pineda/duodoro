@@ -20,14 +20,17 @@ interface Props {
   onDismissError?: () => void;
 }
 
-function GoalRow({ task, toggleTask, deleteTask, editTask }: {
+function GoalRow({ task, missing, onEditingChange, toggleTask, deleteTask, editTask }: {
   task: Task;
+  missing: boolean;
+  onEditingChange: (task: Task, editing: boolean) => void;
 } & Pick<Props, "toggleTask" | "deleteTask" | "editTask">) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
   const finishEditing = () => {
     setEditing(false);
+    onEditingChange(task, false);
     window.requestAnimationFrame(() => editButton.current?.focus());
   };
   return (
@@ -40,7 +43,7 @@ function GoalRow({ task, toggleTask, deleteTask, editTask }: {
     >
       <button
         onClick={() => toggleTask(task.id, !task.is_done)}
-        disabled={saving}
+        disabled={saving || missing}
         aria-label={`Mark ${task.content} ${task.is_done ? "incomplete" : "complete"}`}
         className={`flex-shrink-0 mt-1 w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-colors ${task.is_done
           ? "border-go bg-go" : "border-line hover:border-go"}`}
@@ -51,6 +54,7 @@ function GoalRow({ task, toggleTask, deleteTask, editTask }: {
         {editing ? (
           <InlineTaskEditor
             content={task.content}
+            unavailable={missing ? "This goal was deleted elsewhere. Copy your draft or cancel." : undefined}
             label="Edit goal text"
             variant="home"
             onSave={(content) => editTask(task.id, content)}
@@ -66,9 +70,12 @@ function GoalRow({ task, toggleTask, deleteTask, editTask }: {
       <div className="flex flex-col flex-shrink-0">
         <button
           ref={editButton}
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setEditing(true);
+            onEditingChange(task, true);
+          }}
           aria-label="Edit goal"
-          disabled={editing || saving}
+          disabled={editing || saving || missing}
           className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-faint hover:text-ink disabled:opacity-40"
         >
           <PencilIcon className="w-3.5 h-3.5" />
@@ -76,7 +83,7 @@ function GoalRow({ task, toggleTask, deleteTask, editTask }: {
         <button
           onClick={() => deleteTask(task.id)}
           aria-label="Delete task"
-          disabled={editing || saving}
+          disabled={editing || saving || missing}
           className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-faint hover:text-danger disabled:opacity-40"
         >
           <CloseIcon className="w-3.5 h-3.5" />
@@ -100,6 +107,20 @@ export default function TaskSection({
   error,
   onDismissError,
 }: Props) {
+  const newGoalInput = useRef<HTMLInputElement>(null);
+  const [editingTasks, setEditingTasks] = useState<Task[]>([]);
+  const onEditingChange = (task: Task, editing: boolean) => {
+    setEditingTasks((rows) => editing
+      ? [...rows.filter((row) => row.id !== task.id), task]
+      : rows.filter((row) => row.id !== task.id));
+    if (!editing && !tasks.some((row) => row.id === task.id)) {
+      window.requestAnimationFrame(() => newGoalInput.current?.focus());
+    }
+  };
+  const visibleTasks = [
+    ...pendingTasks, ...completedTasks,
+    ...editingTasks.filter((draft) => !tasks.some((row) => row.id === draft.id)),
+  ];
   return (
     <div className="bg-surface rounded-2xl border border-line p-4">
       {error && (
@@ -142,10 +163,12 @@ export default function TaskSection({
 
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         <AnimatePresence mode="popLayout">
-          {[...pendingTasks, ...completedTasks].map((task) => (
+          {visibleTasks.map((task) => (
             <GoalRow
               key={task.id}
               task={task}
+              missing={!tasks.some((row) => row.id === task.id)}
+              onEditingChange={onEditingChange}
               toggleTask={toggleTask}
               deleteTask={deleteTask}
               editTask={editTask}
@@ -154,7 +177,7 @@ export default function TaskSection({
         </AnimatePresence>
       </div>
 
-      {tasks.length === 0 && (
+      {visibleTasks.length === 0 && (
         <p className="text-faint text-xs text-center py-3">
           Add goals for your focus session
         </p>
@@ -162,6 +185,7 @@ export default function TaskSection({
 
       <div className="flex gap-2 mt-3 pt-3 border-t border-line">
         <input
+          ref={newGoalInput}
           aria-label="New goal"
           className="flex-1 bg-transparent text-sm text-ink placeholder-faint focus:outline-none"
           placeholder="Add a goal..."
