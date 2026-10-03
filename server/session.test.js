@@ -8,6 +8,7 @@ import {
   consumeShareInvite,
   beginFocusRound,
   completeFocusRound,
+  updateRoundRecap,
   addPlayer,
   removePlayer,
   setPlayerPet,
@@ -507,5 +508,37 @@ describe("findUserSessions", () => {
     s.focusRoundId = null;
     expect(completeFocusRound(s)).toBe(false);
     expect(s.completedRounds).toBe(0);
+  });
+});
+
+
+describe("round recap snapshots", () => {
+  it("uses configured Pomodoro duration and bounded server elapsed Flow time", () => {
+    const s = createSessionState("forest", "host");
+    beginFocusRound(s, 1000, "private-one");
+    completeFocusRound(s, 1504000);
+    expect(s.roundRecap).toEqual({ round: 1, focusSeconds: 1500, mode: "pomodoro", saveState: "saving" });
+    expect(completeFocusRound(s)).toBe(false);
+    s.mode = "flow";
+    beginFocusRound(s, 1000, "private-two");
+    expect(s.roundRecap).toBeNull();
+    completeFocusRound(s, 493200);
+    expect(s.roundRecap.focusSeconds).toBe(492);
+    expect(JSON.stringify(buildSyncPayload(s))).not.toContain("private-two");
+  });
+
+  it("keeps save status after ready, and ignores an earlier round's delayed write", () => {
+    const s = createSessionState("forest", "host");
+    beginFocusRound(s, 1000, "one");
+    completeFocusRound(s);
+    s.phase = "ready";
+    s.focusRoundId = null;
+    expect(updateRoundRecap(s, "one", "saved").saveState).toBe("saved");
+    expect(buildSyncPayload(s).roundRecap.saveState).toBe("saved");
+    beginFocusRound(s, 2000, "two");
+    expect(updateRoundRecap(s, "one", "saved")).toBeNull();
+    completeFocusRound(s);
+    expect(updateRoundRecap(s, "one", "unconfirmed")).toBeNull();
+    expect(s.roundRecap).toMatchObject({ round: 2, saveState: "saving" });
   });
 });

@@ -1,4 +1,5 @@
 "use client";
+import RoundRecap from "./RoundRecap";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -597,6 +598,7 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
+          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} /> : null}
           phase={game.phase}
           serverMode={game.serverMode}
           sessionStarted={game.sessionStarted}

@@ -18,6 +18,7 @@ function createSessionState(world, hostSocketId) {
     // every retry refers to the same real-world event.
     focusRoundId: null,
     completedRounds: 0,
+    roundRecap: null,
     lastCompletedFocusRoundId: null,
     // A lost RPC response can make the retry return an existing DB row. Keep
     // pet credit idempotent in memory too; this is intentionally server-only.
@@ -76,6 +77,7 @@ function beginFocusRound(
   startedAt = Date.now(),
   recordingKey = randomUUID(),
 ) {
+  session.roundRecap = null;
   session.phase = "focus";
   session.phaseStartTime = startedAt;
   session.focusRoundId = recordingKey;
@@ -83,12 +85,28 @@ function beginFocusRound(
 }
 
 // Count completion separately from asynchronous history persistence.
-function completeFocusRound(session) {
+function completeFocusRound(session, now = Date.now()) {
   if (session.phase !== "focus" || !session.focusRoundId ||
       session.lastCompletedFocusRoundId === session.focusRoundId) return false;
   session.completedRounds += 1;
   session.lastCompletedFocusRoundId = session.focusRoundId;
+  session.roundRecap = {
+    round: session.completedRounds,
+    focusSeconds: session.mode === "flow"
+      ? Math.max(0, Math.min(Math.round((now - session.phaseStartTime) / 1000), session.focusDuration))
+      : session.focusDuration,
+    mode: session.mode,
+    saveState: "saving",
+  };
   return true;
+}
+
+// Match the private recording key, even after ready clears focusRoundId.
+// A delayed write for an older round must never update a newer recap.
+function updateRoundRecap(session, recordingKey, saveState) {
+  if (!session?.roundRecap || session.lastCompletedFocusRoundId !== recordingKey) return null;
+  session.roundRecap = { ...session.roundRecap, saveState };
+  return session.roundRecap;
 }
 
 function inviteUser(session, userId) {
@@ -248,6 +266,7 @@ function buildSyncPayload(session) {
   }
   return {
     completedRounds: session.completedRounds,
+    roundRecap: session.roundRecap,
     mode: session.mode,
     phase: session.phase,
     focusDuration: session.focusDuration,
@@ -270,6 +289,7 @@ module.exports = {
   consumeShareInvite,
   beginFocusRound,
   completeFocusRound,
+  updateRoundRecap,
   addPlayer,
   removePlayer,
   setPlayerPet,

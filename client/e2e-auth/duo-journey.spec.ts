@@ -126,6 +126,10 @@ test("two users preserve an invite, complete focus once, reconnect and go again"
     ));
     for (const actor of [a, b]) {
       await expect(actor.page.getByText("1 round completed in this room", { exact: true })).toBeVisible();
+      const recap = actor.page.getByRole("region", { name: "Round recap" });
+      await expect(recap).toContainText("5:00 focus completed");
+      await expect(recap).toContainText("Round saved");
+      await expect(recap).toContainText("5m / 1h 0m saved today");
     }
     await expect.poll(async () => {
       const result = await admin.from("sessions").select("id").eq("room_code", roomId).eq("completed", true);
@@ -160,8 +164,17 @@ test("two users preserve an invite, complete focus once, reconnect and go again"
       await expect(actor.page.getByRole("status", { name: "Session phase: ready" })).toBeVisible({ timeout: 90_000 });
       await expect(actor.page.getByRole("button", { name: "Go again", exact: true })).toBeVisible();
     }
+    await b.page.setViewportSize({ width: 390, height: 844 });
+    await b.page.getByRole("region", { name: "Round recap" }).scrollIntoViewIfNeeded();
+    await b.page.screenshot({ path: "test-results/round-recap-phone.png", fullPage: true });
+    expect(await b.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await b.page.getByRole("button", { name: "Go again", exact: true }).scrollIntoViewIfNeeded();
+    await expect(b.page.getByRole("button", { name: "Go again", exact: true })).toBeInViewport();
+    await b.page.reload();
+    await expect(b.page.getByRole("region", { name: "Round recap" })).toContainText("5:00 focus completed");
     await b.page.getByRole("button", { name: "Go again", exact: true }).click();
     for (const actor of [a, b]) await expect(actor.page.getByRole("status", { name: "Session phase: focus" })).toBeVisible();
+    for (const actor of [a, b]) await expect(actor.page.getByRole("region", { name: "Round recap" })).toHaveCount(0);
     await expect.poll(() => transportB.phase?.phase).toBe("focus");
     expect(transportB.phase).toMatchObject({ completedRounds: 1, mode: "pomodoro", focusDuration: 300, breakDuration: 60 });
     expect(transportB.phase!.phaseStartTime).toBeGreaterThan(startedAt!);

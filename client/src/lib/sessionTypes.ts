@@ -1,5 +1,6 @@
 export type {
   FocusSaveState,
+  RoundRecap,
   InviteData,
   PhaseChangePayload,
   PlayerData,

@@ -6,6 +6,7 @@ import type { Profile, PetType } from "@/lib/types";
 import type { PetStage } from "@/lib/petLevel";
 import type {
   FocusSaveState,
+  RoundRecap,
   PlayerData,
   SyncPayload,
   PhaseChangePayload,
@@ -136,6 +137,7 @@ export function useGameSession(profile: Profile | null) {
 
   // ── Game state ──────────────────────────────────────────────────────────
   const [serverMode, setServerMode] = useState<"pomodoro" | "flow">("pomodoro");
+  const [roundRecap, setRoundRecap] = useState<RoundRecap | null>(null);
   const [completedRounds, setCompletedRounds] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("waiting");
   const observedPhaseRef = useRef<GamePhase>("waiting");
@@ -276,6 +278,11 @@ export function useGameSession(profile: Profile | null) {
       setFocusSaveStatus(state);
     });
 
+    socket.on("round_recap", ({ sessionId, recap }) => {
+      if (sessionId !== sessionIdRef.current) return;
+      setRoundRecap((current) => current?.round === recap.round ? recap : current);
+    });
+
     socket.on("sync_state", (data: SyncPayload) => {
       setNow(Date.now());
       // A sync for the attempted room confirms the switch. A sync for the
@@ -292,6 +299,7 @@ export function useGameSession(profile: Profile | null) {
       if (data.mode) setServerMode(data.mode);
       observedPhaseRef.current = data.phase;
       setCompletedRounds(data.completedRounds ?? 0);
+      setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -332,6 +340,7 @@ export function useGameSession(profile: Profile | null) {
       observedPhaseRef.current = data.phase;
       if (data.mode) setServerMode(data.mode);
       setCompletedRounds(data.completedRounds ?? 0);
+      setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
       setServerFocusDuration(data.focusDuration);
@@ -512,6 +521,7 @@ export function useGameSession(profile: Profile | null) {
         setSessionStarted(false);
         observedPhaseRef.current = "waiting";
         setCompletedRounds(0);
+        setRoundRecap(null);
         setPhase("waiting");
         setPlayers({});
         setSessionId("");
@@ -611,6 +621,7 @@ export function useGameSession(profile: Profile | null) {
     setSessionStarted(false);
     observedPhaseRef.current = "waiting";
     setCompletedRounds(0);
+    setRoundRecap(null);
     setPhase("waiting");
     setPlayers({});
     setSessionId("");
@@ -709,6 +720,7 @@ export function useGameSession(profile: Profile | null) {
     // Game state
     serverMode,
     completedRounds,
+    roundRecap,
     phase,
     sessionStarted,
     myId,
