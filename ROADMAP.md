@@ -42,6 +42,8 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Shared daily focus goals between accepted friends: invite/accept consent, recurring combined target, each person’s saved solo/duo contributions, shared timezone midnight reset, target editing and ending sharing. Home refreshes on tab return/reconnect plus a visible-only 30-second fallback. Unfriending/account deletion removes the goal; pending invitations expose no totals (`SharedDailyGoals.tsx`, `useSharedDailyGoals.ts`, `20261003222833_shared_daily_goals.sql`; 2026-10-03).
+
 - [x] Round-completion recap from server snapshots: exact Pomodoro/Flow focus duration, per-round saving/saved/pending/unconfirmed status, and persisted local-day progress toward the account’s browser target. Recaps survive reconnect/refresh and stay through Go again; interrupted focus produces no recap. Queued replay updates the matching round without exposing private recording keys (`RoundRecap.tsx`, `useRecapProgress.ts`, `server/session.js`, `server/app.js`; 2026-10-02).
 
 - [x] Home goal synchronization across tabs: owner-filtered live updates, refresh on focus/visibility/online/reconnect, and a visible-only scoped fallback for missed deletions. Refreshes coalesce and cannot roll back successful writes. Open drafts survive remote edits/completion/deletion, with deleted drafts available to copy or cancel (`useTasks.ts`, `TaskSection.tsx`, `client/e2e-auth/goal-sync.spec.ts`; 2026-10-01).

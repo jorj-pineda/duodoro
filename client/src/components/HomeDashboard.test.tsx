@@ -25,6 +25,10 @@ vi.mock("@/lib/useStats", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useSharedDailyGoals", () => ({
+  useSharedDailyGoals: () => ({ goals: [], loadError: null, actionError: null, busy: false }),
+}));
+
 vi.mock("@/hooks/useTasks", () => ({
   useTasks: () => ({
     tasks: [],
@@ -45,6 +49,7 @@ vi.mock("@/hooks/useTasks", () => ({
 vi.mock("@/hooks/useOnlineFriends", () => ({
   useOnlineFriends: () => ({
     friends: [],
+    loaded: true,
     onlineFriendIds: [],
     error: null,
     retry: vi.fn(),

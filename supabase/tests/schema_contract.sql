@@ -22,7 +22,8 @@ select has_table(
     'waitlist',
     'sessions',
     'session_participants',
-    'premium_grants'
+    'premium_grants',
+    'shared_daily_goals'
   ]) as table_name;
 
 select has_column(
@@ -61,7 +62,7 @@ select ok(
      where n.nspname = 'public'
        and c.relname = any(array[
          'profiles', 'friendships', 'tasks', 'waitlist', 'sessions',
-         'session_participants', 'premium_grants'
+         'session_participants', 'premium_grants', 'shared_daily_goals'
        ])
        and not c.relrowsecurity
   ),
@@ -84,6 +85,8 @@ select is(
     'profiles_read_known',
     'profiles_update_own',
     'sessions_read_own',
+    'shared_daily_goals_delete',
+    'shared_daily_goals_read',
     'sp_read_own',
     'tasks_delete',
     'tasks_insert',
@@ -227,11 +230,26 @@ select is(
       from pg_publication_tables
      where pubname = 'supabase_realtime'
        and schemaname = 'public'
-       and tablename = any(array['profiles', 'tasks', 'friendships'])
+       and tablename = any(array['profiles', 'tasks', 'friendships', 'shared_daily_goals'])
   ),
-  array['friendships', 'profiles', 'tasks']::text[],
+  array['friendships', 'profiles', 'shared_daily_goals', 'tasks']::text[],
   'social and task tables are in the realtime publication'
 );
 
+select has_index('public'::name, 'shared_daily_goals'::name, 'shared_daily_goals_friendship_id_key'::name, 'one goal per friendship');
+select ok(not has_table_privilege('authenticated', 'public.shared_daily_goals', 'INSERT'), 'clients cannot bypass goal invitation RPC');
+select ok(not has_table_privilege('authenticated', 'public.shared_daily_goals', 'UPDATE'), 'clients cannot self-accept or change timezone');
+select ok(
+  has_function_privilege('authenticated', signature, 'EXECUTE')
+  and not has_function_privilege('anon', signature, 'EXECUTE')
+  and (select prosecdef from pg_proc where oid = signature::regprocedure)
+  and (select proconfig from pg_proc where oid = signature::regprocedure) = array['search_path=""']::text[],
+  signature || ' is authenticated-only with a pinned definer search path'
+) from unnest(array[
+  'public.create_shared_daily_goal(uuid,integer,text)',
+  'public.accept_shared_daily_goal(uuid)',
+  'public.update_shared_daily_goal(uuid,integer)',
+  'public.get_shared_daily_goals()'
+]) signature;
 select * from finish();
 rollback;
