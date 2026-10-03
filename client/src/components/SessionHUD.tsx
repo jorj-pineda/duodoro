@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { GamePhase } from "./GameWorld";
 import type { PetType } from "@/lib/types";
 import { formatTime } from "@/lib/format";
@@ -73,6 +74,7 @@ function PhaseProgressBar({
 }
 
 interface SessionHUDProps {
+  recap?: ReactNode;
   phase: GamePhase;
   serverMode: "pomodoro" | "flow";
   sessionStarted: boolean;
@@ -114,6 +116,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 };
 
 export default function SessionHUD({
+  recap,
   phase,
   serverMode,
   sessionStarted,
@@ -186,6 +189,8 @@ export default function SessionHUD({
             </span>
           </div>
         )}
+
+        {phase !== "focus" && phase !== "waiting" && recap}
 
         {!sessionStarted && phase === "waiting" && (
           <div className="w-full max-w-xs space-y-4 mt-1">

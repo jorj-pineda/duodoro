@@ -7,6 +7,7 @@ const { createPresenceRegistry } = require('./presence');
 const {
   beginFocusRound,
   completeFocusRound,
+  updateRoundRecap,
   removePlayer,
   creditFocusRound,
   isInvited,
@@ -317,6 +318,10 @@ function broadcastPresence(userId, online) {
 // Fire-and-forget phase transitions still need a handle during deployment.
 // Shutdown drains this set before exiting, within the process-wide deadline.
 const pendingRecordings = new Set();
+function publishRoundSave(sessionId, recordingKey, state) {
+  const recap = updateRoundRecap(sessions[sessionId], recordingKey, state);
+  if (recap) io.to(sessionId).emit('round_recap', { sessionId, recap });
+}
 const recovery = createFocusRecovery({
   supabase,
   queue: focusQueue,
@@ -330,6 +335,7 @@ const recovery = createFocusRecovery({
     }
   },
   onReplaySaved: (payload) => {
+    if (payload.p_completed) publishRoundSave(payload.p_room_code, payload.p_recording_key, 'saved');
     const session = sessions[payload.p_room_code];
     if (!payload.p_completed || session?.focusRoundId !== payload.p_recording_key) return;
     for (const update of creditFocusRound(
@@ -347,7 +353,10 @@ const recovery = createFocusRecovery({
 // session.players — the abandoned-session path records the last player leaving,
 // by which point they're already gone from the live map.
 async function recordSession(sessionId, session, completed, participantIds) {
-  if (!supabase) return;
+  if (!supabase) {
+    if (completed) publishRoundSave(sessionId, session.focusRoundId, 'unconfirmed');
+    return;
+  }
 
   // Snapshot every input before the first await. The live session may advance,
   // restart, lose a player, or be deleted while the database request is in
@@ -359,14 +368,18 @@ async function recordSession(sessionId, session, completed, participantIds) {
     : 0;
   // In flow mode focusDuration is only a safety cap, never the real length —
   // the elapsed time is the actual focus, whether it completed or not.
-  const actualFocus = (completed && session.mode !== 'flow')
-    ? session.focusDuration
+  const actualFocus = completed && session.roundRecap
+    ? session.roundRecap.focusSeconds
     : Math.max(0, Math.min(elapsed, session.focusDuration));
 
   const userIds = participantIds ?? sessionParticipantIds(session);
 
-  if (userIds.length === 0) return;
+  if (userIds.length === 0) {
+    if (completed) publishRoundSave(sessionId, recordingKey, 'unconfirmed');
+    return;
+  }
   if (!recordingKey || !startedAt) {
+    if (completed) publishRoundSave(sessionId, recordingKey, 'unconfirmed');
     metrics.increment('focus_record_failures_total');
     logger.error('focus_record_rejected', {
       room_ref: correlationRef('room', sessionId),
@@ -388,6 +401,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
       p_user_ids: userIds,
     });
 
+    if (completed) publishRoundSave(sessionId, recordingKey, outcome.state === 'discarded' ? 'unconfirmed' : outcome.state);
     if (outcome.state === 'pending' || outcome.state === 'discarded') return;
     const { result } = outcome;
 
@@ -416,6 +430,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
       }
     }
   } catch (err) {
+    if (completed) publishRoundSave(sessionId, recordingKey, 'unconfirmed');
     metrics.increment('focus_record_failures_total');
     logger.error('focus_record_failed', {
       room_ref: correlationRef('room', sessionId),
@@ -464,6 +479,7 @@ function advancePhase(sessionId) {
 
   io.to(sessionId).emit('phase_change', {
     completedRounds: session.completedRounds,
+    roundRecap: session.roundRecap,
     mode: session.mode,
     phase: nextPhase,
     phaseStartTime: session.phaseStartTime,

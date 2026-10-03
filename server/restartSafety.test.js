@@ -218,3 +218,72 @@ describe('graceful restart', () => {
     expect((await refused).message).toBe('Session not found');
   });
 });
+
+
+describe('round recap persistence over real sockets', () => {
+  async function finishFlow(host) {
+    const created = nextEvent(host, 'sync_state');
+    host.emit('create_session', { avatar: AVATAR, displayName: 'Host' });
+    const { sessionId } = await created;
+    const focus = nextEvent(host, 'phase_change');
+    host.emit('start_session', { sessionId, mode: 'flow' });
+    await focus;
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const completed = nextEvent(host, 'phase_change');
+    host.emit('finish_flow_focus', { sessionId });
+    return { sessionId, completed: await completed };
+  }
+
+  it('reports saving before database confirmation and restores the saved duration on sync', async () => {
+    const db = fakeDatabase({ recordDelayMs: 150 });
+    const { url } = await start(db);
+    const host = await connectUser(url, HOST_ID);
+    const { sessionId, completed } = await finishFlow(host);
+    expect(completed.roundRecap).toMatchObject({ round: 1, mode: 'flow', saveState: 'saving' });
+    expect(completed.roundRecap.focusSeconds).toBeGreaterThanOrEqual(1);
+    const { recap } = await nextEvent(host, 'round_recap');
+    expect(recap.saveState).toBe('saved');
+    expect(db.records[0].p_actual_focus).toBe(recap.focusSeconds);
+    const sync = nextEvent(host, 'sync_state');
+    host.emit('request_sync');
+    expect((await sync).roundRecap).toEqual(recap);
+    const stopped = nextEvent(host, 'phase_change');
+    host.emit('stop_session', { sessionId });
+    expect((await stopped).roundRecap).toBeNull();
+  });
+
+  it('keeps a failed completed round pending until durable replay confirms it', async () => {
+    const db = fakeDatabase();
+    db.recordingUnavailable = true;
+    const rows = new Map();
+    const focusQueue = {
+      put: async (row) => { rows.set(row.p_recording_key, row); },
+      remove: async (key) => rows.delete(key),
+      entries: async function* () { yield* rows.values(); },
+      hasForUser: async (id) => [...rows.values()].some((row) => row.p_user_ids.includes(id)),
+      close: vi.fn(),
+    };
+    const { url } = await start(db, { focusQueue, replayIntervalMs: 100 });
+    const host = await connectUser(url, HOST_ID);
+    const updates = [];
+    host.on('round_recap', ({ recap }) => updates.push(recap));
+    await finishFlow(host);
+    await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('pending'));
+    db.recordingUnavailable = false;
+    await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('saved'));
+    expect(db.records).toHaveLength(1);
+    expect(rows.size).toBe(0);
+  });
+
+  it('reports an unconfirmed save when there is no durable queue', async () => {
+    const db = fakeDatabase();
+    db.recordingUnavailable = true;
+    const { url } = await start(db);
+    const host = await connectUser(url, HOST_ID);
+    const updates = [];
+    host.on('round_recap', ({ recap }) => updates.push(recap));
+    await finishFlow(host);
+    await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('unconfirmed'));
+    expect(db.records).toHaveLength(0);
+  });
+});

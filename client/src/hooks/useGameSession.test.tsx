@@ -128,6 +128,28 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("restores recaps from snapshots, accepts only matching save updates and clears on repeat/leave", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const recap = { round: 1, mode: "flow", focusSeconds: 492, saveState: "pending" };
+    const payload = { sessionId: "room-1", mode: "flow", phase: "break", phaseStartTime: Date.now(), focusDuration: 7200, breakDuration: 98, players: {}, completedRounds: 1, roundRecap: recap };
+    act(() => fakeSocket.fire("sync_state", payload));
+    expect(result.current.roundRecap).toEqual(recap);
+    act(() => fakeSocket.fire("round_recap", { sessionId: "other", recap: { ...recap, saveState: "saved" } }));
+    expect(result.current.roundRecap?.saveState).toBe("pending");
+    act(() => fakeSocket.fire("round_recap", { sessionId: "room-1", recap: { ...recap, round: 2, saveState: "saved" } }));
+    expect(result.current.roundRecap?.saveState).toBe("pending");
+    act(() => fakeSocket.fire("round_recap", { sessionId: "room-1", recap: { ...recap, saveState: "saved" } }));
+    expect(result.current.roundRecap?.saveState).toBe("saved");
+    act(() => fakeSocket.fire("phase_change", { ...payload, phase: "focus", roundRecap: null }));
+    expect(result.current.roundRecap).toBeNull();
+    act(() => fakeSocket.fire("round_recap", { sessionId: "room-1", recap }));
+    expect(result.current.roundRecap).toBeNull();
+    act(() => fakeSocket.fire("sync_state", payload));
+    act(() => result.current.leaveSession());
+    expect(result.current.roundRecap).toBeNull();
+  });
+
   it("retains the verified partner identity from a live join for goal attribution", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("player_joined")).toBe(1));

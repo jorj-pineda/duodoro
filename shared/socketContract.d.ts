@@ -1,6 +1,13 @@
 export type TimerMode = 'pomodoro' | 'flow';
 export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning' | 'ready';
 export type FocusSaveState = 'clear' | 'pending' | 'unknown' | 'unconfirmed';
+export interface RoundRecap {
+  round: number;
+  focusSeconds: number;
+  mode: TimerMode;
+  saveState: 'saving' | 'saved' | 'pending' | 'unconfirmed';
+}
+
 export type PetType = 'cat' | 'dog' | 'dragon' | 'rabbit';
 export type PetStage = 'young' | 'grown' | 'full';
 export type HairStyle = 'bob' | 'mohawk' | 'long' | 'spiky' | 'bald';
@@ -25,6 +32,7 @@ export interface PlayerData {
 
 export interface SyncPayload {
   completedRounds?: number;
+  roundRecap?: RoundRecap | null;
   mode: TimerMode;
   phase: GamePhase;
   focusDuration: number;
@@ -38,6 +46,7 @@ export interface SyncPayload {
 
 export interface PhaseChangePayload {
   completedRounds?: number;
+  roundRecap?: RoundRecap | null;
   mode: TimerMode;
   phase: GamePhase;
   phaseStartTime: number | null;
@@ -113,6 +122,7 @@ export interface ServerToClientEvents {
   session_created: (payload: { sessionId: string }) => void;
   session_error: (payload: { message: string }) => void;
   focus_save_status: (payload: { state: FocusSaveState }) => void;
+  round_recap: (payload: { sessionId: string; recap: RoundRecap }) => void;
   sync_state: (payload: SyncPayload) => void;
   phase_change: (payload: PhaseChangePayload) => void;
   player_joined: (payload: {

@@ -19,6 +19,7 @@ const SERVER_EVENT_NAMES = Object.freeze([
   'session_created',
   'session_error',
   'focus_save_status',
+  'round_recap',
   'sync_state',
   'phase_change',
   'player_joined',
