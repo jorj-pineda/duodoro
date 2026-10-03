@@ -306,7 +306,11 @@ export function useGameSession(profile: Profile | null) {
       setServerBreakDuration(data.breakDuration);
       setPlayers(data.players || {});
       if (data.world) setMyWorld(data.world as WorldId);
-      if (data.sessionId) setSessionId(data.sessionId);
+      if (data.sessionId) {
+        // A save update can follow this snapshot before React commits.
+        sessionIdRef.current = data.sessionId;
+        setSessionId(data.sessionId);
+      }
       // Own stage comes from the slot, not a local guess: useStats is stale
       // during a session, and a client-sent stage is ignored by the server.
       const self = socket.id ? data.players?.[socket.id] : undefined;
