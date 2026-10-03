@@ -3,6 +3,13 @@ import type { Database, Tables } from "./database.types";
 
 export type { AvatarConfig };
 
+// SQL intentionally withholds totals until an invitation is accepted. Generated
+// RPC return types don't capture nullable OUT fields.
+export type SharedDailyGoal = Omit<
+  Database["public"]["Functions"]["get_shared_daily_goals"]["Returns"][number],
+  "my_seconds" | "partner_seconds"
+> & { my_seconds: number | null; partner_seconds: number | null };
+
 type ProfileRow = Tables<"profiles">;
 
 /** UI-safe profile shape after nullable database defaults are normalized. */

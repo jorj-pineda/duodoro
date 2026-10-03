@@ -192,6 +192,51 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_daily_goals: {
+        Row: {
+          accepted: boolean
+          created_at: string
+          created_by: string
+          friendship_id: string
+          id: string
+          target_minutes: number
+          timezone: string
+        }
+        Insert: {
+          accepted?: boolean
+          created_at?: string
+          created_by: string
+          friendship_id: string
+          id?: string
+          target_minutes: number
+          timezone: string
+        }
+        Update: {
+          accepted?: boolean
+          created_at?: string
+          created_by?: string
+          friendship_id?: string
+          id?: string
+          target_minutes?: number
+          timezone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_daily_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_daily_goals_friendship_id_fkey"
+            columns: ["friendship_id"]
+            isOneToOne: true
+            referencedRelation: "friendships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_by: string | null
@@ -266,6 +311,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_shared_daily_goal: { Args: { goal_id: string }; Returns: string }
       change_display_name: { Args: { new_name: string }; Returns: Json }
       claim_premium: {
         Args: { p_marketing_opt_in?: boolean }
@@ -284,6 +330,10 @@ export type Database = {
         }
       }
       claim_username: { Args: { desired_username: string }; Returns: Json }
+      create_shared_daily_goal: {
+        Args: { friend_id: string; minutes: number; tz: string }
+        Returns: string
+      }
       generate_discriminator: {
         Args: { base_username: string }
         Returns: string
@@ -330,6 +380,22 @@ export type Database = {
           room_code: string
           started_at: string
           world: string
+        }[]
+      }
+      get_shared_daily_goals: {
+        Args: never
+        Returns: {
+          accepted: boolean
+          created_by: string
+          day: string
+          id: string
+          my_seconds: number
+          partner_id: string
+          partner_name: string
+          partner_seconds: number
+          resets_at: string
+          target_minutes: number
+          timezone: string
         }[]
       }
       is_session_participant: {
@@ -385,6 +451,10 @@ export type Database = {
         }
       }
       total_focus_seconds: { Args: { target: string }; Returns: number }
+      update_shared_daily_goal: {
+        Args: { goal_id: string; minutes: number }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

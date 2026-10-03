@@ -5,6 +5,7 @@ import { formatDuration, formatTag } from "@/lib/format";
 import { useTasks } from "@/hooks/useTasks";
 import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import DailyFocusGoal from "./DailyFocusGoal";
+import SharedDailyGoals from "./SharedDailyGoals";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import TaskSection from "./TaskSection";
 import FriendsOnlineSection from "./FriendsOnlineSection";
@@ -156,6 +157,7 @@ export default function HomeDashboard({
     friends,
     onlineFriendIds,
     error: friendsError,
+    loaded: friendsLoaded,
     retry: retryFriends,
   } = useOnlineFriends(profile.id, socketRef, connectionState);
 
@@ -380,6 +382,9 @@ export default function HomeDashboard({
 
           <DailyFocusGoal key={profile.id} userId={profile.id} today={today} dailyFocus={dailyFocus}
             loading={loading} loaded={loaded} error={statsError} />
+
+          <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
+            friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
 
           <TaskSection
             tasks={tasks}

@@ -259,3 +259,14 @@ prove safe areas, browser chrome, touch reachability, or background-tab behavior
 - **BLOCKED:** credentials, provider access, device access, or production
   visibility is unavailable. A blocked check is not a pass and must name its
   owner and follow-up date in the release record.
+
+## Shared daily goals
+
+- [ ] Apply `20261003222833_shared_daily_goals` before deploying the dependent client.
+- [ ] With two accepted friends, invite and accept a daily goal on Home; pending invitations show no daily totals.
+- [ ] Verify solo and duo saved rounds contribute separately for each person; interrupted/pending rounds do not count.
+- [ ] Confirm both people see the same target/reset timezone, can edit the target, and refresh preserves it.
+- [ ] End the goal or unfriend; both Home screens remove it on tab return or within 30 seconds while visible.
+- [ ] Check phone layout and shared-midnight rollover, including friends in different timezones.
+
+The authenticated `shared-daily-goals.spec.ts` journey uses fixture recordings through the real service-role recording RPC; it does not time new focus rounds. Database pgTAP checks invitation consent, forged writes, outsider isolation, day boundaries, and cleanup. External OAuth, production data, and sleeping physical devices still require manual checks.
