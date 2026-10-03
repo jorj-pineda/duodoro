@@ -128,6 +128,17 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("accepts save confirmation arriving immediately after the first room snapshot", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const recap = { round: 1, mode: "flow", focusSeconds: 492, saveState: "saving" };
+    act(() => {
+      fakeSocket.fire("sync_state", { sessionId: "room-1", mode: "flow", phase: "break", phaseStartTime: Date.now(), focusDuration: 7200, breakDuration: 98, players: {}, completedRounds: 1, roundRecap: recap });
+      fakeSocket.fire("round_recap", { sessionId: "room-1", recap: { ...recap, saveState: "saved" } });
+    });
+    expect(result.current.roundRecap?.saveState).toBe("saved");
+  });
+
   it("restores recaps from snapshots, accepts only matching save updates and clears on repeat/leave", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
