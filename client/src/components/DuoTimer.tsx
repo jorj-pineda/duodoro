@@ -1,4 +1,5 @@
 "use client";
+import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -527,6 +528,9 @@ export default function DuoTimer() {
     );
   }
 
+  const companionGrowth = game.myPet ? <CompanionGrowth seconds={game.companionFocusSeconds} grewTo={game.companionGrewTo}
+    onRetry={game.retryCompanionProgress} onDismiss={game.dismissCompanionGrowth} /> : null;
+
   // ── Game Screen ─────────────────────────────────────────────────────────
   return (
     <div
@@ -553,7 +557,7 @@ export default function DuoTimer() {
       </div>
 
       {/* ── Overlay UI ── */}
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="session-overlay relative z-10 flex flex-col h-full">
         <SessionTopBar
           phase={game.phase}
           displayName={displayName}
@@ -598,7 +602,8 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
-          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} /> : null}
+          companionGrowth={companionGrowth}
+          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} /> : null}
           phase={game.phase}
           serverMode={game.serverMode}
           sessionStarted={game.sessionStarted}

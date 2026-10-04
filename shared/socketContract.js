@@ -1,5 +1,6 @@
 const CLIENT_EVENT_NAMES = Object.freeze([
   'register_user',
+  'request_companion_progress',
   'get_online_friends',
   'delete_account',
   'send_invite',
@@ -17,6 +18,7 @@ const CLIENT_EVENT_NAMES = Object.freeze([
 
 const SERVER_EVENT_NAMES = Object.freeze([
   'session_created',
+  'companion_progress',
   'session_error',
   'focus_save_status',
   'round_recap',

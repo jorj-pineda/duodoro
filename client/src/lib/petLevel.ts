@@ -39,8 +39,8 @@ export const GROWN_AT_SECONDS = 3 * 60 * 60;
 /**
  * Seconds of completed focus before the pet grows from grown → full.
  *
- * Fifteen hours is a few weeks at that same pace. Stop there: a companion
- * taller than about 0.38× its owner stops reading as a pet.
+ * Fifteen hours is a few weeks at that same pace. The final sprite is
+ * half an avatar’s height, redrawn with more cells at the same pixel size.
  */
 export const FULL_AT_SECONDS = 15 * 60 * 60;
 

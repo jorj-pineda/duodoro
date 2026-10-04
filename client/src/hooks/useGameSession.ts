@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
+import { useCompanionPreference } from "./useCompanionPreference";
 import type { PetStage } from "@/lib/petLevel";
 import type {
   FocusSaveState,
@@ -73,13 +74,16 @@ export function useGameSession(profile: Profile | null) {
   // Next renders this component on the server too, where "now" is a different
   // number.
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
-  const [myPet, setMyPetState] = useState<PetType | null>(null);
+  const { pet: myPet, setPet: setMyPetState } = useCompanionPreference(profile?.id);
   const [myPetStage, setMyPetStage] = useState<PetStage | null>(null);
+  const [companionFocusSeconds, setCompanionFocusSeconds] = useState<number | null>(null);
+  const [companionGrewTo, setCompanionGrewTo] = useState<PetStage | null>(null);
   // Ref mirrors so the socket handlers — registered once with [] deps — read
   // current values instead of whatever was captured at mount. Without this, an
   // invite sent before a session exists is relayed by the session_created
   // handler using profile=null, i.e. from "Someone".
   const myPetRef = useRef<PetType | null>(null);
+  useEffect(() => { myPetRef.current = myPet; }, [myPet]);
   const profileRef = useRef<Profile | null>(null);
   const notificationScopeRef = useRef({ version: 0 });
   useEffect(() => {
@@ -283,7 +287,15 @@ export function useGameSession(profile: Profile | null) {
       setRoundRecap((current) => current?.round === recap.round ? recap : current);
     });
 
+    socket.on("companion_progress", ({ sessionId, focusSeconds, grewTo }) => {
+      if (sessionId !== sessionIdRef.current) return;
+      setCompanionFocusSeconds(typeof focusSeconds === "number" && Number.isFinite(focusSeconds) && focusSeconds >= 0 ? focusSeconds : null);
+      if (grewTo === "grown" || grewTo === "full") setCompanionGrewTo(grewTo);
+    });
+
     socket.on("sync_state", (data: SyncPayload) => {
+      setCompanionFocusSeconds(data.companionFocusSeconds ?? null);
+      setCompanionGrewTo(null);
       setNow(Date.now());
       // A sync for the attempted room confirms the switch. A sync for the
       // previous room can race with the join response and must not erase the
@@ -342,6 +354,7 @@ export function useGameSession(profile: Profile | null) {
         playSound("break-finished");
       }
       observedPhaseRef.current = data.phase;
+      if (data.phase === "focus") setCompanionGrewTo(null);
       if (data.mode) setServerMode(data.mode);
       setCompletedRounds(data.completedRounds ?? 0);
       setRoundRecap(data.roundRecap ?? null);
@@ -526,6 +539,8 @@ export function useGameSession(profile: Profile | null) {
         observedPhaseRef.current = "waiting";
         setCompletedRounds(0);
         setRoundRecap(null);
+        setCompanionFocusSeconds(null);
+        setCompanionGrewTo(null);
         setPhase("waiting");
         setPlayers({});
         setSessionId("");
@@ -626,6 +641,8 @@ export function useGameSession(profile: Profile | null) {
     observedPhaseRef.current = "waiting";
     setCompletedRounds(0);
     setRoundRecap(null);
+    setCompanionFocusSeconds(null);
+    setCompanionGrewTo(null);
     setPhase("waiting");
     setPlayers({});
     setSessionId("");
@@ -675,7 +692,7 @@ export function useGameSession(profile: Profile | null) {
     myPetRef.current = pet;
     const sid = sessionIdRef.current;
     if (sid) socketRef.current?.emit("set_pet", { sessionId: sid, pet });
-  }, [socketRef]);
+  }, [socketRef, setMyPetState]);
 
   const sendInvite = useCallback(
     (targetUserId: string, avatar: AvatarConfig) => {
@@ -713,6 +730,10 @@ export function useGameSession(profile: Profile | null) {
     myWorld,
     myPet,
     myPetStage,
+    companionFocusSeconds,
+    companionGrewTo,
+    retryCompanionProgress: () => socketRef.current?.emit("request_companion_progress"),
+    dismissCompanionGrowth: () => setCompanionGrewTo(null),
     setMyPet,
     // Session config
     timerMode,

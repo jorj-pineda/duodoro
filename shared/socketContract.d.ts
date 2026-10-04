@@ -31,6 +31,8 @@ export interface PlayerData {
 }
 
 export interface SyncPayload {
+  /** Private saved-focus total for this recipient, never their partner. */
+  companionFocusSeconds?: number | null;
   completedRounds?: number;
   roundRecap?: RoundRecap | null;
   mode: TimerMode;
@@ -74,6 +76,7 @@ export interface AccountDeletionResponse {
 }
 
 export interface ClientToServerEvents {
+  request_companion_progress: () => void;
   register_user: (payload: Record<string, never>) => void;
   get_online_friends: (
     payload: { friendIds: string[] },
@@ -119,6 +122,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  companion_progress: (payload: { sessionId: string; focusSeconds: number | null; grewTo: PetStage | null }) => void;
   session_created: (payload: { sessionId: string }) => void;
   session_error: (payload: { message: string }) => void;
   focus_save_status: (payload: { state: FocusSaveState }) => void;

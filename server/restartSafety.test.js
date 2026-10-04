@@ -28,11 +28,12 @@ function fakeDatabase({ recordDelayMs = 0 } = {}) {
     records,
     presence,
     recordingUnavailable: false,
+    initialFocus: 0,
     auth: {
       getUser: vi.fn(async (token) => ({ data: { user: { id: token } }, error: null })),
     },
     rpc: vi.fn(async (name, payload) => {
-      if (name === 'total_focus_seconds') return { data: 0, error: null };
+      if (name === 'total_focus_seconds') return { data: db.initialFocus + records.filter((r) => r.p_completed && r.p_user_ids.includes(payload.target)).reduce((sum, r) => sum + r.p_actual_focus, 0), error: null };
       if (name === 'record_focus_session') {
         if (db.recordingUnavailable) {
           return { data: null, error: { code: '42501', message: 'permission denied' } };
@@ -109,7 +110,7 @@ describe('graceful restart', () => {
     const { app, url } = await start(db, { focusQueue, replayIntervalMs: 100 });
     const host = await connectUser(url, HOST_ID);
     const created = nextEvent(host, 'sync_state');
-    host.emit('create_session', { avatar: AVATAR, displayName: 'Host' });
+    host.emit('create_session', { avatar: AVATAR, displayName: 'Host', pet: 'cat' });
     const { sessionId } = await created;
     const focusing = nextEvent(host, 'phase_change');
     host.emit('start_session', { sessionId, focusDuration: 60, breakDuration: 30 });
@@ -223,7 +224,7 @@ describe('graceful restart', () => {
 describe('round recap persistence over real sockets', () => {
   async function finishFlow(host) {
     const created = nextEvent(host, 'sync_state');
-    host.emit('create_session', { avatar: AVATAR, displayName: 'Host' });
+    host.emit('create_session', { avatar: AVATAR, displayName: 'Host', pet: 'cat' });
     const { sessionId } = await created;
     const focus = nextEvent(host, 'phase_change');
     host.emit('start_session', { sessionId, mode: 'flow' });
@@ -255,6 +256,7 @@ describe('round recap persistence over real sockets', () => {
   it('keeps a failed completed round pending until durable replay confirms it', async () => {
     const db = fakeDatabase();
     db.recordingUnavailable = true;
+    db.initialFocus = 10799;
     const rows = new Map();
     const focusQueue = {
       put: async (row) => { rows.set(row.p_recording_key, row); },
@@ -266,13 +268,17 @@ describe('round recap persistence over real sockets', () => {
     const { url } = await start(db, { focusQueue, replayIntervalMs: 100 });
     const host = await connectUser(url, HOST_ID);
     const updates = [];
+    const growth = [];
     host.on('round_recap', ({ recap }) => updates.push(recap));
+    host.on('companion_progress', (progress) => growth.push(progress));
     await finishFlow(host);
     await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('pending'));
     db.recordingUnavailable = false;
     await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('saved'));
     expect(db.records).toHaveLength(1);
     expect(rows.size).toBe(0);
+    await vi.waitFor(() => expect(growth.at(-1)?.grewTo).toBe('grown'));
+    expect(growth.at(-1).focusSeconds).toBe(10799 + db.records[0].p_actual_focus);
   });
 
   it('reports an unconfirmed save when there is no durable queue', async () => {
@@ -281,7 +287,9 @@ describe('round recap persistence over real sockets', () => {
     const { url } = await start(db);
     const host = await connectUser(url, HOST_ID);
     const updates = [];
+    const growth = [];
     host.on('round_recap', ({ recap }) => updates.push(recap));
+    host.on('companion_progress', (progress) => growth.push(progress));
     await finishFlow(host);
     await vi.waitFor(() => expect(updates.at(-1)?.saveState).toBe('unconfirmed'));
     expect(db.records).toHaveLength(0);

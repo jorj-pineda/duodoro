@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import type { RoundRecap as Recap } from "@/lib/sessionTypes";
 import { formatDuration, formatTime } from "@/lib/format";
 import { useDailyFocusGoal } from "@/hooks/useDailyFocusGoal";
@@ -11,7 +12,7 @@ const saveLabels: Record<Recap["saveState"], string> = {
   unconfirmed: "Save unconfirmed — check History before counting this round.",
 };
 
-export default function RoundRecap({ recap, userId }: { recap: Recap; userId: string }) {
+export default function RoundRecap({ recap, userId, growth }: { recap: Recap; userId: string; growth?: ReactNode }) {
   const { goal } = useDailyFocusGoal(userId);
   const { seconds, error, retry } = useRecapProgress(userId, recap.round, recap.saveState);
   return (
@@ -31,6 +32,7 @@ export default function RoundRecap({ recap, userId }: { recap: Recap; userId: st
           </div>
         </>
       )}
+      {growth}
     </section>
   );
 }

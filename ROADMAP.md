@@ -247,6 +247,18 @@ for exercising the deployed client → server → database flow.
 
 ## Next up (recommended order)
 
+- [x] **12b. Companion growth progress and larger levels** — Session controls
+      and round recaps show private saved-focus progress, time to the next
+      level, and a dismissible milestone after a confirmed completed save.
+      Solo and duo focus count; thresholds remain 3 and 15 hours. All four
+      companions grow from 7×5 to 11×8 to 15×12 cells at the same scene pixel
+      size. Selection survives reloads per account. Failed reads preserve the
+      visible stage, and queued saves refresh absolute totals without duplicate
+      credit. Compact controls scroll above the standing characters. See
+      `CompanionGrowth.tsx`, `useCompanionPreference.ts`, `server/companionGrowth.js`,
+      and the authenticated `companion-growth.spec.ts` browser test. Production
+      deployment and two-account visual approval remain release checks.
+
 - [x] **15. Go again after a Pomodoro cycle** — After celebration, break, and
       the return animation, both players remain in their room at a ready state.
       Either can start another focus round with Go again; Flowmodoro keeps its
@@ -801,12 +813,13 @@ pixels next to a person whose pixels didn't change. Growth means a map with
 | stage | cells | px at ART_PX | vs. a person |
 |---|---|---|---|
 | young | 7×5 | 21×15 | 0.21× |
-| grown (today's art) | 9×7 | 27×21 | 0.29× |
-| full | 11×9 | 33×27 | 0.38× |
+| grown (current art, item 12b) | 11×8 | 33×24 | 0.33× |
+| full (current art, item 12b) | 15×12 | 45×36 | 0.50× |
 
 Three maps per pet × four pets = twelve, plus two walk frames each. That is the
-real cost of this feature and it is mostly drawing. Stop at 0.38×: a companion
-taller than half its owner stops reading as a pet.
+real cost of this feature and it is mostly drawing. Item 12b increases the
+original 0.29×/0.38× sizes at the owner's request, stopping at half the avatar's
+height so each level reads clearly without changing art pixel density.
 
 **Derive the level, don't store it.** Same instinct as the rotation (item 11)
 and for the same reason — a stored counter is a thing to migrate, resync and
@@ -822,16 +835,16 @@ day it ships — everyone's back catalogue counts.
   already exists. Switching cat → dog keeps the size.
 - **Partner sees the same animal.** `petStage` travels in the slot;
   `buildSyncPayload` / `player_joined` / `pet_changed` carry it.
-  `focusSeconds` stays off the wire. A client-sent stage is ignored, same
-  shape as `world`.
+  Item 12b sends saved totals privately to their owner for progress; partner
+  snapshots still omit totals. A client-sent stage is ignored, same as `world`.
 - **Thresholds:** young → grown at **3 hours** (10800 s), grown → full at
   **15 hours** (54000 s). First change is inside a week of two 25-minute
   sessions a day. Both packages pin the same table of seconds.
-- **Premium stays the pet gate.** Levelling is not a second lock.
-- A completed focus credits the in-memory total so a pet can grow in the
-  room it earned it, rather than on the next join.
-- Grown maps in `lib/petMaps.ts` are the #39 art, unchanged. Young and full
-  are the same silhouettes with less or more room. `size` stays `ART_PX`.
+- Companion access is free; the internal premium field is a legacy name.
+- Item 12b refreshes absolute saved totals after successful completed saves,
+  including queued retries. Pending/unconfirmed saves do not grant growth.
+- Item 12b redraws grown/full maps in `lib/petMaps.ts` with more cells.
+  `size` remains the responsive scene art pixel.
 - A missing `petStage` (older server) renders as grown, so a client-first
   deploy does not shrink every pet to young.
 
@@ -844,9 +857,10 @@ setting — at the 1000-row default that is ~400 hours, far past the 15-hour
 `full` threshold, so it could not have changed anyone's stage. This is
 efficiency and hygiene, not a bug that was biting.
 
-**Not verified:** nothing here has been looked at in a browser. The young
-and full silhouettes need an owner's eye — geometry tests catch clipping and
-grid size, not whether a 5-row cat still reads as a cat.
+**Current verification (item 12b):** a local authenticated browser test captures
+all three cat stages on desktop and all four fully grown companions on a phone.
+Geometry and palette tests cover every map. Production two-account behavior and
+the owner's visual approval remain release checks.
 
 ---
 

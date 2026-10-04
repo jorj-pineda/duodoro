@@ -12,7 +12,7 @@ const {
   buildSyncPayload,
 } = require('./session');
 const { worldAt } = require('./rotation');
-const { petStageAt, GROWN_AT_SECONDS } = require('./petLevel');
+const { petStageAt } = require('./petLevel');
 const {
   parseCreateSession,
   parseShareInvite,
@@ -42,9 +42,6 @@ function registerRoomMembershipHandlers({
 }) {
   const stageForTotal = (seconds) => (
     seconds === null ? 'grown' : petStageAt(seconds)
-  );
-  const cachedFocus = (seconds) => (
-    seconds === null ? GROWN_AT_SECONDS : seconds
   );
   const reportJoinRejection = (reason, sessionId = null, userId = null) => {
     metrics.increment('session_join_rejections_total');
@@ -89,7 +86,7 @@ function registerRoomMembershipHandlers({
       userId,
       pet,
       petStage: pet ? stageForTotal(focusSeconds) : null,
-      focusSeconds: cachedFocus(focusSeconds),
+      focusSeconds,
     });
 
     if (userId) setPresence(userId, sessionId, safeWorld);
@@ -101,7 +98,7 @@ function registerRoomMembershipHandlers({
     });
 
     socket.emit('session_created', { sessionId });
-    socket.emit('sync_state', buildSyncPayload(session));
+    socket.emit('sync_state', buildSyncPayload(session, socket.id));
   });
 
   // create_share_invite: { sessionId }, acknowledgement: { ok, token, expiresAt }
@@ -229,7 +226,9 @@ function registerRoomMembershipHandlers({
     try {
       const focusSeconds = await totalFocusSeconds(userId);
       if (isShuttingDown()) return;
-      const petStage = pet ? stageForTotal(focusSeconds) : null;
+      const previousId = userId ? findPlayerByUserId(session, userId) : null;
+      const previousPlayer = session.players[previousId];
+      const petStage = pet ? (focusSeconds === null ? previousPlayer?.petStage ?? "grown" : stageForTotal(focusSeconds)) : null;
 
       // The room may have closed while the database request was in flight.
       if (getSession(sessionId) !== session) {
@@ -267,7 +266,7 @@ function registerRoomMembershipHandlers({
         userId,
         pet,
         petStage,
-        focusSeconds: cachedFocus(focusSeconds),
+        focusSeconds: focusSeconds ?? previousPlayer?.focusSeconds ?? null,
       });
 
       if (userId) setPresence(userId, sessionId, session.world);
@@ -285,7 +284,7 @@ function registerRoomMembershipHandlers({
         pet,
         petStage,
       });
-      socket.emit('sync_state', buildSyncPayload(session));
+      socket.emit('sync_state', buildSyncPayload(session, socket.id));
     } finally {
       if (slot.reserved) releasePlayerSlot(session, userId);
     }

@@ -133,7 +133,7 @@ function addPlayer(session, socketId, { avatar, displayName, userId, pet, petSta
     petStage: safePet ? petStage || "young" : null,
     // Private cache of the total that produced petStage. Stripped from
     // buildSyncPayload — the partner sees the animal, not the hours.
-    focusSeconds: Number.isFinite(focusSeconds) ? focusSeconds : 0,
+    focusSeconds: focusSeconds === null ? null : Number.isFinite(focusSeconds) ? focusSeconds : 0,
     disconnected: false,
   };
   return Object.keys(session.players).length;
@@ -259,12 +259,13 @@ function publicPlayer(player) {
   return rest;
 }
 
-function buildSyncPayload(session) {
+function buildSyncPayload(session, recipientSocketId) {
   const players = {};
   for (const [id, player] of Object.entries(session.players)) {
     players[id] = publicPlayer(player);
   }
   return {
+    companionFocusSeconds: session.players[recipientSocketId]?.focusSeconds ?? null,
     completedRounds: session.completedRounds,
     roundRecap: session.roundRecap,
     mode: session.mode,
