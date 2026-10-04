@@ -104,6 +104,15 @@ body {
    worse, not better.
 ───────────────────────────────────────────────────────────────────────────── */
 
+/* Leave the ground and standing art visible while tall controls scroll above
+   them. Compact scenes use 2px art pixels: the avatar is 48px tall, plus space
+   for its name. Match scene.ts's compact viewport thresholds. */
+@media (max-width: 639px), (max-height: 520px) {
+  .session-overlay {
+    padding-bottom: calc(19dvh + 4rem);
+  }
+}
+
 @media (max-height: 520px) {
   .hud-card {
     padding-top: 0.625rem;

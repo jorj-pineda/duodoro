@@ -259,3 +259,14 @@ describe('room admission ordering', () => {
     expect(harness.metrics.increment).toHaveBeenCalledWith('session_reconnects_total');
   });
 });
+
+describe('companion reconnect recovery', () => {
+  it('keeps a veteran stage and total when the reconnect read fails', async () => {
+    const state = setup({ totalFocusSeconds: vi.fn().mockResolvedValue(null) });
+    const session = roomWithHost();
+    addPlayer(session, 'old-socket', { avatar: AVATAR, userId: state.socket.userId, pet: 'cat', petStage: 'full', focusSeconds: FULL_AT_SECONDS });
+    state.sessions[session.id] = session;
+    await state.handlers.get('join_session')({ sessionId: session.id, avatar: AVATAR, pet: 'cat' });
+    expect(session.players['joining-socket']).toMatchObject({ petStage: 'full', focusSeconds: FULL_AT_SECONDS });
+  });
+});

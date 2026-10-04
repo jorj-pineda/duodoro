@@ -9,7 +9,6 @@ const {
   completeFocusRound,
   updateRoundRecap,
   removePlayer,
-  creditFocusRound,
   isInvited,
   findPlayerByUserId,
   releasePlayerSlot,
@@ -19,6 +18,7 @@ const {
   buildSyncPayload,
 } = require('./session');
 const { fetchTotalFocusSeconds } = require('./focusTotal');
+const { createCompanionGrowth } = require('./companionGrowth');
 const { createFocusRecovery } = require('./focusRecovery');
 const { isPayloadObject, safeSocketHandler } = require('./socketProtocol');
 const {
@@ -175,7 +175,8 @@ const rateLimits = {
   createSession: createRateLimiter(5, 60_000),   // 5 per minute
   joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
   sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
-  shareInvite:   createRateLimiter(10, 60_000),   // 10 per minute
+  shareInvite:   createRateLimiter(10, 60_000),
+  companionProgress: createRateLimiter(10, 60_000),   // 10 per minute
 };
 
 // Register a client-originated event behind one runtime boundary. Socket.IO
@@ -322,6 +323,7 @@ function publishRoundSave(sessionId, recordingKey, state) {
   const recap = updateRoundRecap(sessions[sessionId], recordingKey, state);
   if (recap) io.to(sessionId).emit('round_recap', { sessionId, recap });
 }
+const companionGrowth = createCompanionGrowth({ sessions, io, totalFocusSeconds });
 const recovery = createFocusRecovery({
   supabase,
   queue: focusQueue,
@@ -336,16 +338,7 @@ const recovery = createFocusRecovery({
   },
   onReplaySaved: (payload) => {
     if (payload.p_completed) publishRoundSave(payload.p_room_code, payload.p_recording_key, 'saved');
-    const session = sessions[payload.p_room_code];
-    if (!payload.p_completed || session?.focusRoundId !== payload.p_recording_key) return;
-    for (const update of creditFocusRound(
-      session,
-      payload.p_recording_key,
-      payload.p_user_ids,
-      payload.p_actual_focus,
-    )) {
-      io.to(payload.p_room_code).emit('pet_changed', update);
-    }
+    if (payload.p_completed) void companionGrowth.refresh(payload.p_user_ids, { celebrate: true });
   },
 });
 
@@ -414,21 +407,7 @@ async function recordSession(sessionId, session, completed, participantIds) {
       participant_count: userIds.length,
     });
 
-    // Only completed rows feed get_focus_stats, so only those grow the pet.
-    // Credit the in-memory total rather than re-querying: the row was just
-    // written, and a replica lag would otherwise delay the growth by a round.
-    // The round key makes this safe when a lost response turns a retry into
-    // result.inserted=false even though the original write succeeded.
-    if (completed && sessions[sessionId] === session) {
-      for (const update of creditFocusRound(
-        session,
-        recordingKey,
-        userIds,
-        actualFocus,
-      )) {
-        io.to(sessionId).emit('pet_changed', update);
-      }
-    }
+    if (completed) await companionGrowth.refresh(userIds, { celebrate: true });
   } catch (err) {
     if (completed) publishRoundSave(sessionId, recordingKey, 'unconfirmed');
     metrics.increment('focus_record_failures_total');
@@ -731,7 +710,13 @@ io.on('connection', (socket) => {
     if (!sessionId) return;
     const session = getSession(sessionId);
     if (!session) return;
-    socket.emit('sync_state', buildSyncPayload(session));
+    socket.emit('sync_state', buildSyncPayload(session, socket.id));
+    if (rateLimits.companionProgress(socket.id)) void companionGrowth.refresh([socket.userId]);
+  });
+
+  socket.on('request_companion_progress', () => {
+    if (stopping || !socketToSession[socket.id] || !rateLimits.companionProgress(socket.id)) return;
+    void companionGrowth.refresh([socket.userId]);
   });
 
   socket.on('disconnect', () => {

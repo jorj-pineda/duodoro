@@ -5,20 +5,13 @@
 // cat at size={4} is the same cat with bigger pixels, not a bigger cat. The
 // three stages:
 //
-//   young  7×5   21×15 px   0.21× a person
-//   grown  9×7   27×21 px   0.29× a person   ← today's art, unchanged
-//   full   11×9  33×27 px   0.38× a person
+//   young   7×5   21×15 px
+//   grown  11×8   33×24 px
+//   full   15×12  45×36 px
 //
-// Stop at 0.38×: a companion taller than half its owner stops reading as a
-// pet. The grown maps are the ones that shipped in #39; young and full are
-// the same silhouettes with less or more room for the same tells (cat ears
-// at the corners, dog ears down the sides, dragon horns and wings, rabbit
-// ears above).
-//
-// ── What seven (or five, or nine) rows costs you ────────────────────────────
-// Every pet is a head with a body under it, seen face-on. That is a choice:
-// at this size the head is the only part with room for anything readable.
-// Everything distinguishing therefore happens in the silhouette.
+// The larger stages are redrawn with wider faces, fuller bodies, and longer
+// ears/horns. Fully grown reaches half an avatar's height while every sprite
+// keeps the scene's art pixel. Both walk stances remain planted on GROUND.
 //
 // ── The key alphabet ────────────────────────────────────────────────────────
 //   C coat        c coat in shadow      M muzzle / marking
@@ -40,11 +33,11 @@ export type { PetStage };
 
 export const PET_STAGE_SIZE: Record<PetStage, { w: number; h: number }> = {
   young: { w: 7, h: 5 },
-  grown: { w: 9, h: 7 },
-  full: { w: 11, h: 9 },
+  grown: { w: 11, h: 8 },
+  full: { w: 15, h: 12 },
 };
 
-/** Grown size, the one the rest of the scene was drawn against. */
+/** Default grown size; rendering still uses the scene's shared art pixel. */
 export const PET_W = PET_STAGE_SIZE.grown.w;
 export const PET_H = PET_STAGE_SIZE.grown.h;
 
@@ -58,8 +51,8 @@ export const PET_H = PET_STAGE_SIZE.grown.h;
  */
 const FEET: Record<PetStage, { together: string; apart: string }> = {
   young: { together: ".cc.cc.", apart: "cc...cc" },
-  grown: { together: "..cc.cc..", apart: ".cc...cc." },
-  full: { together: "...cc.cc...", apart: "..cc...cc.." },
+  grown: { together: "...cc.cc...", apart: "..cc...cc.." },
+  full: { together: "....ccc.ccc....", apart: "...ccc...ccc..." },
 };
 
 interface PetArt {
@@ -90,26 +83,30 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     grown: pet(
       "grown",
       [
-        ".C.....C.",
-        ".CCCCCCC.",
-        ".CECCCEC.",
-        ".CCCNCCC.",
-        "..CCCCCcc",
-        "..CCCCC.c",
+        ".C.......C.",
+        ".CCCCCCCCC.",
+        ".CCECCCECC.",
+        ".CCCCNCCCC.",
+        "...CCCCCcc.",
+        "...CCCCC.c.",
+        "...CCCCC.c.",
       ],
       CAT_PALETTE,
     ),
     full: pet(
       "full",
       [
-        ".C.......C.",
-        ".CCCCCCCCC.",
-        ".CCECCCECC.",
-        ".CCCCCCCCC.",
-        ".CCCCNCCCC.",
-        "...CCCCCcc.",
-        "...CCCCCc.c",
-        "...CCCCC..c",
+        ".C...........C.",
+        ".CCCCCCCCCCCCC.",
+        ".CCCECCCCCECCC.",
+        ".CCCCCCCCCCCCC.",
+        ".CCCCCCNCCCCCC.",
+        "....CCCCCCCcc..",
+        "....CCCCCCCc.c.",
+        "....CCCCCCC..c.",
+        "....CCCCCCC..c.",
+        "....CCCCCCC....",
+        "....CCCCCCC....",
       ],
       CAT_PALETTE,
     ),
@@ -126,26 +123,30 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     grown: pet(
       "grown",
       [
-        "CC.....CC",
-        "cCCCCCCCc",
-        "cCECCCECc",
-        ".CCMMMCC.",
-        "..CCCCCc.",
-        "..CCCCC..",
+        ".CC.....CC.",
+        ".cCCCCCCCc.",
+        ".cCECCCECc.",
+        "..CCMMMCC..",
+        "...CCCCCc..",
+        "...CCCCC...",
+        "...CCCCC...",
       ],
       DOG_PALETTE,
     ),
     full: pet(
       "full",
       [
-        "CC.......CC",
-        "cCCCCCCCCCc",
-        "cCCECCCECCc",
-        ".CCMMMMMCC.",
-        ".CCCCCCCCC.",
-        "..CCCCCCCc.",
-        "..CCCCCC...",
-        "..CCCCC....",
+        ".CC.........CC.",
+        ".cCCCCCCCCCCCc.",
+        ".cCCECCCCCECCc.",
+        "..CCCMMMMMCCC..",
+        "..CCCCCCCCCCC..",
+        "...CCCCCCCcc...",
+        "...CCCCCCC.c...",
+        "...CCCCCCC.....",
+        "....CCCCC......",
+        "....CCCCC......",
+        "....CCCCC......",
       ],
       DOG_PALETTE,
     ),
@@ -161,34 +162,37 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     grown: pet(
       "grown",
       [
-        "..c...c..",
-        ".CCCCCCC.",
-        ".CECCCEC.",
-        ".CCCNCCC.",
-        "cCCCCCCCc",
-        "..CCCCC.c",
+        "...c...c...",
+        "...c...c...",
+        "..CCCCCCC..",
+        "..CECCCEC..",
+        "..CCCNCCC..",
+        ".cCCCCCCCc.",
+        "...CCCCC.c.",
       ],
       DRAGON_PALETTE,
     ),
     full: pet(
       "full",
       [
-        "..c.....c..",
-        ".CCCCCCCCC.",
-        ".CCECCCECC.",
-        ".CCCCCCCCC.",
-        ".CCCCNCCCC.",
-        "cCCCCCCCCCc",
-        "..CCCCCcc.c",
-        "..CCCCC...c",
+        "...cc.....cc...",
+        "...cc.....cc...",
+        ".CCCCCCCCCCCCC.",
+        ".CCCECCCCCECCC.",
+        ".CCCCCCNCCCCCC.",
+        ".cCCCCCCCCCCCc.",
+        ".ccCCCCCCCCCcc.",
+        ".cccCCCCCCCccc.",
+        "...CCCCCCCc....",
+        "....CCCCCCC..c.",
+        "....CCCCCCC..c.",
       ],
       DRAGON_PALETTE,
     ),
   },
 
-  // Two rows of ear, which is most of what a rabbit is from the front. Full
-  // gets a third so the ears scale with the rest of it; young keeps two and
-  // drops the body, same sit-up as grown.
+  // Upright ears lengthen with each stage; young keeps two rows and grown/full
+  // gain space for a face and seated body.
   rabbit: {
     young: pet(
       "young",
@@ -198,26 +202,30 @@ export const PET_ART: Record<PetType, Record<PetStage, PetArt>> = {
     grown: pet(
       "grown",
       [
-        "...C.C...",
-        "...C.C...",
-        ".CCCCCCC.",
-        ".CECCCEC.",
-        ".CCCNCCC.",
-        "..CCCCCWW",
+        "....C.C....",
+        "....C.C....",
+        "....C.C....",
+        "..CCCCCCC..",
+        "..CECCCEC..",
+        "..CCCNCCC..",
+        "...CCCCCWW.",
       ],
       RABBIT_PALETTE,
     ),
     full: pet(
       "full",
       [
-        "...C...C...",
-        "...C...C...",
-        "...C...C...",
-        ".CCCCCCCCC.",
-        ".CCECCCECC.",
-        ".CCCCNCCCC.",
-        "..CCCCCCC..",
-        "..CCCCCWWW.",
+        "....CC...CC....",
+        "....CC...CC....",
+        "....CC...CC....",
+        "....CC...CC....",
+        "..CCCCCCCCCCC..",
+        "..CCECCCCCECC..",
+        "..CCCCCNCCCCC..",
+        "..CCCCCCCCCCC..",
+        "...CCCCCCCCC...",
+        "...CCCCCCCWWW..",
+        "....CCCCCCCWW..",
       ],
       RABBIT_PALETTE,
     ),

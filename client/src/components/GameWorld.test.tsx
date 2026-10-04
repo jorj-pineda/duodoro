@@ -186,17 +186,14 @@ describe("one art pixel", () => {
   });
 
   it("pins the grown ratio so a bounding-box change has to notice", () => {
-    // A one-cell border costs a 7-row pet proportionally far more than a
-    // 24-row person: turning outlines on moved this from 0.292 to 0.346, about
-    // a third of the shrink #39 gave the pets, as a side effect of a change
-    // about keylines. The outlines came back off, so it is 0.292 again — and
-    // pinned, because the next thing to touch either box will move it too.
-    expect((PET_H / CHAR_H).toFixed(3)).toBe("0.292");
+    // The redrawn grown stage is 8 rows against the 24-row avatar. Keep
+    // outlines out of the geometry so stage sizes remain intentional.
+    expect((PET_H / CHAR_H).toFixed(3)).toBe("0.333");
   });
 
-  it("grows by adding cells, never by scaling pixels, and stops short of half a person", () => {
+  it("grows by adding cells, never by scaling pixels, and reaches half an avatar at the final stage", () => {
     expect((PET_STAGE_SIZE.young.h / CHAR_H).toFixed(3)).toBe("0.208");
-    expect((PET_STAGE_SIZE.full.h / CHAR_H).toFixed(3)).toBe("0.375");
+    expect((PET_STAGE_SIZE.full.h / CHAR_H).toFixed(3)).toBe("0.500");
     for (const stage of PET_STAGES) {
       const { container } = renderScene("waiting", 0, 0, true, "forest", stage);
       const { w, h } = PET_STAGE_SIZE[stage];
@@ -205,7 +202,7 @@ describe("one art pixel", () => {
       const personPx = Number(
         findSprite(container, CHAR_W, CHAR_H).getAttribute("height"),
       );
-      expect(petPx / personPx).toBeLessThan(0.38);
+      expect(petPx / personPx).toBeLessThanOrEqual(0.5);
       expect(petPx / personPx).toBeGreaterThan(0.2);
     }
   });

@@ -75,6 +75,7 @@ function PhaseProgressBar({
 
 interface SessionHUDProps {
   recap?: ReactNode;
+  companionGrowth?: ReactNode;
   phase: GamePhase;
   serverMode: "pomodoro" | "flow";
   sessionStarted: boolean;
@@ -117,6 +118,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 
 export default function SessionHUD({
   recap,
+  companionGrowth,
   phase,
   serverMode,
   sessionStarted,
@@ -152,7 +154,7 @@ export default function SessionHUD({
     // The bottom inset goes on the scroll container, not the card, so the last
     // controls ("Stop timer" / "Leave room") can scroll clear of the home
     // indicator instead of sitting under it.
-    <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
+    <div className="session-hud-scroll min-h-0 flex-1 flex items-start justify-center px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] overflow-y-auto">
       <div className="hud-card bg-surface border-2 border-line border-b-4 px-6 sm:px-8 py-5 flex flex-col items-center gap-3 mb-4">
         <div role="status" aria-live="polite" className="font-display text-lg tracking-wide text-ink">
           {phaseLabel[phase](playerCount)}
@@ -256,6 +258,8 @@ export default function SessionHUD({
             onPremiumClick={onPremiumClick}
           />
         )}
+
+        {(phase === "waiting" || phase === "focus" || !recap) && companionGrowth}
 
         {/* Player indicators */}
         <div className="flex items-center gap-2">

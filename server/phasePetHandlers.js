@@ -133,7 +133,7 @@ function registerPhasePetHandlers({
     const player = session?.players[socket.id];
     if (!player) return;
 
-    const petStage = pet ? stageForPet(player.focusSeconds || 0) : null;
+    const petStage = pet ? (player.focusSeconds === null ? player.petStage ?? "grown" : stageForPet(player.focusSeconds || 0)) : null;
     updatePet(session, socket.id, pet, petStage);
     io.to(sessionId).emit('pet_changed', {
       playerId: socket.id,

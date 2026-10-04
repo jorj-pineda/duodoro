@@ -128,6 +128,30 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("restores private companion progress without celebrating snapshots or duplicate saves", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => {
+      fakeSocket.fire("sync_state", { sessionId: "room-1", mode: "flow", phase: "break", phaseStartTime: Date.now(), focusDuration: 7200, breakDuration: 98, players: {}, companionFocusSeconds: 10799 });
+    });
+    expect(result.current.companionFocusSeconds).toBe(10799);
+    expect(result.current.companionGrewTo).toBeNull();
+    act(() => fakeSocket.fire("companion_progress", { sessionId: "other-room", focusSeconds: 54000, grewTo: "full" }));
+    expect(result.current.companionFocusSeconds).toBe(10799);
+    act(() => fakeSocket.fire("companion_progress", { sessionId: "room-1", focusSeconds: 10800, grewTo: "grown" }));
+    expect(result.current.companionGrewTo).toBe("grown");
+    act(() => fakeSocket.fire("companion_progress", { sessionId: "room-1", focusSeconds: 10800, grewTo: null }));
+    expect(result.current.companionGrewTo).toBe("grown");
+    act(() => result.current.dismissCompanionGrowth());
+    expect(result.current.companionGrewTo).toBeNull();
+    act(() => fakeSocket.fire("companion_progress", { sessionId: "room-1", focusSeconds: null, grewTo: null }));
+    expect(result.current.companionFocusSeconds).toBeNull();
+    act(() => result.current.retryCompanionProgress());
+    expect(fakeSocket.emittedNames()).toContain("request_companion_progress");
+    act(() => result.current.leaveSession());
+    expect(result.current.companionFocusSeconds).toBeNull();
+  });
+
   it("accepts save confirmation arriving immediately after the first room snapshot", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));

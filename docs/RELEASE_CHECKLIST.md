@@ -193,6 +193,14 @@ Use account A in one browser profile and account B in another.
 - [ ] With a designated test account, run the companion-access claim against
       production and verify both `premium_grants` and `profiles.is_premium`.
 - [ ] Reload and confirm companion access remains enabled.
+- [ ] Confirm companion growth uses saved solo/duo focus, crosses levels at
+      3 and 15 hours, and renders larger art at each level for both room members.
+      The owner's progress total must not appear in the partner's socket data.
+- [ ] Reload/reconnect with a selected companion: preserve selection and size,
+      restore progress, and do not replay a milestone. A failed total read must
+      preserve size and offer a progress retry; a pending save grants no growth.
+- [ ] On a narrow phone and in landscape, scroll all session controls and verify
+      they stay above the standing avatars/companions, including long recaps.
 - [ ] Select and change a pet; both participants see the same pet and stage.
 - [ ] Using controlled focus history, inspect young, grown, and full maps for
       every pet at whole-pixel density with no clipping.

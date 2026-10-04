@@ -542,3 +542,18 @@ describe("round recap snapshots", () => {
     expect(s.roundRecap).toMatchObject({ round: 2, saveState: "saving" });
   });
 });
+
+describe('private companion snapshots', () => {
+  it('only includes the recipient total and keeps unknown progress distinct from zero', () => {
+    const session = createSessionState('forest', 'a');
+    addPlayer(session, 'a', { avatar: {}, userId: 'alice', focusSeconds: 10800 });
+    addPlayer(session, 'b', { avatar: {}, userId: 'bob', focusSeconds: 54000 });
+    const snapshot = buildSyncPayload(session, 'a');
+    expect(snapshot.companionFocusSeconds).toBe(10800);
+    expect(snapshot.players.a).not.toHaveProperty('focusSeconds');
+    expect(snapshot.players.b).not.toHaveProperty('focusSeconds');
+    expect(buildSyncPayload(session, 'b').companionFocusSeconds).toBe(54000);
+    session.players.a.focusSeconds = null;
+    expect(buildSyncPayload(session, 'a').companionFocusSeconds).toBeNull();
+  });
+});
