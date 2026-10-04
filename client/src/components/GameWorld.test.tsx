@@ -16,6 +16,16 @@ import { PET_STAGES, type PetStage } from "@/lib/petLevel";
 const me = { id: "me", avatar: DEFAULT_AVATAR };
 const partner = { id: "them", avatar: DEFAULT_AVATAR };
 
+describe("intention labels", () => {
+  it("exposes the full text while keeping labels out of the standing art's layout", () => {
+    const { container, getByLabelText } = render(<GameWorld worldId="forest" phase="focus" focusProgress={0.4} returningProgress={0}
+      me={me} partner={partner} myIntention="Write the opening paragraph" partnerIntention="Review chapter" partnerName="Pat" />);
+    expect(getByLabelText("Your focus intention: Write the opening paragraph")).toHaveAttribute("title", "Write the opening paragraph");
+    expect(getByLabelText("Pat focus intention: Review chapter")).toHaveClass("absolute");
+    for (const wrapper of characterWrappers(container)) expect(wrapper.style.bottom).toBe(GROUND);
+  });
+});
+
 function renderScene(
   phase: GamePhase,
   focusProgress = 0,

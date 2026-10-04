@@ -131,7 +131,19 @@ function parseSetPet(payload) {
   return valid({ sessionId: payload.sessionId, pet: parsePet(payload.pet) });
 }
 
+function parseSetIntention(payload) {
+  if (typeof payload.sessionId !== 'string' || typeof payload.text !== 'string' || payload.text.length > 160) return invalid('intention');
+  return valid({ sessionId: payload.sessionId, text: payload.text.replace(/\s+/g, ' ').trim() });
+}
+function parseResolveIntention(payload) {
+  if (typeof payload.sessionId !== 'string' || !Number.isSafeInteger(payload.round) || payload.round < 1 ||
+      !['done', 'undo', 'carry'].includes(payload.action)) return invalid('intention');
+  return valid({ sessionId: payload.sessionId, round: payload.round, action: payload.action });
+}
+
 module.exports = {
+  parseSetIntention,
+  parseResolveIntention,
   MAX_FOCUS,
   MAX_BREAK,
   parseDeleteAccount,

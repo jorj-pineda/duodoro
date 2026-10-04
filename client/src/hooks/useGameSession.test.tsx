@@ -128,6 +128,29 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("restores intentions, filters other-room events, and waits for confirmed mutation replies", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    const intentions = { current: {}, next: { [profile.id]: "Write chapter" } };
+    act(() => fakeSocket.fire("sync_state", { sessionId: "room-1", mode: "flow", phase: "waiting", phaseStartTime: null, focusDuration: 7200, breakDuration: 60, players: {}, intentions }));
+    expect(result.current.intentions).toEqual(intentions);
+    act(() => fakeSocket.fire("intentions_changed", { sessionId: "other-room", intentions: { current: {}, next: {} }, recap: null }));
+    expect(result.current.intentions).toEqual(intentions);
+    let request!: Promise<string | null>;
+    act(() => { request = result.current.setIntention("New plan"); });
+    const emission = fakeSocket.emitted.findLast((event) => event.ev === "set_intention")!;
+    expect(emission.payload).toEqual({ sessionId: "room-1", text: "New plan" });
+    expect(result.current.intentions).toEqual(intentions);
+    act(() => emission.callback!({ ok: false, message: "Focus has started." }));
+    expect(await request).toBe("Focus has started.");
+    act(() => fakeSocket.fire("intentions_changed", { sessionId: "room-1", intentions: { current: {}, next: { [profile.id]: "Confirmed" } }, recap: null }));
+    expect(result.current.intentions.next[profile.id]).toBe("Confirmed");
+    act(() => result.current.leaveSession());
+    expect(result.current.intentions).toEqual({ current: {}, next: {} });
+    expect(await result.current.setIntention("Outside room")).toMatch(/Reconnect/);
+  });
+
   it("restores private companion progress without celebrating snapshots or duplicate saves", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));

@@ -19,6 +19,7 @@ function createSessionState(world, hostSocketId) {
     focusRoundId: null,
     completedRounds: 0,
     roundRecap: null,
+    intentions: { current: {}, next: {} },
     lastCompletedFocusRoundId: null,
     // A lost RPC response can make the retry return an existing DB row. Keep
     // pet credit idempotent in memory too; this is intentionally server-only.
@@ -77,6 +78,14 @@ function beginFocusRound(
   startedAt = Date.now(),
   recordingKey = randomUUID(),
 ) {
+  const next = session.intentions?.next || {};
+  const current = {};
+  for (const player of Object.values(session.players)) {
+    if (player.userId && next[player.userId]) {
+      current[player.userId] = { text: next[player.userId], displayName: player.displayName, completed: false };
+    }
+  }
+  session.intentions = { current, next: {} };
   session.roundRecap = null;
   session.phase = "focus";
   session.phaseStartTime = startedAt;
@@ -91,6 +100,7 @@ function completeFocusRound(session, now = Date.now()) {
   session.completedRounds += 1;
   session.lastCompletedFocusRoundId = session.focusRoundId;
   session.roundRecap = {
+    intentions: Object.fromEntries(Object.entries(session.intentions?.current || {}).map(([id, value]) => [id, { ...value }])),
     round: session.completedRounds,
     focusSeconds: session.mode === "flow"
       ? Math.max(0, Math.min(Math.round((now - session.phaseStartTime) / 1000), session.focusDuration))
@@ -265,6 +275,7 @@ function buildSyncPayload(session, recipientSocketId) {
     players[id] = publicPlayer(player);
   }
   return {
+    intentions: session.intentions,
     companionFocusSeconds: session.players[recipientSocketId]?.focusSeconds ?? null,
     completedRounds: session.completedRounds,
     roundRecap: session.roundRecap,

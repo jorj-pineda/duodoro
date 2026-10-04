@@ -104,6 +104,10 @@ body {
    worse, not better.
 ───────────────────────────────────────────────────────────────────────────── */
 
+.session-overlay {
+  padding-bottom: calc(19dvh + 5rem);
+}
+
 /* Leave the ground and standing art visible while tall controls scroll above
    them. Compact scenes use 2px art pixels: the avatar is 48px tall, plus space
    for its name. Match scene.ts's compact viewport thresholds. */

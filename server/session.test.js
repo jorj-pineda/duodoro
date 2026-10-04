@@ -517,7 +517,7 @@ describe("round recap snapshots", () => {
     const s = createSessionState("forest", "host");
     beginFocusRound(s, 1000, "private-one");
     completeFocusRound(s, 1504000);
-    expect(s.roundRecap).toEqual({ round: 1, focusSeconds: 1500, mode: "pomodoro", saveState: "saving" });
+    expect(s.roundRecap).toEqual({ intentions: {}, round: 1, focusSeconds: 1500, mode: "pomodoro", saveState: "saving" });
     expect(completeFocusRound(s)).toBe(false);
     s.mode = "flow";
     beginFocusRound(s, 1000, "private-two");

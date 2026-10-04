@@ -171,6 +171,16 @@ Use account A in one browser profile and account B in another.
       do not notify. Disabling persists after reload. Closed/suspended tabs are
       not promised notification delivery; verify physical devices separately.
 
+- [ ] Before focus, each participant saves an optional intention and sees the
+      other's text. Starting without an intention works; an open draft blocks that client's
+      Start button. A racing partner start preserves the unsaved draft.
+- [ ] During focus, intention labels do not move the standing art or overlap
+      each other. In the recap, each person can mark/undo only their own intention
+      and explicitly carry its text into the next round; completion resets.
+- [ ] Refresh/reconnect preserves room intentions and recap completion. Stale
+      actions cannot change a newer round or overwrite a different next draft.
+      Intentions are room state, separate from persisted tasks and focus history.
+
 ## 5. Durable collaboration data
 
 - [ ] A completed focus appears once—not zero or twice—in both participants'

@@ -12,7 +12,7 @@ const saveLabels: Record<Recap["saveState"], string> = {
   unconfirmed: "Save unconfirmed — check History before counting this round.",
 };
 
-export default function RoundRecap({ recap, userId, growth }: { recap: Recap; userId: string; growth?: ReactNode }) {
+export default function RoundRecap({ recap, userId, growth, intentions }: { recap: Recap; userId: string; growth?: ReactNode; intentions?: ReactNode }) {
   const { goal } = useDailyFocusGoal(userId);
   const { seconds, error, retry } = useRecapProgress(userId, recap.round, recap.saveState);
   return (
@@ -32,6 +32,7 @@ export default function RoundRecap({ recap, userId, growth }: { recap: Recap; us
           </div>
         </>
       )}
+      {intentions}
       {growth}
     </section>
   );
