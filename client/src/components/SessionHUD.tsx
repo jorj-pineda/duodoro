@@ -74,6 +74,8 @@ function PhaseProgressBar({
 }
 
 interface SessionHUDProps {
+  startBlocked?: boolean;
+  intentionPrompt?: ReactNode;
   recap?: ReactNode;
   companionGrowth?: ReactNode;
   phase: GamePhase;
@@ -117,6 +119,8 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 };
 
 export default function SessionHUD({
+  startBlocked = false,
+  intentionPrompt,
   recap,
   companionGrowth,
   phase,
@@ -250,6 +254,8 @@ export default function SessionHUD({
           </div>
         )}
 
+        {intentionPrompt}
+
         {idle && (
           <PetPicker
             selected={myPet}
@@ -294,13 +300,14 @@ export default function SessionHUD({
           {canStart && phase === "waiting" && (
             <Button
               variant={timerMode === "flow" ? "calm" : "accent"}
+              disabled={startBlocked}
               onClick={onStart}
             >
               Start{playerCount < 2 ? " solo" : " session"}
             </Button>
           )}
           {canStart && phase === "ready" && (
-            <Button variant="accent" onClick={onGoAgain}>
+            <Button variant="accent" onClick={onGoAgain} disabled={startBlocked}>
               Go again
             </Button>
           )}

@@ -1,4 +1,6 @@
 export type {
+  SessionIntentions,
+  IntentionResponse,
   FocusSaveState,
   RoundRecap,
   InviteData,

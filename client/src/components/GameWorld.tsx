@@ -1,10 +1,11 @@
 "use client";
 import { useRef, type ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useTransform, type MotionValue } from "framer-motion";
 import PixelCharacter from "./PixelCharacter";
 import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
 import type { PetType } from "@/lib/types";
+import { PET_STAGE_SIZE } from "@/lib/petMaps";
 import type { PetStage } from "@/lib/petLevel";
 import {
   useCharacterPosition,
@@ -55,6 +56,8 @@ interface Props {
   partnerPet?: PetType | null;
   myPetStage?: PetStage | null;
   partnerPetStage?: PetStage | null;
+  myIntention?: string;
+  partnerIntention?: string;
   myName?: string;
   partnerName?: string;
   /** Partner's socket dropped; server is holding their spot */
@@ -73,6 +76,23 @@ const CELEBRATION_SPRITES = [
   { map: HEART, palette: HEART_PALETTE, depth: "near" },
   { map: SPARKLE, palette: SPARKLE_PALETTE, depth: "far" },
 ] as const;
+
+function IntentionLabel({ text, name, offset, sceneWidth, bodyWidth, partner = false }: {
+  text: string; name: string; offset: MotionValue<number>; sceneWidth: number; bodyWidth: number; partner?: boolean;
+}) {
+  const width = Math.min(120, Math.max(0, (sceneWidth - 32) / 2));
+  // Follow the standing wrapper while keeping captions inside the viewport
+  // and on separate halves when the pair approach one another.
+  const left = useTransform(offset, (x) => {
+    const wrapperLeft = partner ? sceneWidth - bodyWidth + x : x;
+    const preferred = wrapperLeft + (bodyWidth - width) / 2;
+    const min = partner ? sceneWidth / 2 + 8 : 8;
+    const max = partner ? sceneWidth - 8 - width : sceneWidth / 2 - 8 - width;
+    return Math.round(Math.max(min, Math.min(max, preferred)) - wrapperLeft);
+  });
+  return <motion.div aria-label={`${name} focus intention: ${text}`} title={text} style={{ left, width }}
+    className="absolute top-[calc(100%+1.5rem)] truncate rounded bg-black/75 px-1 py-0.5 text-center text-[10px] font-mono text-white">{text}</motion.div>;
+}
 
 function CelebrationOverlay() {
   const artPx = useArtPx();
@@ -198,6 +218,8 @@ export default function GameWorld({
   partnerPet,
   myPetStage,
   partnerPetStage,
+  myIntention,
+  partnerIntention,
   myName,
   partnerName,
   partnerDisconnected,
@@ -351,6 +373,8 @@ export default function GameWorld({
         <div className="absolute top-full inset-x-0 mt-1 text-[10px] text-center font-bold text-white bg-black/50 rounded px-1 font-mono truncate max-w-[80px]">
           {myName ?? "YOU"}
         </div>
+        {myIntention && <IntentionLabel text={myIntention} name="Your" offset={myX} sceneWidth={sceneWidth}
+          bodyWidth={CHAR_W * artPx + (myPet ? PET_STAGE_SIZE[myPetStage ?? "grown"].w * artPx + 4 : 0)} />}
       </motion.div>
 
       {/* Partner (right side, walks left) */}
@@ -392,6 +416,8 @@ export default function GameWorld({
               (partnerName ?? "THEM")
             )}
           </div>
+          {partnerIntention && <IntentionLabel text={partnerIntention} name={partnerName ?? "Partner"} offset={partnerX} sceneWidth={sceneWidth} partner
+            bodyWidth={CHAR_W * artPx + (partnerPet ? PET_STAGE_SIZE[partnerPetStage ?? "grown"].w * artPx + 4 : 0)} />}
         </motion.div>
       )}
 

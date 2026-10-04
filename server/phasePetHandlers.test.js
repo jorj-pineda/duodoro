@@ -56,6 +56,16 @@ function waitingSession() {
 }
 
 describe('phase handlers', () => {
+  it('restores interrupted intentions for another attempt without completing them', () => {
+    const session = waitingSession();
+    session.phase = 'focus';
+    session.intentions = { current: { alice: { text: 'Write chapter', displayName: 'Alice', completed: false } }, next: {} };
+    const { handlers, queueSessionRecording } = setup(session);
+    handlers.get('stop_session')({ sessionId: 'room' });
+    expect(queueSessionRecording).toHaveBeenCalled();
+    expect(session.intentions).toEqual({ current: {}, next: { alice: 'Write chapter' } });
+    expect(session.roundRecap).toBeNull();
+  });
   it('starts a bounded pomodoro and schedules its authoritative transition', () => {
     const session = waitingSession();
     session.phaseTimer = 'old-timer';

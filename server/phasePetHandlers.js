@@ -49,6 +49,7 @@ function registerPhasePetHandlers({
     if (session.phaseTimer) cancel(session.phaseTimer);
 
     io.to(sessionId).emit('phase_change', {
+      intentions: session.intentions,
       completedRounds: session.completedRounds,
       roundRecap: session.roundRecap,
       mode: session.mode,
@@ -110,11 +111,20 @@ function registerPhasePetHandlers({
       session.phaseTimer = null;
     }
 
+    // Interrupted focus can be resumed with the same intention; completed
+    // rounds carry only by the owner's explicit recap action.
+    if (session.phase === 'focus') {
+      for (const [id, value] of Object.entries(session.intentions?.current || {})) {
+        if (!session.intentions.next[id]) session.intentions.next[id] = value.text;
+      }
+    }
+    session.intentions = { current: {}, next: session.intentions?.next || {} };
     session.roundRecap = null;
     session.phase = 'waiting';
     session.phaseStartTime = null;
     session.focusRoundId = null;
     io.to(sessionId).emit('phase_change', {
+      intentions: session.intentions,
       completedRounds: session.completedRounds,
       roundRecap: session.roundRecap,
       mode: session.mode,

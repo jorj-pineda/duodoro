@@ -1,4 +1,6 @@
 const CLIENT_EVENT_NAMES = Object.freeze([
+  'set_intention',
+  'resolve_intention',
   'register_user',
   'request_companion_progress',
   'get_online_friends',
@@ -17,6 +19,7 @@ const CLIENT_EVENT_NAMES = Object.freeze([
 ]);
 
 const SERVER_EVENT_NAMES = Object.freeze([
+  'intentions_changed',
   'session_created',
   'companion_progress',
   'session_error',

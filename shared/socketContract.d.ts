@@ -1,7 +1,19 @@
 export type TimerMode = 'pomodoro' | 'flow';
 export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning' | 'ready';
 export type FocusSaveState = 'clear' | 'pending' | 'unknown' | 'unconfirmed';
+export interface SessionIntention {
+  text: string;
+  displayName: string;
+  completed: boolean;
+}
+export interface SessionIntentions {
+  current: Record<string, SessionIntention>;
+  next: Record<string, string>;
+}
+export interface IntentionResponse { ok: boolean; message?: string; }
+
 export interface RoundRecap {
+  intentions?: Record<string, SessionIntention>;
   round: number;
   focusSeconds: number;
   mode: TimerMode;
@@ -31,6 +43,7 @@ export interface PlayerData {
 }
 
 export interface SyncPayload {
+  intentions?: SessionIntentions;
   /** Private saved-focus total for this recipient, never their partner. */
   companionFocusSeconds?: number | null;
   completedRounds?: number;
@@ -47,6 +60,7 @@ export interface SyncPayload {
 }
 
 export interface PhaseChangePayload {
+  intentions?: SessionIntentions;
   completedRounds?: number;
   roundRecap?: RoundRecap | null;
   mode: TimerMode;
@@ -76,6 +90,8 @@ export interface AccountDeletionResponse {
 }
 
 export interface ClientToServerEvents {
+  set_intention: (payload: { sessionId: string; text: string }, respond: (response: IntentionResponse) => void) => void;
+  resolve_intention: (payload: { sessionId: string; round: number; action: "done" | "undo" | "carry" }, respond: (response: IntentionResponse) => void) => void;
   request_companion_progress: () => void;
   register_user: (payload: Record<string, never>) => void;
   get_online_friends: (
@@ -122,6 +138,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  intentions_changed: (payload: { sessionId: string; intentions: SessionIntentions; recap: RoundRecap | null }) => void;
   companion_progress: (payload: { sessionId: string; focusSeconds: number | null; grewTo: PetStage | null }) => void;
   session_created: (payload: { sessionId: string }) => void;
   session_error: (payload: { message: string }) => void;

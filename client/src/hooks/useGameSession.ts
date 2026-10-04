@@ -6,6 +6,8 @@ import type { Profile, PetType } from "@/lib/types";
 import { useCompanionPreference } from "./useCompanionPreference";
 import type { PetStage } from "@/lib/petLevel";
 import type {
+  SessionIntentions,
+  IntentionResponse,
   FocusSaveState,
   RoundRecap,
   PlayerData,
@@ -77,6 +79,7 @@ export function useGameSession(profile: Profile | null) {
   const { pet: myPet, setPet: setMyPetState } = useCompanionPreference(profile?.id);
   const [myPetStage, setMyPetStage] = useState<PetStage | null>(null);
   const [companionFocusSeconds, setCompanionFocusSeconds] = useState<number | null>(null);
+  const [intentions, setIntentions] = useState<SessionIntentions>({ current: {}, next: {} });
   const [companionGrewTo, setCompanionGrewTo] = useState<PetStage | null>(null);
   // Ref mirrors so the socket handlers — registered once with [] deps — read
   // current values instead of whatever was captured at mount. Without this, an
@@ -287,6 +290,12 @@ export function useGameSession(profile: Profile | null) {
       setRoundRecap((current) => current?.round === recap.round ? recap : current);
     });
 
+    socket.on("intentions_changed", ({ sessionId, intentions, recap }) => {
+      if (sessionId !== sessionIdRef.current) return;
+      setIntentions(intentions);
+      setRoundRecap((current) => current?.round === recap?.round ? recap : current);
+    });
+
     socket.on("companion_progress", ({ sessionId, focusSeconds, grewTo }) => {
       if (sessionId !== sessionIdRef.current) return;
       setCompanionFocusSeconds(typeof focusSeconds === "number" && Number.isFinite(focusSeconds) && focusSeconds >= 0 ? focusSeconds : null);
@@ -311,6 +320,7 @@ export function useGameSession(profile: Profile | null) {
       if (data.mode) setServerMode(data.mode);
       observedPhaseRef.current = data.phase;
       setCompletedRounds(data.completedRounds ?? 0);
+      setIntentions(data.intentions ?? { current: {}, next: {} });
       setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
@@ -357,6 +367,7 @@ export function useGameSession(profile: Profile | null) {
       if (data.phase === "focus") setCompanionGrewTo(null);
       if (data.mode) setServerMode(data.mode);
       setCompletedRounds(data.completedRounds ?? 0);
+      setIntentions(data.intentions ?? { current: {}, next: {} });
       setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
@@ -539,6 +550,7 @@ export function useGameSession(profile: Profile | null) {
         observedPhaseRef.current = "waiting";
         setCompletedRounds(0);
         setRoundRecap(null);
+        setIntentions({ current: {}, next: {} });
         setCompanionFocusSeconds(null);
         setCompanionGrewTo(null);
         setPhase("waiting");
@@ -641,6 +653,7 @@ export function useGameSession(profile: Profile | null) {
     observedPhaseRef.current = "waiting";
     setCompletedRounds(0);
     setRoundRecap(null);
+    setIntentions({ current: {}, next: {} });
     setCompanionFocusSeconds(null);
     setCompanionGrewTo(null);
     setPhase("waiting");
@@ -724,9 +737,26 @@ export function useGameSession(profile: Profile | null) {
 
   const dismissInvite = useCallback(() => setPendingInvite(null), []);
 
+  const intentionRequest = (send: (socket: DuodoroSocket, respond: (response: IntentionResponse) => void) => void): Promise<string | null> => {
+    const socket = socketRef.current;
+    const room = sessionIdRef.current;
+    if (!socket?.connected || !room) return Promise.resolve("Reconnect before saving your intention.");
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve("Couldn't confirm the change. Retry or return to this tab to refresh."), 5000);
+      send(socket, (response) => {
+        clearTimeout(timer);
+        if (sessionIdRef.current !== room) return resolve("You have left that room.");
+        resolve(response?.ok ? null : response?.message ?? "Couldn't save your intention. Try again.");
+      });
+    });
+  };
+
   return {
     // World & pet. myWorld is read-only to callers: the world is the server's,
     // and a setter here is a way to put the client back in charge of it.
+    intentions,
+    setIntention: (text: string) => intentionRequest((socket, respond) => socket.emit("set_intention", { sessionId: sessionIdRef.current, text }, respond)),
+    resolveIntention: (round: number, action: "done" | "undo" | "carry") => intentionRequest((socket, respond) => socket.emit("resolve_intention", { sessionId: sessionIdRef.current, round, action }, respond)),
     myWorld,
     myPet,
     myPetStage,

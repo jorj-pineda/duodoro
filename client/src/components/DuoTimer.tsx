@@ -1,4 +1,5 @@
 "use client";
+import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ export default function DuoTimer() {
   const joinShareInvite = game.joinShareInvite;
 
   // ── UI panel state ──────────────────────────────────────────────────────
+  const [intentionEditing, setIntentionEditing] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -551,6 +553,8 @@ export default function DuoTimer() {
           myPetStage={game.myPetStage}
           partnerPetStage={game.partnerPetStage}
           partnerDisconnected={game.partnerDisconnected}
+          myIntention={profile?.id ? game.intentions.current[profile.id]?.text : undefined}
+          partnerIntention={game.partnerUserId ? game.intentions.current[game.partnerUserId]?.text : undefined}
           myName={profile?.display_name ?? profile?.username}
           partnerName={game.partnerName}
         />
@@ -602,8 +606,12 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
+          startBlocked={intentionEditing}
+          intentionPrompt={profile && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
+            names={Object.fromEntries([[profile.id, displayName], ...(game.partnerUserId ? [[game.partnerUserId, game.partnerName ?? "Partner"]] : [])])}
+            onSave={game.setIntention} onEditingChange={setIntentionEditing} />}
           companionGrowth={companionGrowth}
-          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} /> : null}
+          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} intentions={<IntentionRecap recap={game.roundRecap} userId={profile.id} next={game.intentions.next[profile.id] ?? ""} onResolve={game.resolveIntention} />} /> : null}
           phase={game.phase}
           serverMode={game.serverMode}
           sessionStarted={game.sessionStarted}

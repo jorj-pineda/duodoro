@@ -32,6 +32,7 @@ const { createReadinessChecker } = require('./readiness');
 const { fetchFriendIds } = require('./friendLookup');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
+const { registerIntentionHandlers } = require('./intentionHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
 const { nextPhaseFor } = require('./phaseSequence');
 const { registerRoomMembershipHandlers } = require('./roomMembershipHandlers');
@@ -176,6 +177,7 @@ const rateLimits = {
   joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
   sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
   shareInvite:   createRateLimiter(10, 60_000),
+  intention: createRateLimiter(30, 60_000),
   companionProgress: createRateLimiter(10, 60_000),   // 10 per minute
 };
 
@@ -460,6 +462,7 @@ function advancePhase(sessionId) {
     completedRounds: session.completedRounds,
     roundRecap: session.roundRecap,
     mode: session.mode,
+    intentions: session.intentions,
     phase: nextPhase,
     phaseStartTime: session.phaseStartTime,
     focusDuration: session.focusDuration,
@@ -676,6 +679,8 @@ io.on('connection', (socket) => {
     metrics,
     logger,
   });
+  registerIntentionHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.intention(socket.id) });
+
   registerPhasePetHandlers({
     socket,
     io,
