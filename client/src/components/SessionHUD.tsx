@@ -4,6 +4,7 @@ import type { PetType } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import PetPicker from "./PetPicker";
 import Button from "./Button";
+import TimerProgress from "./TimerProgress";
 
 function DurationSlider({
   label,
@@ -42,34 +43,6 @@ function DurationSlider({
         {unit}
       </span>
     </label>
-  );
-}
-
-/** Real progress through the current focus/break phase. */
-function PhaseProgressBar({
-  progress,
-  phase,
-}: {
-  progress: number;
-  phase: "focus" | "break";
-}) {
-  return (
-    <div
-      role="progressbar"
-      aria-label={`${phase === "break" ? "Break" : "Focus"} progress`}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(progress * 100)}
-      className="w-full max-w-[240px] h-1.5 rounded-sm bg-raise border border-line overflow-hidden"
-    >
-      <div
-        className={`h-full ${phase === "break" ? "bg-calm" : "bg-accent"}`}
-        style={{
-          width: `${Math.round(progress * 100)}%`,
-          transition: "width 1s linear",
-        }}
-      />
-    </div>
   );
 }
 
@@ -168,11 +141,6 @@ export default function SessionHUD({
           {completedRounds} {completedRounds === 1 ? "round" : "rounds"} completed in this room
         </p>
 
-        {(phase === "break" ||
-          (phase === "focus" && serverMode === "pomodoro")) && (
-          <PhaseProgressBar progress={phaseProgress} phase={phase} />
-        )}
-
         {showTimer && (
           <div
             role="timer"
@@ -194,6 +162,10 @@ export default function SessionHUD({
                 : formatTime(timeLeft)}
             </span>
           </div>
+        )}
+
+        {(phase === "break" || (phase === "focus" && serverMode === "pomodoro")) && (
+          <TimerProgress key={phase} progress={phaseProgress} phase={phase} />
         )}
 
         {phase !== "focus" && phase !== "waiting" && recap}

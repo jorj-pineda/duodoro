@@ -42,6 +42,13 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Visible focus/break timer progress: a larger track directly below the
+      countdown, phase label and percentage, with 100% reserved for the endpoint.
+      It uses the existing server-derived phase progress, restores on resync,
+      respects reduced motion, and keeps open-ended Flow focus on elapsed time
+      (`TimerProgress.tsx`, `SessionHUD.tsx`, `client/e2e-auth/timer-progress.spec.ts`;
+      2026-10-04).
+
 - [x] Session intentions: optional room-shared text before focus, live labels
       below each avatar, and owner-only Done/Undo/Carry actions in the round
       recap. Each round freezes its own text; explicit carry prepares the next
