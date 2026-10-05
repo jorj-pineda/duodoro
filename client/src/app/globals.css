@@ -105,15 +105,15 @@ body {
 ───────────────────────────────────────────────────────────────────────────── */
 
 .session-overlay {
-  padding-bottom: calc(19dvh + 5rem);
+  padding-bottom: calc(19dvh + 8rem);
 }
 
 /* Leave the ground and standing art visible while tall controls scroll above
    them. Compact scenes use 2px art pixels: the avatar is 48px tall, plus space
-   for its name. Match scene.ts's compact viewport thresholds. */
+   for its name and reaction. Match scene.ts's compact viewport thresholds. */
 @media (max-width: 639px), (max-height: 520px) {
   .session-overlay {
-    padding-bottom: calc(19dvh + 4rem);
+    padding-bottom: calc(19dvh + 6rem);
   }
 }
 
@@ -309,3 +309,29 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+
+/* Reactions follow the avatar wrapper. Each pose moves by whole scene pixels;
+   no scaling, rotation, or interpolated fractional translation. */
+.pixel-reaction { animation: reaction-rise 2.8s steps(1, end) both; }
+.pixel-reaction-wave { animation-name: reaction-wave; }
+.pixel-reaction-cheer { animation-name: reaction-cheer; }
+@keyframes reaction-rise {
+  0%, 20% { transform: translateY(0); opacity: 1; }
+  40% { transform: translateY(calc(-2 * var(--reaction-px))); }
+  60% { transform: translateY(calc(-4 * var(--reaction-px))); }
+  80% { transform: translateY(calc(-6 * var(--reaction-px))); opacity: 1; }
+  100% { transform: translateY(calc(-6 * var(--reaction-px))); opacity: 0; }
+}
+@keyframes reaction-wave {
+  0%, 40%, 80% { transform: translateX(0); opacity: 1; }
+  20%, 60% { transform: translateX(calc(2 * var(--reaction-px))); }
+  100% { transform: translateX(0); opacity: 0; }
+}
+@keyframes reaction-cheer {
+  0%, 40%, 80% { transform: translateY(0); opacity: 1; }
+  20%, 60% { transform: translateY(calc(-2 * var(--reaction-px))); opacity: 0.6; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-reaction { animation: none; transform: none; opacity: 1; }
+}

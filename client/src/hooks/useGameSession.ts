@@ -6,6 +6,8 @@ import type { Profile, PetType } from "@/lib/types";
 import { useCompanionPreference } from "./useCompanionPreference";
 import type { PetStage } from "@/lib/petLevel";
 import type {
+  ReactionType,
+  RoomReaction,
   SessionIntentions,
   IntentionResponse,
   FocusSaveState,
@@ -79,6 +81,8 @@ export function useGameSession(profile: Profile | null) {
   const { pet: myPet, setPet: setMyPetState } = useCompanionPreference(profile?.id);
   const [myPetStage, setMyPetStage] = useState<PetStage | null>(null);
   const [companionFocusSeconds, setCompanionFocusSeconds] = useState<number | null>(null);
+  const [reactions, setReactions] = useState<(RoomReaction & { expiresAt: number })[]>([]);
+  const seenReactions = useRef(new Set<string>());
   const [intentions, setIntentions] = useState<SessionIntentions>({ current: {}, next: {} });
   const [companionGrewTo, setCompanionGrewTo] = useState<PetStage | null>(null);
   // Ref mirrors so the socket handlers — registered once with [] deps — read
@@ -290,6 +294,14 @@ export function useGameSession(profile: Profile | null) {
       setRoundRecap((current) => current?.round === recap.round ? recap : current);
     });
 
+    socket.on("room_reaction", (reaction) => {
+      if (!reaction || typeof reaction.id !== "string" || typeof reaction.playerId !== "string" || reaction.sessionId !== sessionIdRef.current || document.visibilityState !== "visible" ||
+          !["heart", "cheer", "wave"].includes(reaction.reaction) || seenReactions.current.has(reaction.id)) return;
+      seenReactions.current.add(reaction.id);
+      if (seenReactions.current.size > 64) seenReactions.current.delete(seenReactions.current.values().next().value!);
+      setReactions((current) => [...current.filter((r) => r.playerId !== reaction.playerId && r.expiresAt > Date.now()).slice(-1), { ...reaction, expiresAt: Date.now() + 2800 }]);
+    });
+
     socket.on("intentions_changed", ({ sessionId, intentions, recap }) => {
       if (sessionId !== sessionIdRef.current) return;
       setIntentions(intentions);
@@ -303,6 +315,7 @@ export function useGameSession(profile: Profile | null) {
     });
 
     socket.on("sync_state", (data: SyncPayload) => {
+      setReactions([]);
       setCompanionFocusSeconds(data.companionFocusSeconds ?? null);
       setCompanionGrewTo(null);
       setNow(Date.now());
@@ -539,6 +552,19 @@ export function useGameSession(profile: Profile | null) {
 
   const playerCount = Object.keys(players).length;
 
+  useEffect(() => {
+    if (!reactions.length) return;
+    const timer = setTimeout(() => setReactions((current) => current.filter((r) => r.expiresAt > Date.now())),
+      Math.max(0, Math.min(...reactions.map((r) => r.expiresAt)) - Date.now()));
+    return () => clearTimeout(timer);
+  }, [reactions]);
+  useEffect(() => {
+    const clear = () => setReactions([]);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", clear);
+    return () => { window.removeEventListener("blur", clear); document.removeEventListener("visibilitychange", clear); };
+  }, []);
+
   // ── Session actions ─────────────────────────────────────────────────────
   const createSession = useCallback(
     (avatar: AvatarConfig) => {
@@ -551,6 +577,7 @@ export function useGameSession(profile: Profile | null) {
         setCompletedRounds(0);
         setRoundRecap(null);
         setIntentions({ current: {}, next: {} });
+        setReactions([]);
         setCompanionFocusSeconds(null);
         setCompanionGrewTo(null);
         setPhase("waiting");
@@ -654,6 +681,7 @@ export function useGameSession(profile: Profile | null) {
     setCompletedRounds(0);
     setRoundRecap(null);
     setIntentions({ current: {}, next: {} });
+    setReactions([]);
     setCompanionFocusSeconds(null);
     setCompanionGrewTo(null);
     setPhase("waiting");
@@ -754,6 +782,17 @@ export function useGameSession(profile: Profile | null) {
   return {
     // World & pet. myWorld is read-only to callers: the world is the server's,
     // and a setter here is a way to put the client back in charge of it.
+    reactions,
+    sendReaction: (reaction: ReactionType) => new Promise<string | null>((resolve) => {
+      const socket = socketRef.current;
+      const room = sessionIdRef.current;
+      if (!socket?.connected || !room) return resolve("Reconnect before sending a reaction.");
+      const timer = setTimeout(() => resolve("Couldn't confirm your reaction. Try again."), 5000);
+      socket.emit("send_reaction", { sessionId: room, reaction }, (response) => {
+        clearTimeout(timer);
+        resolve(sessionIdRef.current !== room ? "You have left that room." : response?.ok ? null : response?.message ?? "Couldn't send your reaction.");
+      });
+    }),
     intentions,
     setIntention: (text: string) => intentionRequest((socket, respond) => socket.emit("set_intention", { sessionId: sessionIdRef.current, text }, respond)),
     resolveIntention: (round: number, action: "done" | "undo" | "carry") => intentionRequest((socket, respond) => socket.emit("resolve_intention", { sessionId: sessionIdRef.current, round, action }, respond)),

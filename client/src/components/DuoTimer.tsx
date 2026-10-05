@@ -1,4 +1,5 @@
 "use client";
+import { ReactionControls } from "./PixelReactions";
 import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
@@ -553,6 +554,8 @@ export default function DuoTimer() {
           myPetStage={game.myPetStage}
           partnerPetStage={game.partnerPetStage}
           partnerDisconnected={game.partnerDisconnected}
+          myReaction={game.reactions.find((r) => r.playerId === game.myId)}
+          partnerReaction={game.reactions.find((r) => r.playerId === game.partner?.id)}
           myIntention={profile?.id ? game.intentions.current[profile.id]?.text : undefined}
           partnerIntention={game.partnerUserId ? game.intentions.current[game.partnerUserId]?.text : undefined}
           myName={profile?.display_name ?? profile?.username}
@@ -606,6 +609,7 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
+          reactions={<ReactionControls key={game.sessionId} connected={game.connectionState === "connected" && Boolean(game.sessionId)} onSend={game.sendReaction} />}
           startBlocked={intentionEditing}
           intentionPrompt={profile && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
             names={Object.fromEntries([[profile.id, displayName], ...(game.partnerUserId ? [[game.partnerUserId, game.partnerName ?? "Partner"]] : [])])}

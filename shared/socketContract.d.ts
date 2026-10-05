@@ -1,3 +1,7 @@
+export type ReactionType = 'heart' | 'cheer' | 'wave';
+export interface RoomReaction { id: string; sessionId: string; playerId: string; reaction: ReactionType; }
+export interface ReactionResponse { ok: boolean; message?: string; }
+
 export type TimerMode = 'pomodoro' | 'flow';
 export type GamePhase = 'waiting' | 'focus' | 'celebration' | 'break' | 'returning' | 'ready';
 export type FocusSaveState = 'clear' | 'pending' | 'unknown' | 'unconfirmed';
@@ -90,6 +94,7 @@ export interface AccountDeletionResponse {
 }
 
 export interface ClientToServerEvents {
+  send_reaction: (payload: { sessionId: string; reaction: ReactionType }, respond: (response: ReactionResponse) => void) => void;
   set_intention: (payload: { sessionId: string; text: string }, respond: (response: IntentionResponse) => void) => void;
   resolve_intention: (payload: { sessionId: string; round: number; action: "done" | "undo" | "carry" }, respond: (response: IntentionResponse) => void) => void;
   request_companion_progress: () => void;
@@ -138,6 +143,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  room_reaction: (payload: RoomReaction) => void;
   intentions_changed: (payload: { sessionId: string; intentions: SessionIntentions; recap: RoundRecap | null }) => void;
   companion_progress: (payload: { sessionId: string; focusSeconds: number | null; grewTo: PetStage | null }) => void;
   session_created: (payload: { sessionId: string }) => void;

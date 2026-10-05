@@ -141,7 +141,13 @@ function parseResolveIntention(payload) {
   return valid({ sessionId: payload.sessionId, round: payload.round, action: payload.action });
 }
 
+function parseReaction(payload) {
+  if (typeof payload.sessionId !== 'string' || !['heart', 'cheer', 'wave'].includes(payload.reaction)) return invalid('reaction');
+  return valid({ sessionId: payload.sessionId, reaction: payload.reaction });
+}
+
 module.exports = {
+  parseReaction,
   parseSetIntention,
   parseResolveIntention,
   MAX_FOCUS,
