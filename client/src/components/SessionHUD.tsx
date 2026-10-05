@@ -47,6 +47,7 @@ function DurationSlider({
 }
 
 interface SessionHUDProps {
+  reactions?: ReactNode;
   startBlocked?: boolean;
   intentionPrompt?: ReactNode;
   recap?: ReactNode;
@@ -92,6 +93,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 };
 
 export default function SessionHUD({
+  reactions,
   startBlocked = false,
   intentionPrompt,
   recap,
@@ -266,6 +268,8 @@ export default function SessionHUD({
             </>
           )}
         </div>
+
+        {reactions}
 
         {/* Start / stop */}
         <div className="flex flex-col items-center gap-2">

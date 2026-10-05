@@ -1,4 +1,6 @@
 export type {
+  ReactionType,
+  RoomReaction,
   SessionIntentions,
   IntentionResponse,
   FocusSaveState,

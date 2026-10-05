@@ -481,6 +481,7 @@ export const BULB_COLORS = ["#ffd166", "#e76f51", "#52b788"];
 
 // ── UI sprites ──────────────────────────────────────────────────────────────
 
+export const WAVE_PALETTE = { H: "#fff0c2", h: shade("#f2bb86", 0.35) };
 export const HEART_PALETTE = { H: "#e63946", h: "#ff8fa3" };
 export const SPARKLE_PALETTE = { S: "#ffd166", s: "#fff8e1" };
 export const SPARKLE_BLUE_PALETTE = { S: "#7da7e8", s: "#eaf2ff" };

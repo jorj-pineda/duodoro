@@ -128,6 +128,33 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("expires live reactions, ignores duplicates and other rooms, and clears on background or snapshots", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    const snapshot = { sessionId: "room-1", mode: "flow", phase: "waiting", phaseStartTime: null, focusDuration: 7200, breakDuration: 60, players: {} };
+    act(() => fakeSocket.fire("sync_state", snapshot));
+    vi.useFakeTimers();
+    const reaction = { id: "one", sessionId: "room-1", playerId: "sock-1", reaction: "heart" };
+    act(() => fakeSocket.fire("room_reaction", { ...reaction, sessionId: "elsewhere" }));
+    expect(result.current.reactions).toEqual([]);
+    act(() => fakeSocket.fire("room_reaction", reaction));
+    expect(result.current.reactions).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(2800));
+    expect(result.current.reactions).toEqual([]);
+    act(() => fakeSocket.fire("room_reaction", reaction));
+    expect(result.current.reactions).toEqual([]);
+    act(() => fakeSocket.fire("room_reaction", { ...reaction, id: "two" }));
+    act(() => { setVisibility("hidden"); document.dispatchEvent(new Event("visibilitychange")); });
+    expect(result.current.reactions).toEqual([]);
+    act(() => fakeSocket.fire("room_reaction", { ...reaction, id: "three" }));
+    expect(result.current.reactions).toEqual([]);
+    setVisibility("visible");
+    act(() => fakeSocket.fire("room_reaction", { ...reaction, id: "four" }));
+    act(() => fakeSocket.fire("sync_state", snapshot));
+    expect(result.current.reactions).toEqual([]);
+    vi.useRealTimers();
+  });
+
   it("restores intentions, filters other-room events, and waits for confirmed mutation replies", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));

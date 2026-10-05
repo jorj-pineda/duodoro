@@ -1,6 +1,8 @@
 "use client";
 import { useRef, type ReactNode } from "react";
 import { motion, AnimatePresence, useTransform, type MotionValue } from "framer-motion";
+import { PixelReaction } from "./PixelReactions";
+import type { RoomReaction } from "@/lib/sessionTypes";
 import PixelCharacter from "./PixelCharacter";
 import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
@@ -56,6 +58,8 @@ interface Props {
   partnerPet?: PetType | null;
   myPetStage?: PetStage | null;
   partnerPetStage?: PetStage | null;
+  myReaction?: RoomReaction;
+  partnerReaction?: RoomReaction;
   myIntention?: string;
   partnerIntention?: string;
   myName?: string;
@@ -218,6 +222,8 @@ export default function GameWorld({
   partnerPet,
   myPetStage,
   partnerPetStage,
+  myReaction,
+  partnerReaction,
   myIntention,
   partnerIntention,
   myName,
@@ -349,6 +355,7 @@ export default function GameWorld({
         className="absolute z-20"
         style={{ bottom: GROUND, left: 0, x: myX }}
       >
+        {myReaction && <PixelReaction key={myReaction.id} reaction={myReaction.reaction} side="right" name={myName ?? "You"} />}
         <div className="flex items-end gap-1">
           {myPet && (
             <Standing shadow={petShadow(myPetStage)}>
@@ -384,6 +391,7 @@ export default function GameWorld({
           className="absolute z-20"
           style={{ bottom: GROUND, right: 0, x: partnerX }}
         >
+          {partnerReaction && <PixelReaction key={partnerReaction.id} reaction={partnerReaction.reaction} name={partnerName ?? "Partner"} />}
           <div
             className={`flex items-end gap-1 transition-opacity duration-500 ${
               partnerDisconnected ? "opacity-40" : ""

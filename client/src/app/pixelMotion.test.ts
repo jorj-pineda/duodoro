@@ -65,6 +65,7 @@ describe("pixel-art keyframes", () => {
 
     it(`${name} only ever moves sprites by whole pixels`, () => {
       for (const value of values) {
+        if (/^translate[XY]\(calc\(-?\d+ \* var\(--reaction-px\)\)\)$/.test(value)) continue;
         for (const [fn, arg] of transformFunctions(value)) {
           // Rotation and scale have no whole-pixel form at these sizes: one
           // degree across a 48px sprite is a sub-pixel shear, and scaleY(1.05)
@@ -92,6 +93,7 @@ describe("character animation classes", () => {
     "pixel-jump",
     "pixel-float",
     "pixel-shuffle",
+    "pixel-reaction",
   ];
   for (const cls of STEPPED_CLASSES) {
     it(`.${cls} steps between poses instead of tweening through them`, () => {

@@ -42,6 +42,14 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Pixel reactions: room-shared hearts, cheers and waves beside the avatars,
+      with server-checked membership and a three-second send cooldown. Sprites
+      follow character movement on the shared art grid, use stepped whole-pixel
+      motion, and stay static with reduced motion. Reactions expire, clear on
+      background/reconnect/leave, and never enter snapshots or focus history
+      (`PixelReactions.tsx`, `server/reactionHandlers.js`,
+      `client/e2e-auth/pixel-reactions.spec.ts`; 2026-10-04).
+
 - [x] Visible focus/break timer progress: a larger track directly below the
       countdown, phase label and percentage, with 100% reserved for the endpoint.
       It uses the existing server-derived phase progress, restores on resync,
