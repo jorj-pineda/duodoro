@@ -1,0 +1,21 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, expect, it } from 'vitest';
+import BreakActivities from './BreakActivities';
+beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
+it('lets users browse optional ideas, hide one break, show again and opt out', () => {
+  const { unmount } = render(<BreakActivities userId="ui" breakId="room:1" />);
+  expect(screen.queryByRole('heading', { name: 'Water' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Show break ideas' }));
+  expect(screen.getByRole('heading', { name: 'Water' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Another idea' }));
+  expect(screen.getByRole('heading', { name: 'Gentle stretch' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Hide for this break' }));
+  unmount();
+  const next = render(<BreakActivities userId="ui" breakId="room:1" />);
+  expect(screen.getByText('Ideas are hidden for this break.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Show break ideas' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Turn off break ideas' }));
+  next.unmount();
+  render(<BreakActivities userId="ui" breakId="room:2" />);
+  expect(screen.getByRole('button', { name: 'Show break ideas' })).toBeVisible();
+});

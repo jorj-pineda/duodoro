@@ -865,6 +865,7 @@ export function useGameSession(profile: Profile | null) {
     completedRounds,
     roundRecap,
     phase,
+    phaseStartTime,
     sessionStarted,
     myId,
     socketRef,

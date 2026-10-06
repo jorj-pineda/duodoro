@@ -37,6 +37,17 @@ function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<type
   return onGoAgain;
 }
 
+
+it.each(['waiting', 'ready', 'focus', 'celebration', 'returning'] as const)('keeps break ideas out of %s', phase => {
+  renderReady(vi.fn(), { phase, breakActivities: <span>Optional ideas here</span> });
+  expect(screen.queryByText('Optional ideas here')).toBeNull();
+});
+it('shows break ideas alongside the existing server-derived break timer', () => {
+  renderReady(vi.fn(), { phase: 'break', sessionStarted: true, timeLeft: 59, breakActivities: <span>Optional ideas here</span> });
+  expect(screen.getByText('Optional ideas here')).toBeVisible();
+  expect(screen.getByRole('timer')).toHaveTextContent('0:59');
+});
+
 describe("completed Pomodoro cycle", () => {
   it("offers Go again in the same room and starts when clicked", () => {
     const onGoAgain = renderReady();
