@@ -55,6 +55,7 @@ interface SessionHUDProps {
   companionNames?: ReactNode;
   phase: GamePhase;
   serverMode: "pomodoro" | "flow";
+  breakActivities?: ReactNode;
   sessionStarted: boolean;
   playerCount: number;
   completedRounds: number;
@@ -102,6 +103,7 @@ export default function SessionHUD({
   companionNames,
   phase,
   serverMode,
+  breakActivities,
   sessionStarted,
   playerCount,
   completedRounds,
@@ -171,6 +173,8 @@ export default function SessionHUD({
         {(phase === "break" || (phase === "focus" && serverMode === "pomodoro")) && (
           <TimerProgress key={phase} progress={phaseProgress} phase={phase} />
         )}
+
+        {phase === "break" && breakActivities}
 
         {phase !== "focus" && phase !== "waiting" && recap}
 

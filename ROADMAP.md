@@ -99,6 +99,8 @@ for exercising the deployed client → server → database flow.
 
 - [x] Break-finished chime in both timer modes, respecting mute and avoiding snapshot/duplicate replay (2026-09-29).
 
+- [x] Optional gentle break ideas: water, a comfortable stretch, looking away and quiet rest. Opt-in stays per account/browser; hide-for-this-break survives refresh using the server phase timestamp and resets for a new break. No additional timers, sounds, completion requirements or changes to Pomodoro/Flow phases (`BreakActivities.tsx`, `useBreakActivities.ts`; 2026-10-06).
+
 - [x] Daily focus goal on Home, with a browser-saved account target and local-day completed-focus progress (2026-09-29).
 
 - [x] Clear Stop timer / Leave room controls and server-synced completed rounds per room (2026-09-29).

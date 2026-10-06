@@ -4,6 +4,7 @@ import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
 import CompanionNameEditor from "./CompanionNameEditor";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
+import BreakActivities from "./BreakActivities";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -649,6 +650,9 @@ export default function DuoTimer() {
           onShareInvite={handleShareInvite}
           shareInviteBusy={shareInviteBusy}
           onLeave={handleLeaveSession}
+          breakActivities={profile && game.phaseStartTime !== null && <BreakActivities
+            key={`${profile.id}:${game.sessionId}:${game.phaseStartTime}`} userId={profile.id}
+            breakId={`${game.sessionId}:${game.phaseStartTime}`} />}
         />
       </div>
 
