@@ -64,3 +64,12 @@ describe("phase progress in the HUD", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 });
+
+it.each(['ready', 'focus', 'break', 'celebration', 'returning'] as const)('hides setup presets during %s', phase => {
+  renderReady(vi.fn(), { phase, timerPresets: <span>Preset setup controls</span> });
+  expect(screen.queryByText('Preset setup controls')).toBeNull();
+});
+it('shows presets during waiting setup', () => {
+  renderReady(vi.fn(), { phase: 'waiting', timerPresets: <span>Preset setup controls</span> });
+  expect(screen.getByText('Preset setup controls')).toBeVisible();
+});

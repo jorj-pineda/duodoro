@@ -1,0 +1,32 @@
+import { randomUUID } from 'node:crypto';
+import { test, expect } from './duoFixture';
+import { onboard } from './onboard';
+
+test('favorites survive reload and presets start the existing Pomodoro and Flow timers', async ({ duo }) => {
+  const { a, roomCodes } = duo;
+  await a.page.goto('/');
+  await onboard(a.page, 'Preset Alpha', `pa_${randomUUID().slice(0, 8)}`);
+  await a.page.getByRole('button', { name: 'Focus', exact: true }).click();
+  const presets = a.page.getByRole('region', { name: 'Session presets' });
+  await presets.getByRole('button', { name: 'Quick focus · 15/3m' }).click();
+  await presets.getByRole('button', { name: 'Save current settings' }).click();
+  await presets.getByRole('textbox', { name: 'Preset name' }).fill('Morning');
+  await presets.getByRole('button', { name: 'Save favorite' }).click();
+  const room = await a.page.evaluate(() => localStorage.getItem('duodoro:session'));
+  if (!room) throw new Error('Missing presets test room'); roomCodes.add(room);
+  await a.page.reload();
+  await expect(presets.getByRole('button', { name: 'Morning · 15/3m' })).toBeVisible();
+  await presets.getByRole('button', { name: 'Deep focus · 50/10m' }).click();
+  await presets.getByRole('button', { name: 'Morning · 15/3m' }).click();
+  await a.page.setViewportSize({ width: 375, height: 667 });
+  await presets.scrollIntoViewIfNeeded();
+  await a.page.screenshot({ path: test.info().outputPath('presets-phone.png') });
+  await a.page.getByRole('button', { name: 'Start solo', exact: true }).click();
+  await expect(a.page).toHaveTitle(/14:\d\d · Focus · Duodoro|15:00 · Focus · Duodoro/);
+  await expect(presets).toHaveCount(0);
+  await a.page.getByRole('button', { name: 'Stop timer', exact: true }).click();
+  await presets.getByRole('button', { name: 'Flow · open-ended' }).click();
+  await a.page.getByRole('button', { name: 'Start solo', exact: true }).click();
+  await expect(a.page).toHaveTitle(/\d\d:\d\d · Flow · Duodoro/);
+  await expect(a.page.getByRole('button', { name: /Take break/ })).toBeVisible();
+});

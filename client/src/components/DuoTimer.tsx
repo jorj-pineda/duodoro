@@ -20,6 +20,7 @@ import InvitePopup from "./InvitePopup";
 import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
+import SessionPresets from "./SessionPresets";
 import UsernameChangeModal from "./UsernameChangeModal";
 import DisplayNameChangeModal from "./DisplayNameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
@@ -632,6 +633,9 @@ export default function DuoTimer() {
           timeLeft={game.timeLeft}
           flowElapsed={game.flowElapsed}
           phaseProgress={game.phaseProgress}
+          timerPresets={profile && <SessionPresets key={profile.id} userId={profile.id}
+            current={{ mode: game.timerMode, focus: game.focusDuration, break: game.breakDuration }}
+            onApply={prefs => { game.setTimerMode(prefs.mode); game.setFocusDuration(prefs.focus); game.setBreakDuration(prefs.break); }} />}
           timerMode={game.timerMode}
           focusDuration={game.focusDuration}
           breakDuration={game.breakDuration}

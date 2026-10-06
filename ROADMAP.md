@@ -68,6 +68,8 @@ for exercising the deployed client → server → database flow.
       (`TimerProgress.tsx`, `SessionHUD.tsx`, `client/e2e-auth/timer-progress.spec.ts`;
       2026-10-04).
 
+- [x] Session presets: Classic, Deep focus, Quick focus and Flow plus up to five named favorites per account in this browser, with validated storage and a memory fallback. Apply during setup through existing timer preferences; active timers and server-configured Go again retain their behavior (`SessionPresets.tsx`, `useSessionPresets.ts`; 2026-10-06).
+
 - [x] Session intentions: optional room-shared text before focus, live labels
       below each avatar, and owner-only Done/Undo/Carry actions in the round
       recap. Each round freezes its own text; explicit carry prepares the next

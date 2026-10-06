@@ -1,0 +1,20 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import SessionPresets from './SessionPresets';
+beforeEach(() => localStorage.clear());
+it('applies built-in settings only on selection, and saves/uses/removes named favorites', () => {
+  const apply = vi.fn();
+  render(<SessionPresets userId="ui" current={{ mode: 'pomodoro', focus: 40, break: 8 }} onApply={apply} />);
+  expect(apply).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Quick focus · 15/3m' }));
+  expect(apply).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'pomodoro', focus: 15, break: 3 }));
+  fireEvent.click(screen.getByRole('button', { name: 'Flow · open-ended' }));
+  expect(apply).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'flow' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save current settings' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Preset name' }), { target: { value: 'Reading' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save favorite' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reading · 40/8m' }));
+  expect(apply).toHaveBeenLastCalledWith({ name: 'Reading', mode: 'pomodoro', focus: 40, break: 8 });
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Reading preset' }));
+  expect(screen.queryByRole('button', { name: 'Reading · 40/8m' })).toBeNull();
+});

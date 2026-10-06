@@ -47,6 +47,7 @@ function DurationSlider({
 }
 
 interface SessionHUDProps {
+  timerPresets?: ReactNode;
   reactions?: ReactNode;
   startBlocked?: boolean;
   intentionPrompt?: ReactNode;
@@ -94,6 +95,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 };
 
 export default function SessionHUD({
+  timerPresets,
   reactions,
   startBlocked = false,
   intentionPrompt,
@@ -229,6 +231,8 @@ export default function SessionHUD({
             )}
           </div>
         )}
+
+        {!sessionStarted && phase === "waiting" && timerPresets}
 
         {intentionPrompt}
 
