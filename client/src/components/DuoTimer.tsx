@@ -550,6 +550,10 @@ export default function DuoTimer() {
           returningProgress={game.returningProgress}
           me={{ id: game.myId, avatar: myAvatar }}
           partner={game.partner}
+          myCompanionReaction={game.reactions.find(r => r.playerId === game.myId && r.target === "companion" && r.pet === game.myPet)}
+          partnerCompanionReaction={game.reactions.find(r => r.playerId === game.partner?.id && r.target === "companion" && r.pet === game.partnerPet)}
+          onPetCompanion={() => game.sendReaction("heart", "companion")}
+          canPetCompanion={game.connectionState === "connected"}
           myPetName={game.myPetName}
           partnerPetName={game.partnerPetName}
           myPet={game.myPet}
@@ -557,8 +561,8 @@ export default function DuoTimer() {
           myPetStage={game.myPetStage}
           partnerPetStage={game.partnerPetStage}
           partnerDisconnected={game.partnerDisconnected}
-          myReaction={game.reactions.find((r) => r.playerId === game.myId)}
-          partnerReaction={game.reactions.find((r) => r.playerId === game.partner?.id)}
+          myReaction={game.reactions.find((r) => r.playerId === game.myId && !r.target)}
+          partnerReaction={game.reactions.find((r) => r.playerId === game.partner?.id && !r.target)}
           myIntention={profile?.id ? game.intentions.current[profile.id]?.text : undefined}
           partnerIntention={game.partnerUserId ? game.intentions.current[game.partnerUserId]?.text : undefined}
           myName={profile?.display_name ?? profile?.username}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useTransform, type MotionValue } from "framer-
 import { PixelReaction } from "./PixelReactions";
 import type { RoomReaction } from "@/lib/sessionTypes";
 import PixelCharacter from "./PixelCharacter";
+import CompanionInteraction from "./CompanionInteraction";
 import PetCharacter from "./PetCharacter";
 import { getWorld, type WorldId, type AvatarConfig } from "@/lib/avatarData";
 import type { PetType } from "@/lib/types";
@@ -56,6 +57,10 @@ interface Props {
   partner: PlayerInfo | null;
   myPet?: PetType | null;
   partnerPet?: PetType | null;
+  myCompanionReaction?: RoomReaction;
+  partnerCompanionReaction?: RoomReaction;
+  onPetCompanion?: () => Promise<string | null>;
+  canPetCompanion?: boolean;
   myPetName?: string | null;
   partnerPetName?: string | null;
   myPetStage?: PetStage | null;
@@ -224,6 +229,10 @@ export default function GameWorld({
   partner,
   myPet,
   partnerPet,
+  myCompanionReaction,
+  partnerCompanionReaction,
+  onPetCompanion,
+  canPetCompanion,
   myPetName,
   partnerPetName,
   myPetStage,
@@ -364,14 +373,16 @@ export default function GameWorld({
         {myReaction && <PixelReaction key={myReaction.id} reaction={myReaction.reaction} side="right" name={myName ?? "You"} />}
         <div className="flex items-end gap-1">
           {myPet && (
-            <Standing shadow={petShadow(myPetStage)} label={`${myPetName ?? "Your companion"}, your ${myPet} companion`}>
+            <Standing shadow={petShadow(myPetStage)}>
+              <CompanionInteraction key={myPet} name={myPetName ?? "Your companion"} label={`${myPetName ?? "Your companion"}, your ${myPet} companion`} reaction={myCompanionReaction} onPet={onPetCompanion} connected={canPetCompanion}>
               <PetCharacter
                 type={myPet}
                 stage={myPetStage}
-                anim={myAnim}
+                anim={myCompanionReaction ? "jump" : myAnim}
                 facing="right"
                 size={artPx}
               />
+              </CompanionInteraction>
             </Standing>
           )}
           <Standing shadow={CHARACTER_SHADOW}>
@@ -412,14 +423,16 @@ export default function GameWorld({
               />
             </Standing>
             {partnerPet && (
-              <Standing shadow={petShadow(partnerPetStage)} label={`${partnerPetName ?? "Companion"}, ${partnerName ?? "Partner"}’s ${partnerPet} companion`}>
+              <Standing shadow={petShadow(partnerPetStage)}>
+                <CompanionInteraction name={partnerPetName ?? "Companion"} label={`${partnerPetName ?? "Companion"}, ${partnerName ?? "Partner"}’s ${partnerPet} companion`} reaction={partnerCompanionReaction}>
                 <PetCharacter
                   type={partnerPet}
                   stage={partnerPetStage}
-                  anim={partnerDisconnected ? "idle" : partnerAnim}
+                  anim={partnerDisconnected ? "idle" : partnerCompanionReaction ? "jump" : partnerAnim}
                   facing="left"
                   size={artPx}
                 />
+                </CompanionInteraction>
               </Standing>
             )}
           </div>

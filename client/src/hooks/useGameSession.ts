@@ -809,12 +809,12 @@ export function useGameSession(profile: Profile | null) {
     // World & pet. myWorld is read-only to callers: the world is the server's,
     // and a setter here is a way to put the client back in charge of it.
     reactions,
-    sendReaction: (reaction: ReactionType) => new Promise<string | null>((resolve) => {
+    sendReaction: (reaction: ReactionType, target?: "companion") => new Promise<string | null>((resolve) => {
       const socket = socketRef.current;
       const room = sessionIdRef.current;
       if (!socket?.connected || !room) return resolve("Reconnect before sending a reaction.");
       const timer = setTimeout(() => resolve("Couldn't confirm your reaction. Try again."), 5000);
-      socket.emit("send_reaction", { sessionId: room, reaction }, (response) => {
+      socket.emit("send_reaction", { sessionId: room, reaction, ...(target ? { target } : {}) }, (response) => {
         clearTimeout(timer);
         resolve(sessionIdRef.current !== room ? "You have left that room." : response?.ok ? null : response?.message ?? "Couldn't send your reaction.");
       });

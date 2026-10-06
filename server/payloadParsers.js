@@ -151,8 +151,8 @@ function parseResolveIntention(payload) {
 }
 
 function parseReaction(payload) {
-  if (typeof payload.sessionId !== 'string' || !['heart', 'cheer', 'wave'].includes(payload.reaction)) return invalid('reaction');
-  return valid({ sessionId: payload.sessionId, reaction: payload.reaction });
+  if (typeof payload.sessionId !== 'string' || !['heart', 'cheer', 'wave'].includes(payload.reaction) || (payload.target !== undefined && payload.target !== 'companion') || (payload.target === 'companion' && payload.reaction !== 'heart')) return invalid('reaction');
+  return valid({ sessionId: payload.sessionId, reaction: payload.reaction, target: payload.target });
 }
 
 module.exports = {

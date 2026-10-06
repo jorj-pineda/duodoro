@@ -20,7 +20,7 @@ export default function CompanionNameEditor({ pet, name, connected, onSave }: {
     } catch { setError("Couldn't save the name. Try again."); }
     finally { busy.current = false; setSaving(false); }
   }
-  return <section aria-label="Your companion name" className="w-full max-w-xs text-center text-xs">
+  return <section aria-label="Your companion name" className="w-full max-w-xs text-center text-xs text-ink">
     {!editing ? <div className="flex flex-wrap items-center justify-center gap-1">
       <span className="break-words min-w-0">Your companion · <strong>{name}</strong></span>
       <button className="min-h-11 px-2 underline text-muted" disabled={!connected} onClick={() => { setDraft(name); setError(null); setEditing(true); }}>Rename companion</button>
