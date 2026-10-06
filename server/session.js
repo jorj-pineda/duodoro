@@ -1,3 +1,4 @@
+const { companionName } = require('../shared/companionNames');
 const { randomBytes, randomUUID } = require("crypto");
 const { petStageAt } = require("./petLevel");
 
@@ -129,13 +130,14 @@ function isInvited(session, userId) {
   return Boolean(userId) && session.invitedUserIds.has(userId);
 }
 
-function addPlayer(session, socketId, { avatar, displayName, userId, pet, petStage, focusSeconds }) {
+function addPlayer(session, socketId, { avatar, displayName, userId, pet, petName, petStage, focusSeconds }) {
   const safePet = pet || null;
   session.players[socketId] = {
     avatar,
     displayName: displayName || "Player",
     userId: userId || null,
     pet: safePet,
+    petName: companionName(safePet, petName),
     // Stage is the server's. Callers pass what petStageAt() returned for this
     // user's completed-focus total; a missing value is young (0 hours), never
     // full. Cleared when there is no pet so a later pick doesn't inherit a
@@ -196,10 +198,11 @@ function markPlayerDisconnected(session, socketId, disconnected) {
   return true;
 }
 
-function setPlayerPet(session, socketId, pet, petStage) {
+function setPlayerPet(session, socketId, pet, petStage, petName) {
   const player = session.players[socketId];
   if (!player) return false;
   player.pet = pet || null;
+  player.petName = companionName(player.pet, petName);
   player.petStage = player.pet ? petStage || "young" : null;
   return true;
 }

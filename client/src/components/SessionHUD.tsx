@@ -52,6 +52,7 @@ interface SessionHUDProps {
   intentionPrompt?: ReactNode;
   recap?: ReactNode;
   companionGrowth?: ReactNode;
+  companionNames?: ReactNode;
   phase: GamePhase;
   serverMode: "pomodoro" | "flow";
   sessionStarted: boolean;
@@ -98,6 +99,7 @@ export default function SessionHUD({
   intentionPrompt,
   recap,
   companionGrowth,
+  companionNames,
   phase,
   serverMode,
   sessionStarted,
@@ -238,6 +240,8 @@ export default function SessionHUD({
             onPremiumClick={onPremiumClick}
           />
         )}
+
+        {companionNames}
 
         {(phase === "waiting" || phase === "focus" || !recap) && companionGrowth}
 

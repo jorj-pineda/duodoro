@@ -22,6 +22,7 @@ interface ConnectionOptions {
     avatar: AvatarConfig | null;
     displayName: string;
     pet: PetType | null;
+    petName?: string | null;
   } | null;
   registerSocketHandlers: (socket: DuodoroSocket) => void;
 }

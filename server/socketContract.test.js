@@ -14,6 +14,7 @@ const serverSource = readSources('.', [
   'companionGrowth.js',
   'intentionHandlers.js',
   'reactionHandlers.js',
+  'companionNameHandlers.js',
   'accountHandlers.js',
   'socialHandlers.js',
   'roomMembershipHandlers.js',

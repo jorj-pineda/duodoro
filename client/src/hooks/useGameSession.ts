@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import type { GamePhase } from "@/components/GameWorld";
 import type { AvatarConfig, WorldId } from "@/lib/avatarData";
 import type { Profile, PetType } from "@/lib/types";
+import { companionName, normalizeCompanionName } from "@/lib/companionNames";
 import { useCompanionPreference } from "./useCompanionPreference";
 import type { PetStage } from "@/lib/petLevel";
 import type {
@@ -78,7 +79,7 @@ export function useGameSession(profile: Profile | null) {
   // Next renders this component on the server too, where "now" is a different
   // number.
   const [myWorld, setMyWorld] = useState<WorldId>("forest");
-  const { pet: myPet, setPet: setMyPetState } = useCompanionPreference(profile?.id);
+  const { pet: myPet, setPet: setMyPetState, petName: myPetName, setName: savePetName, getName: getPetName } = useCompanionPreference(profile?.id);
   const [myPetStage, setMyPetStage] = useState<PetStage | null>(null);
   const [companionFocusSeconds, setCompanionFocusSeconds] = useState<number | null>(null);
   const [reactions, setReactions] = useState<(RoomReaction & { expiresAt: number })[]>([]);
@@ -89,6 +90,8 @@ export function useGameSession(profile: Profile | null) {
   // current values instead of whatever was captured at mount. Without this, an
   // invite sent before a session exists is relayed by the session_created
   // handler using profile=null, i.e. from "Someone".
+  const myPetNameRef = useRef<string | null>(null);
+  useEffect(() => { myPetNameRef.current = myPetName; }, [myPetName]);
   const myPetRef = useRef<PetType | null>(null);
   useEffect(() => { myPetRef.current = myPet; }, [myPet]);
   const profileRef = useRef<Profile | null>(null);
@@ -233,6 +236,7 @@ export function useGameSession(profile: Profile | null) {
       avatar,
       displayName: lastDisplayNameRef.current,
       pet: myPetRef.current,
+      petName: myPetNameRef.current,
     };
   }, []);
 
@@ -292,6 +296,11 @@ export function useGameSession(profile: Profile | null) {
     socket.on("round_recap", ({ sessionId, recap }) => {
       if (sessionId !== sessionIdRef.current) return;
       setRoundRecap((current) => current?.round === recap.round ? recap : current);
+    });
+
+    socket.on("companion_name_changed", ({ sessionId, playerId, petName }) => {
+      if (sessionId !== sessionIdRef.current || normalizeCompanionName(petName) === null) return;
+      setPlayers(prev => prev[playerId] ? { ...prev, [playerId]: { ...prev[playerId], petName } } : prev);
     });
 
     socket.on("room_reaction", (reaction) => {
@@ -397,6 +406,7 @@ export function useGameSession(profile: Profile | null) {
         avatar,
         displayName,
         pet,
+        petName,
         petStage,
       }) => {
         setPlayers((prev) => ({
@@ -406,6 +416,7 @@ export function useGameSession(profile: Profile | null) {
             avatar,
             displayName,
             pet: pet ?? null,
+            petName: companionName(pet, petName),
             petStage: pet ? (petStage ?? "grown") : null,
           },
         }));
@@ -417,6 +428,7 @@ export function useGameSession(profile: Profile | null) {
       ({
         playerId,
         pet,
+        petName,
         petStage,
       }) => {
         setPlayers((prev) =>
@@ -426,6 +438,7 @@ export function useGameSession(profile: Profile | null) {
                 [playerId]: {
                   ...prev[playerId],
                   pet,
+                  petName: companionName(pet, petName === undefined && prev[playerId].pet === pet ? prev[playerId].petName : petName),
                   petStage: pet ? (petStage ?? "grown") : null,
                 },
               }
@@ -596,6 +609,7 @@ export function useGameSession(profile: Profile | null) {
         avatar,
         displayName,
         pet: myPetRef.current,
+        petName: myPetNameRef.current,
       });
     },
     [profile, sessionId, socketRef],
@@ -616,6 +630,7 @@ export function useGameSession(profile: Profile | null) {
         avatar,
         displayName,
         pet: myPetRef.current,
+        petName: myPetNameRef.current,
       });
     },
     [profile, socketRef],
@@ -635,6 +650,7 @@ export function useGameSession(profile: Profile | null) {
         avatar,
         displayName,
         pet: myPetRef.current,
+        petName: myPetNameRef.current,
       });
     },
     [profile, socketRef],
@@ -731,9 +747,18 @@ export function useGameSession(profile: Profile | null) {
   const setMyPet = useCallback((pet: PetType | null) => {
     setMyPetState(pet);
     myPetRef.current = pet;
+    myPetNameRef.current = getPetName(pet);
     const sid = sessionIdRef.current;
-    if (sid) socketRef.current?.emit("set_pet", { sessionId: sid, pet });
-  }, [socketRef, setMyPetState]);
+    if (sid) socketRef.current?.emit("set_pet", { sessionId: sid, pet, petName: getPetName(pet) });
+  }, [socketRef, setMyPetState, getPetName]);
+
+  // Preferences can change in another tab; relay the current choice without
+  // creating a second source of persisted companion data.
+  useEffect(() => {
+    if (profile?.id && connectionState === "connected" && sessionId) {
+      socketRef.current?.emit("set_pet", { sessionId, pet: myPet, petName: myPetName });
+    }
+  }, [profile?.id, connectionState, sessionId, myPet, myPetName, socketRef]);
 
   const sendInvite = useCallback(
     (targetUserId: string, avatar: AvatarConfig) => {
@@ -757,6 +782,7 @@ export function useGameSession(profile: Profile | null) {
           avatar,
           displayName: profile?.display_name ?? profile?.username ?? "Player",
           pet: myPetRef.current,
+          petName: myPetNameRef.current,
         });
       }
     },
@@ -791,6 +817,29 @@ export function useGameSession(profile: Profile | null) {
       socket.emit("send_reaction", { sessionId: room, reaction }, (response) => {
         clearTimeout(timer);
         resolve(sessionIdRef.current !== room ? "You have left that room." : response?.ok ? null : response?.message ?? "Couldn't send your reaction.");
+      });
+    }),
+    myPetName,
+    partnerPetName: companionName(partnerPet, partnerEntry?.[1].petName),
+    setMyPetName: (name: string) => new Promise<string | null>((resolve) => {
+      const normalized = normalizeCompanionName(name);
+      const owner = profile?.id;
+      const pet = myPetRef.current;
+      const room = sessionIdRef.current;
+      const socket = socketRef.current;
+      if (normalized === null) return resolve("Use a name of 24 characters or fewer.");
+      if (!pet || !room || !socket?.connected) return resolve("Reconnect with a companion before renaming it.");
+      let settled = false;
+      const timer = setTimeout(() => { settled = true; resolve("Couldn't confirm the name. Try again."); }, 5000);
+      socket.emit("set_pet_name", { sessionId: room, name: normalized }, response => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (profileRef.current?.id !== owner || sessionIdRef.current !== room || myPetRef.current !== pet) return resolve("Your companion changed. Try again.");
+        if (!response?.ok) return resolve(response?.message ?? "Couldn't save the name.");
+        savePetName(pet, normalized);
+        myPetNameRef.current = companionName(pet, normalized);
+        resolve(null);
       });
     }),
     intentions,

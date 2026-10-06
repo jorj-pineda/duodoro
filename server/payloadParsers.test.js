@@ -74,6 +74,7 @@ describe('session entry payload parsers', () => {
         avatar: AVATAR,
         displayName: 'x'.repeat(50),
         pet: null,
+        petName: null,
       },
     });
   });
@@ -100,6 +101,7 @@ describe('session entry payload parsers', () => {
         avatar: AVATAR,
         displayName: 'Player',
         pet: null,
+        petName: null,
       },
     });
     expect(parseJoinSession({
@@ -158,8 +160,8 @@ describe('live-session payload parsers', () => {
 
   it('allowlists pets and treats an unknown pet as no pet', () => {
     expect(parseSetPet({ sessionId: 'room', pet: 'cat' }).value)
-      .toEqual({ sessionId: 'room', pet: 'cat' });
+      .toEqual({ sessionId: 'room', pet: 'cat', petName: 'Mochi' });
     expect(parseSetPet({ sessionId: 'room', pet: 'griffin' }).value)
-      .toEqual({ sessionId: 'room', pet: null });
+      .toEqual({ sessionId: 'room', pet: null, petName: null });
   });
 });

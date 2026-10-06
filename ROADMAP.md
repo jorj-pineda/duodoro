@@ -42,6 +42,15 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Editable companion names: Mochi, Buddy, Ember and Clover defaults; each
+      account keeps separate names for each companion in this browser. The room
+      HUD shows both people's names, owner-only edits sync live in every phase,
+      blank/reset restores the default, and reconnect snapshots retain names.
+      Names are validated to 24 Unicode characters, rendered as text, and do not
+      change sprite geometry or growth (`CompanionNameEditor.tsx`,
+      `useCompanionPreference.ts`, `server/companionNameHandlers.js`,
+      `client/e2e-auth/companion-names.spec.ts`; 2026-10-05).
+
 - [x] Pixel reactions: room-shared hearts, cheers and waves beside the avatars,
       with server-checked membership and a three-second send cooldown. Sprites
       follow character movement on the shared art grid, use stepped whole-pixel

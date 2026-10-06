@@ -49,7 +49,7 @@ test("companions grow visibly from saved focus and restore private progress afte
   await expect.poll(async () => page.title()).not.toContain("0:00");
   await page.getByRole("button", { name: "Take break", exact: true }).click();
   await expect(page.getByRole("region", { name: "Round recap", exact: true })).toBeVisible();
-  await expect(growth.getByRole("status")).toContainText("Your companion grew to Level 2!");
+  await expect(growth.getByRole("status")).toContainText("Mochi grew to Level 2!");
   await expect(growth.getByText("Level 2 · Grown", { exact: true })).toBeVisible();
   await expect(sprite(11, 8)).toHaveAttribute("height", "24");
   await expect.poll(async () => page.title()).toContain(" · Break · ");

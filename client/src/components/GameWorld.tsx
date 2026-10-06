@@ -56,6 +56,8 @@ interface Props {
   partner: PlayerInfo | null;
   myPet?: PetType | null;
   partnerPet?: PetType | null;
+  myPetName?: string | null;
+  partnerPetName?: string | null;
   myPetStage?: PetStage | null;
   partnerPetStage?: PetStage | null;
   myReaction?: RoomReaction;
@@ -156,12 +158,14 @@ const BREAK_PROP: Record<
 function Standing({
   shadow,
   children,
+  label,
 }: {
   shadow: number;
   children: ReactNode;
+  label?: string;
 }) {
   return (
-    <span className="relative inline-block">
+    <span className="relative inline-block" role={label ? "img" : undefined} aria-label={label}>
       {children}
       <ContactShadow width={shadow} />
     </span>
@@ -220,6 +224,8 @@ export default function GameWorld({
   partner,
   myPet,
   partnerPet,
+  myPetName,
+  partnerPetName,
   myPetStage,
   partnerPetStage,
   myReaction,
@@ -358,7 +364,7 @@ export default function GameWorld({
         {myReaction && <PixelReaction key={myReaction.id} reaction={myReaction.reaction} side="right" name={myName ?? "You"} />}
         <div className="flex items-end gap-1">
           {myPet && (
-            <Standing shadow={petShadow(myPetStage)}>
+            <Standing shadow={petShadow(myPetStage)} label={`${myPetName ?? "Your companion"}, your ${myPet} companion`}>
               <PetCharacter
                 type={myPet}
                 stage={myPetStage}
@@ -406,7 +412,7 @@ export default function GameWorld({
               />
             </Standing>
             {partnerPet && (
-              <Standing shadow={petShadow(partnerPetStage)}>
+              <Standing shadow={petShadow(partnerPetStage)} label={`${partnerPetName ?? "Companion"}, ${partnerName ?? "Partner"}’s ${partnerPet} companion`}>
                 <PetCharacter
                   type={partnerPet}
                   stage={partnerPetStage}

@@ -1,7 +1,8 @@
 import { GROWN_AT_SECONDS, FULL_AT_SECONDS, petStageAt, type PetStage } from "@/lib/petLevel";
 import { formatDuration } from "@/lib/format";
 
-export default function CompanionGrowth({ seconds, grewTo, onRetry, onDismiss }: {
+export default function CompanionGrowth({ seconds, grewTo, onRetry, onDismiss, name }: {
+  name?: string;
   seconds: number | null;
   grewTo: PetStage | null;
   onRetry: () => void;
@@ -16,7 +17,7 @@ export default function CompanionGrowth({ seconds, grewTo, onRetry, onDismiss }:
   return (
     <section aria-label="Companion growth" className="w-full max-w-xs text-center space-y-1">
       {grewTo && <div role="status" className="text-xs font-bold text-go bg-go/10 border border-go/30 px-2 py-1">
-        Your companion grew to {grewTo === "full" ? "Level 3 — fully grown!" : "Level 2!"}
+        {name ?? "Your companion"} grew to {grewTo === "full" ? "Level 3 — fully grown!" : "Level 2!"}
         <button aria-label="Dismiss growth milestone" onClick={onDismiss} className="px-2 py-2 text-muted">×</button>
       </div>}
       {!known ? <p className="text-xs text-muted">Growth progress unavailable. <button onClick={onRetry} className="underline px-2 py-2">Retry growth</button></p> : (

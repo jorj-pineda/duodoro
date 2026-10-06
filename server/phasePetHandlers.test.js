@@ -254,6 +254,7 @@ describe('pet handler', () => {
       payload: {
         playerId: 'player-socket',
         pet: 'cat',
+        petName: 'Mochi',
         petStage: 'full',
       },
     });
