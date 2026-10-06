@@ -398,6 +398,17 @@ export type Database = {
           timezone: string
         }[]
       }
+      get_weekly_duo_recap: {
+        Args: { tz?: string }
+        Returns: {
+          completed_rounds: number
+          focus_seconds: number
+          partner_id: string
+          partner_name: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       is_session_participant: {
         Args: { p_session_id: string }
         Returns: boolean

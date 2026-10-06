@@ -12,6 +12,7 @@ import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
 import FocusNotificationSetting from "./FocusNotificationSetting";
+import WeeklyDuoRecap from "./WeeklyDuoRecap";
 import WorldNowCard from "./WorldNowCard";
 import Button from "./Button";
 import AccountSettingsModal from "./AccountSettingsModal";
@@ -385,6 +386,8 @@ export default function HomeDashboard({
 
           <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
             friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
+
+          <WeeklyDuoRecap key={`weekly:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
 
           <TaskSection
             tasks={tasks}
