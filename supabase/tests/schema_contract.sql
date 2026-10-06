@@ -251,5 +251,12 @@ select ok(
   'public.update_shared_daily_goal(uuid,integer)',
   'public.get_shared_daily_goals()'
 ]) signature;
+select ok(
+  has_function_privilege('authenticated', 'public.get_weekly_duo_recap(text)', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.get_weekly_duo_recap(text)', 'EXECUTE')
+  and (select prosecdef from pg_proc where oid = 'public.get_weekly_duo_recap(text)'::regprocedure)
+  and (select proconfig from pg_proc where oid = 'public.get_weekly_duo_recap(text)'::regprocedure) = array['search_path=""']::text[],
+  'weekly recap is authenticated-only with a pinned definer search path'
+);
 select * from finish();
 rollback;

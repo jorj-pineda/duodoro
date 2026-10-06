@@ -349,6 +349,26 @@ describe("completed focus recording (migration 022)", () => {
     expect(Number(row.total_focus_time)).toBe(1200);
     expect(Number(row.sessions_completed)).toBe(1);
   });
+  liveIt("scopes weekly duo recaps to caller-shared completed rounds and validates timezones", async () => {
+    const a = await makeUser("weekly-a"), b = await makeUser("weekly-b"), outsider = await makeUser("weekly-outsider");
+    await recordTracked(roundPayload([a.id, b.id], { p_actual_focus: 1200, p_focus_duration: 1200 }));
+    await recordTracked(roundPayload([b.id], { p_actual_focus: 2400, p_focus_duration: 2400 }));
+    await recordTracked(roundPayload([a.id, b.id], { p_actual_focus: 100, p_completed: false }));
+    const old = await recordTracked(roundPayload([a.id, b.id], { p_actual_focus: 600, p_focus_duration: 600 }));
+    // The weekly boundary is based on the saved completion time.
+    expect((await admin.from("sessions").update({ ended_at: "2020-01-01T00:00:00Z" }).eq("id", old.sessionId)).error).toBeNull();
+    const client = await asUser(a);
+    const result = await client.rpc("get_weekly_duo_recap", { tz: "UTC" });
+    expect(result.error).toBeNull(); expect(result.data).toHaveLength(1);
+    expect(result.data[0].partner_id).toBe(b.id);
+    expect(Number(result.data[0].focus_seconds)).toBe(1200); expect(Number(result.data[0].completed_rounds)).toBe(1);
+    const other = await asUser(outsider);
+    expect((await other.rpc("get_weekly_duo_recap", { tz: "UTC" })).data).toEqual([]);
+    expect((await client.rpc("get_weekly_duo_recap", { tz: "made-up-zone" })).error).not.toBeNull();
+    const anon = createClient(URL, ANON_KEY, { auth: { persistSession: false } });
+    expect((await anon.rpc("get_weekly_duo_recap", { tz: "UTC" })).error).not.toBeNull();
+  });
+
 });
 
 
