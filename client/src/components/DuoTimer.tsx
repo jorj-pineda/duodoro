@@ -1,6 +1,7 @@
 "use client";
 import { ReactionControls } from "./PixelReactions";
 import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
+import CompanionNameEditor from "./CompanionNameEditor";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
 import { useEffect, useRef, useState } from "react";
@@ -531,7 +532,7 @@ export default function DuoTimer() {
     );
   }
 
-  const companionGrowth = game.myPet ? <CompanionGrowth seconds={game.companionFocusSeconds} grewTo={game.companionGrewTo}
+  const companionGrowth = game.myPet ? <CompanionGrowth name={game.myPetName ?? undefined} seconds={game.companionFocusSeconds} grewTo={game.companionGrewTo}
     onRetry={game.retryCompanionProgress} onDismiss={game.dismissCompanionGrowth} /> : null;
 
   // ── Game Screen ─────────────────────────────────────────────────────────
@@ -549,6 +550,8 @@ export default function DuoTimer() {
           returningProgress={game.returningProgress}
           me={{ id: game.myId, avatar: myAvatar }}
           partner={game.partner}
+          myPetName={game.myPetName}
+          partnerPetName={game.partnerPetName}
           myPet={game.myPet}
           partnerPet={game.partnerPet}
           myPetStage={game.myPetStage}
@@ -609,6 +612,11 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
+          companionNames={<>
+            {game.myPet && game.myPetName && <CompanionNameEditor key={`${profile?.id}:${game.myPet}`} pet={game.myPet} name={game.myPetName}
+              connected={game.connectionState === "connected"} onSave={game.setMyPetName} />}
+            {game.partnerPetName && <p className="text-xs text-muted max-w-xs break-words">{game.partnerName ?? "Partner"}&apos;s companion · <strong>{game.partnerPetName}</strong></p>}
+          </>}
           reactions={<ReactionControls key={game.sessionId} connected={game.connectionState === "connected" && Boolean(game.sessionId)} onSend={game.sendReaction} />}
           startBlocked={intentionEditing}
           intentionPrompt={profile && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}

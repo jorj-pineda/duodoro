@@ -65,7 +65,7 @@ function registerRoomMembershipHandlers({
       socket.emit('session_error', { message: 'Invalid avatar' });
       return;
     }
-    const { avatar, displayName, pet } = parsed.value;
+    const { avatar, displayName, pet, petName } = parsed.value;
     const safeWorld = currentWorld();
 
     const prevSession = socketToSession[socket.id];
@@ -85,6 +85,7 @@ function registerRoomMembershipHandlers({
       displayName,
       userId,
       pet,
+      petName,
       petStage: pet ? stageForTotal(focusSeconds) : null,
       focusSeconds,
     });
@@ -175,6 +176,7 @@ function registerRoomMembershipHandlers({
       avatar,
       displayName,
       pet,
+      petName,
     } = parsed.value;
 
     let session;
@@ -265,6 +267,7 @@ function registerRoomMembershipHandlers({
         displayName,
         userId,
         pet,
+        petName,
         petStage,
         focusSeconds: focusSeconds ?? previousPlayer?.focusSeconds ?? null,
       });
@@ -282,6 +285,7 @@ function registerRoomMembershipHandlers({
         avatar,
         displayName,
         pet,
+        petName,
         petStage,
       });
       socket.emit('sync_state', buildSyncPayload(session, socket.id));

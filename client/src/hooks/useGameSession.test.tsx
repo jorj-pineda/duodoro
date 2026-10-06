@@ -128,6 +128,38 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("confirms names before persisting, filters other-room changes, and preserves names during growth", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("sync_state", { sessionId: "names-room", mode: "flow", phase: "waiting", phaseStartTime: null, focusDuration: 7200, breakDuration: 60,
+      players: { "sock-1": { userId: profile.id, avatar: {}, pet: "cat", petName: "Mochi" }, partner: { userId: "other", avatar: {}, pet: "dog", petName: "Buddy" } } }));
+    act(() => result.current.setMyPet("cat"));
+    let request!: Promise<string | null>;
+    act(() => { request = result.current.setMyPetName("Luna"); });
+    const emission = fakeSocket.emitted.findLast(event => event.ev === "set_pet_name")!;
+    expect(result.current.myPetName).toBe("Mochi");
+    act(() => emission.callback!({ ok: false, message: "Try again" })); expect(await request).toBe("Try again");
+    expect(result.current.myPetName).toBe("Mochi");
+    act(() => { request = result.current.setMyPetName("Luna"); });
+    act(() => fakeSocket.emitted.findLast(event => event.ev === "set_pet_name")!.callback!({ ok: true, name: "Luna" }));
+    expect(await request).toBeNull(); expect(result.current.myPetName).toBe("Luna");
+    act(() => fakeSocket.fire("companion_name_changed", { sessionId: "elsewhere", playerId: "partner", petName: "Sunny" }));
+    expect(result.current.partnerPetName).toBe("Buddy");
+    act(() => fakeSocket.fire("companion_name_changed", { sessionId: "names-room", playerId: "partner", petName: "Sunny" }));
+    act(() => fakeSocket.fire("pet_changed", { playerId: "partner", pet: "dog", petStage: "full" }));
+    expect(result.current.partnerPetName).toBe("Sunny");
+    vi.useFakeTimers();
+    act(() => { request = result.current.setMyPetName("Late name"); });
+    const late = fakeSocket.emitted.findLast(event => event.ev === "set_pet_name")!;
+    act(() => vi.advanceTimersByTime(5000));
+    expect(await request).toMatch(/confirm/);
+    act(() => late.callback!({ ok: true, name: "Late name" }));
+    expect(result.current.myPetName).toBe("Luna");
+    vi.useRealTimers();
+    act(() => result.current.leaveSession());
+  });
+
   it("expires live reactions, ignores duplicates and other rooms, and clears on background or snapshots", async () => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));

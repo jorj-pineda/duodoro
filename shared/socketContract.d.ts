@@ -43,6 +43,7 @@ export interface PlayerData {
   userId?: string | null;
   pet?: PetType | null;
   petStage?: PetStage | null;
+  petName?: string | null;
   disconnected?: boolean;
 }
 
@@ -94,6 +95,7 @@ export interface AccountDeletionResponse {
 }
 
 export interface ClientToServerEvents {
+  set_pet_name: (payload: { sessionId: string; name: string }, respond: (response: { ok: boolean; name?: string; message?: string }) => void) => void;
   send_reaction: (payload: { sessionId: string; reaction: ReactionType }, respond: (response: ReactionResponse) => void) => void;
   set_intention: (payload: { sessionId: string; text: string }, respond: (response: IntentionResponse) => void) => void;
   resolve_intention: (payload: { sessionId: string; round: number; action: "done" | "undo" | "carry" }, respond: (response: IntentionResponse) => void) => void;
@@ -116,6 +118,7 @@ export interface ClientToServerEvents {
     avatar: AvatarConfig;
     displayName: string;
     pet?: PetType | null;
+    petName?: string | null;
   }) => void;
   create_share_invite: (
     payload: { sessionId: string },
@@ -127,6 +130,7 @@ export interface ClientToServerEvents {
     avatar: AvatarConfig;
     displayName: string;
     pet?: PetType | null;
+    petName?: string | null;
   }) => void;
   start_session: (payload: {
     sessionId: string;
@@ -136,13 +140,14 @@ export interface ClientToServerEvents {
   }) => void;
   finish_flow_focus: (payload: { sessionId: string }) => void;
   stop_session: (payload: { sessionId: string }) => void;
-  set_pet: (payload: { sessionId: string; pet: PetType | null }) => void;
+  set_pet: (payload: { sessionId: string; pet: PetType | null; petName?: string | null }) => void;
   leave_session: (payload: { sessionId: string }) => void;
   request_sync: () => void;
   request_focus_save_status: () => void;
 }
 
 export interface ServerToClientEvents {
+  companion_name_changed: (payload: { sessionId: string; playerId: string; petName: string }) => void;
   room_reaction: (payload: RoomReaction) => void;
   intentions_changed: (payload: { sessionId: string; intentions: SessionIntentions; recap: RoundRecap | null }) => void;
   companion_progress: (payload: { sessionId: string; focusSeconds: number | null; grewTo: PetStage | null }) => void;
@@ -158,12 +163,14 @@ export interface ServerToClientEvents {
     avatar: AvatarConfig;
     displayName?: string;
     pet?: PetType | null;
+    petName?: string | null;
     petStage?: PetStage | null;
   }) => void;
   pet_changed: (payload: {
     playerId: string;
     pet: PetType | null;
     petStage?: PetStage | null;
+    petName?: string | null;
   }) => void;
   player_disconnected: (payload: { playerId: string }) => void;
   player_left: (payload: { playerId: string }) => void;

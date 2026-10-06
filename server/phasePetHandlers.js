@@ -138,16 +138,17 @@ function registerPhasePetHandlers({
   onPayload(socket, 'set_pet', (payload) => {
     const parsed = parseSetPet(payload);
     if (!parsed.ok) return;
-    const { sessionId, pet } = parsed.value;
+    const { sessionId, pet, petName } = parsed.value;
     const session = getSession(sessionId);
     const player = session?.players[socket.id];
     if (!player) return;
 
     const petStage = pet ? (player.focusSeconds === null ? player.petStage ?? "grown" : stageForPet(player.focusSeconds || 0)) : null;
-    updatePet(session, socket.id, pet, petStage);
+    updatePet(session, socket.id, pet, petStage, petName);
     io.to(sessionId).emit('pet_changed', {
       playerId: socket.id,
       pet,
+      petName,
       petStage,
     });
   });

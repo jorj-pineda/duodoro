@@ -1,3 +1,4 @@
+const { companionName, normalizeCompanionName } = require('../shared/companionNames');
 // Pure parsers for every client-originated Socket.IO payload. The transport
 // boundary already rejects non-object containers; these functions validate and
 // normalize fields without reading live session state or performing I/O.
@@ -72,6 +73,7 @@ function parseCreateSession(payload) {
     avatar,
     displayName: parseDisplayName(payload.displayName, 'Player'),
     pet: parsePet(payload.pet),
+    petName: companionName(parsePet(payload.pet), payload.petName),
   });
 }
 
@@ -101,6 +103,7 @@ function parseJoinSession(payload) {
     avatar,
     displayName: parseDisplayName(payload.displayName, 'Player'),
     pet: parsePet(payload.pet),
+    petName: companionName(parsePet(payload.pet), payload.petName),
   });
 }
 
@@ -126,9 +129,15 @@ function parseSessionReference(payload) {
     : invalid('session_id');
 }
 
+function parseSetPetName(payload) {
+  const name = normalizeCompanionName(payload.name);
+  if (typeof payload.sessionId !== 'string' || name === null) return invalid('companion_name');
+  return valid({ sessionId: payload.sessionId, name });
+}
+
 function parseSetPet(payload) {
   if (typeof payload.sessionId !== 'string') return invalid('session_id');
-  return valid({ sessionId: payload.sessionId, pet: parsePet(payload.pet) });
+  return valid({ sessionId: payload.sessionId, pet: parsePet(payload.pet), petName: companionName(parsePet(payload.pet), payload.petName) });
 }
 
 function parseSetIntention(payload) {
@@ -161,4 +170,5 @@ module.exports = {
   parseStartSession,
   parseSessionReference,
   parseSetPet,
+  parseSetPetName,
 };

@@ -32,6 +32,7 @@ const { createReadinessChecker } = require('./readiness');
 const { fetchFriendIds } = require('./friendLookup');
 const { registerAccountHandlers } = require('./accountHandlers');
 const { registerSocialHandlers } = require('./socialHandlers');
+const { registerCompanionNameHandlers } = require('./companionNameHandlers');
 const { registerReactionHandlers } = require('./reactionHandlers');
 const { registerIntentionHandlers } = require('./intentionHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
@@ -178,6 +179,7 @@ const rateLimits = {
   joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
   sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
   shareInvite:   createRateLimiter(10, 60_000),
+  companionName: createRateLimiter(20, 60_000),
   reaction: createRateLimiter(1, 3000),
   intention: createRateLimiter(30, 60_000),
   companionProgress: createRateLimiter(10, 60_000),   // 10 per minute
@@ -681,6 +683,7 @@ io.on('connection', (socket) => {
     metrics,
     logger,
   });
+  registerCompanionNameHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.companionName(socket.id) });
   registerReactionHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.reaction(socket.id) });
   registerIntentionHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.intention(socket.id) });
 
