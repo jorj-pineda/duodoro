@@ -47,6 +47,8 @@ function DurationSlider({
 }
 
 interface SessionHUDProps {
+  quietFocus?: boolean;
+  quietFocusSetting?: ReactNode;
   timerPresets?: ReactNode;
   reactions?: ReactNode;
   startBlocked?: boolean;
@@ -96,6 +98,8 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 };
 
 export default function SessionHUD({
+  quietFocus = false,
+  quietFocusSetting,
   timerPresets,
   reactions,
   startBlocked = false,
@@ -130,6 +134,7 @@ export default function SessionHUD({
   shareInviteBusy,
   onLeave,
 }: SessionHUDProps) {
+  const quiet = quietFocus && phase === "focus";
   const showTimer = phase === "focus" || phase === "break";
   const idle = phase === "waiting" || phase === "ready";
   const canStart = playerCount >= 1 && !sessionStarted && idle;
@@ -145,9 +150,9 @@ export default function SessionHUD({
           {phaseLabel[phase](playerCount)}
         </div>
 
-        <p className="text-xs text-muted">
+        {!quiet && <p className="text-xs text-muted">
           {completedRounds} {completedRounds === 1 ? "round" : "rounds"} completed in this room
-        </p>
+        </p>}
 
         {showTimer && (
           <div
@@ -249,12 +254,12 @@ export default function SessionHUD({
           />
         )}
 
-        {companionNames}
+        {!quiet && companionNames}
 
-        {(phase === "waiting" || phase === "focus" || !recap) && companionGrowth}
+        {!quiet && (phase === "waiting" || phase === "focus" || !recap) && companionGrowth}
 
         {/* Player indicators */}
-        <div className="flex items-center gap-2">
+        {!quiet && <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 ${playerCount >= 1 ? "bg-go" : "bg-faint"}`}
           />
@@ -279,9 +284,11 @@ export default function SessionHUD({
               </span>
             </>
           )}
-        </div>
+        </div>}
 
-        {reactions}
+        {!quiet && reactions}
+
+        {(idle || phase === "focus") && quietFocusSetting}
 
         {/* Start / stop */}
         <div className="flex flex-col items-center gap-2">
