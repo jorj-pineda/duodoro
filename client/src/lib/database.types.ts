@@ -355,6 +355,17 @@ export type Database = {
           total_co_focus_time: number
         }[]
       }
+      get_focus_calendar: {
+        Args: { month_start: string; tz?: string }
+        Returns: {
+          day: string
+          duo_rounds: number
+          duo_seconds: number
+          sessions: Json
+          solo_rounds: number
+          solo_seconds: number
+        }[]
+      }
       get_focus_stats: {
         Args: { tz?: string }
         Returns: {

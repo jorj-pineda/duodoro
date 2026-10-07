@@ -369,6 +369,34 @@ describe("completed focus recording (migration 022)", () => {
     expect((await anon.rpc("get_weekly_duo_recap", { tz: "UTC" })).error).not.toBeNull();
   });
 
+  liveIt("calendar uses local completion dates and never reads another person's solo history", async () => {
+    const a = await makeUser("calendar-a"), b = await makeUser("calendar-b"), outsider = await makeUser("calendar-outsider");
+    async function saved(ids, seconds, end, completed = true) {
+      const result = await recordTracked(roundPayload(ids, { p_actual_focus: seconds, p_focus_duration: Math.max(60, seconds), p_completed: completed }));
+      expect((await admin.from("sessions").update({ ended_at: end, started_at: new Date(new Date(end).getTime() - seconds * 1000).toISOString() }).eq("id", result.sessionId)).error).toBeNull();
+    }
+    await saved([a.id], 600, "2026-03-01T04:30:00Z"); // Feb 28 in New York.
+    await saved([a.id, b.id], 1500, "2026-03-08T08:01:00Z"); // After DST jump.
+    await saved([a.id], 300, "2026-03-08T06:59:00Z"); // Before DST jump.
+    await saved([b.id], 2400, "2026-03-08T08:01:00Z");
+    await saved([a.id, b.id], 100, "2026-03-08T08:01:00Z", false);
+    const client = await asUser(a);
+    const march = await client.rpc("get_focus_calendar", { month_start: "2026-03-01", tz: "America/New_York" });
+    expect(march.error).toBeNull(); expect(march.data).toHaveLength(1);
+    expect(march.data[0]).toMatchObject({ day: "2026-03-08", solo_seconds: 300, duo_seconds: 1500, solo_rounds: 1, duo_rounds: 1 });
+    expect(march.data[0].sessions).toHaveLength(2);
+    const feb = await client.rpc("get_focus_calendar", { month_start: "2026-02-01", tz: "America/New_York" });
+    expect(feb.data[0]).toMatchObject({ day: "2026-02-28", solo_seconds: 600 });
+    const utc = await client.rpc("get_focus_calendar", { month_start: "2026-03-01", tz: "UTC" });
+    expect(utc.data).toHaveLength(2);
+    const other = await asUser(outsider);
+    expect((await other.rpc("get_focus_calendar", { month_start: "2026-03-01", tz: "UTC" })).data).toEqual([]);
+    expect((await client.rpc("get_focus_calendar", { month_start: "2026-03-02", tz: "UTC" })).error).not.toBeNull();
+    expect((await client.rpc("get_focus_calendar", { month_start: "2026-03-01", tz: "invalid" })).error).not.toBeNull();
+    const anon = createClient(URL, ANON_KEY, { auth: { persistSession: false } });
+    expect((await anon.rpc("get_focus_calendar", { month_start: "2026-03-01", tz: "UTC" })).error).not.toBeNull();
+  });
+
 });
 
 

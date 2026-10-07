@@ -106,6 +106,8 @@ for exercising the deployed client → server → database flow.
 
 - [x] Daily focus goal on Home, with a browser-saved account target and local-day completed-focus progress (2026-09-29).
 
+- [x] Focus calendar in compact/full stats: private completed-focus totals by local month/day, solo/duo filters, keyboard date navigation, round details and honest loading/retry states. Server day aggregation avoids recent-history and response-row caps (`FocusCalendar.tsx`, `20261007144650_focus_calendar.sql`; 2026-10-07). Apply the migration before client deployment.
+
 - [x] Clear Stop timer / Leave room controls and server-synced completed rounds per room (2026-09-29).
 
 - [x] **5. Mobile game screen** — PR #31, merged

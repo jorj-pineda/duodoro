@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStats } from "@/lib/useStats";
+import FocusCalendar from "./FocusCalendar";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -16,8 +17,8 @@ interface Props {
   onViewFullStats: () => void;
 }
 
-type Tab = "personal" | "duo" | "history";
-const TABS: readonly Tab[] = ["personal", "duo", "history"];
+type Tab = "personal" | "duo" | "history" | "calendar";
+const TABS: readonly Tab[] = ["personal", "duo", "history", "calendar"];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export default function StatsPanel({
               aria-modal="true"
               aria-labelledby="stats-panel-title"
               tabIndex={-1}
-              className="pointer-events-auto w-full sm:w-80 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
+              className="pointer-events-auto w-full sm:w-96 bg-surface border border-line flex flex-col shadow-2xl rounded-2xl overflow-hidden"
               initial={{ x: 60, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 60, opacity: 0 }}
@@ -207,14 +208,16 @@ export default function StatsPanel({
                 aria-labelledby={`stats-tab-${tab}`}
                 className="flex-1 overflow-y-auto p-3"
               >
-                {loading && (
+                {tab !== "calendar" && loading && (
                   <p className="text-faint text-sm text-center py-8">
                     Loading...
                   </p>
                 )}
 
+                {tab === "calendar" && <FocusCalendar key={userId} userId={userId} />}
+
                 {/* Personal tab */}
-                {!loading && statsError && (
+                {tab !== "calendar" && !loading && statsError && (
                   <StatsErrorState onRetry={retry} className="py-10" />
                 )}
 
