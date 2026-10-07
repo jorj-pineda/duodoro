@@ -8,6 +8,7 @@ import DailyFocusGoal from "./DailyFocusGoal";
 import SharedDailyGoals from "./SharedDailyGoals";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import TaskSection from "./TaskSection";
+import SharedMilestones from "./SharedMilestones";
 import FriendsOnlineSection from "./FriendsOnlineSection";
 import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
@@ -388,6 +389,8 @@ export default function HomeDashboard({
             friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
 
           <WeeklyDuoRecap key={`weekly:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
+
+          <SharedMilestones key={`milestones:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
 
           <TaskSection
             tasks={tasks}

@@ -250,6 +250,24 @@ describe("completed focus recording (migration 022)", () => {
     return result;
   }
 
+  liveIt("milestone totals count only completed caller-shared duo rounds", async () => {
+    const a = await makeUser("milestone-a"), b = await makeUser("milestone-b"), outsider = await makeUser("milestone-outsider");
+    await recordTracked(roundPayload([a.id, b.id], { p_actual_focus: 600 }));
+    await recordTracked(roundPayload([a.id], { p_actual_focus: 1500 }));
+    await recordTracked(roundPayload([b.id], { p_actual_focus: 1500 }));
+    await recordTracked(roundPayload([a.id, b.id], { p_actual_focus: 300, p_completed: false }));
+    for (const [owner, partner] of [[a, b], [b, a]]) {
+      const client = await asUser(owner);
+      const result = await client.rpc("get_duo_stats");
+      expect(result.error).toBeNull(); expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({ partner_id: partner.id, total_co_focus_time: 600, sessions_together: 1 });
+    }
+    const client = await asUser(outsider);
+    expect((await client.rpc("get_duo_stats")).data).toEqual([]);
+    const anon = createClient(URL, ANON_KEY, { auth: { persistSession: false } });
+    expect((await anon.rpc("get_duo_stats")).error).not.toBeNull();
+  });
+
   liveIt("records one round for both participants through the shipping module", async () => {
     const a = await makeUser("focus-a");
     const b = await makeUser("focus-b");
