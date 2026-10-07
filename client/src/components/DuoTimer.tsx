@@ -619,7 +619,7 @@ export default function DuoTimer() {
 
         <SessionHUD
           quietFocus={quietFocus}
-          quietFocusSetting={profile && <QuietFocusSetting key={profile.id} userId={profile.id} />}
+          quietFocusSetting={profile && <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />}
           companionNames={<>
             {game.myPet && game.myPetName && <CompanionNameEditor key={`${profile?.id}:${game.myPet}`} pet={game.myPet} name={game.myPetName}
               connected={game.connectionState === "connected"} onSave={game.setMyPetName} />}

@@ -288,7 +288,11 @@ export default function SessionHUD({
 
         {!quiet && reactions}
 
-        {(idle || phase === "focus") && quietFocusSetting}
+        {(idle || phase === "focus") && quietFocusSetting && (
+          <div key="quiet-focus-setting" className="w-full flex justify-center">
+            {quietFocusSetting}
+          </div>
+        )}
 
         {/* Start / stop */}
         <div className="flex flex-col items-center gap-2">

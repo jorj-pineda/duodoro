@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import SessionHUD from "./SessionHUD";
 
-function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<typeof SessionHUD>> = {}) {
-  render(
+function ReadyHUD({ onGoAgain = vi.fn(), ...overrides }: Partial<ComponentProps<typeof SessionHUD>>) {
+  return (
     <SessionHUD
       phase="ready"
       serverMode="pomodoro"
@@ -32,8 +32,12 @@ function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<type
       shareInviteBusy={false}
       onLeave={vi.fn()}
       {...overrides}
-    />,
+    />
   );
+}
+
+function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<typeof SessionHUD>> = {}) {
+  render(<ReadyHUD onGoAgain={onGoAgain} {...overrides} />);
   return onGoAgain;
 }
 
@@ -104,4 +108,16 @@ it.each(['pomodoro', 'flow'] as const)('keeps %s timer and essential actions usa
   else { fireEvent.click(screen.getByRole('button', { name: 'Take break' })); expect(onFinishFlow).toHaveBeenCalledOnce(); }
   fireEvent.click(screen.getByRole('button', { name: 'Stop timer' })); expect(onStop).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: '← Leave room' })); expect(onLeave).toHaveBeenCalledOnce();
+});
+
+it("keeps setup slots distinct across repeated renders even with equal account keys", () => {
+  const props = { phase: "waiting" as const,
+    timerPresets: <section key="account" aria-label="Setup presets">Preset choices</section>,
+    quietFocusSetting: <label key="account">Quiet setting<input type="checkbox" /></label> };
+  const { rerender } = render(<ReadyHUD {...props} playerCount={0} />);
+  for (let count = 0; count < 5; count++) {
+    rerender(<ReadyHUD {...props} playerCount={count % 2 + 1} completedRounds={count} />);
+    expect(screen.getAllByRole("region", { name: "Setup presets" })).toHaveLength(1);
+    expect(screen.getAllByRole("checkbox", { name: "Quiet setting" })).toHaveLength(1);
+  }
 });

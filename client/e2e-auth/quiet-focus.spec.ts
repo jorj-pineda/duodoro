@@ -19,6 +19,8 @@ test('quiet focus persists without resetting Flow and restores controls on break
   await expect(a.page.getByRole('group', { name: 'Pixel reactions' })).toBeVisible();
   await a.page.getByRole('button', { name: 'Start solo', exact: true }).click();
   await expect(a.page).toHaveTitle(/00:0[2-9] · Flow · Duodoro/);
+  await expect(a.page.getByRole('region', { name: 'Session presets' })).toHaveCount(0);
+  await expect(quiet).toHaveCount(1);
   const time = () => a.page.getByRole('timer').innerText();
   const seconds = (text: string) => { const [m, s] = text.match(/\d+:\d+/)![0].split(':').map(Number); return m * 60 + s; };
   const before = seconds(await time());
