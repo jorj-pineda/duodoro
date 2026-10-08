@@ -21,6 +21,8 @@ import InvitePopup from "./InvitePopup";
 import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
+import QuietFocusSetting from "./QuietFocusSetting";
+import { useQuietFocus } from "@/hooks/useQuietFocus";
 import SessionPresets from "./SessionPresets";
 import UsernameChangeModal from "./UsernameChangeModal";
 import DisplayNameChangeModal from "./DisplayNameChangeModal";
@@ -37,6 +39,7 @@ export default function DuoTimer() {
   const router = useRouter();
   const auth = useAuth();
   const game = useGameSession(auth.profile);
+  const { enabled: quietFocus } = useQuietFocus(auth.profile?.id);
   const gameConnectionState = game.connectionState;
   const joinShareInvite = game.joinShareInvite;
 
@@ -571,6 +574,7 @@ export default function DuoTimer() {
       {/* ── Overlay UI ── */}
       <div className="session-overlay relative z-10 flex flex-col h-full">
         <SessionTopBar
+          quietFocus={quietFocus}
           phase={game.phase}
           displayName={displayName}
           username={profile?.username}
@@ -614,6 +618,8 @@ export default function DuoTimer() {
         />
 
         <SessionHUD
+          quietFocus={quietFocus}
+          quietFocusSetting={profile && <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />}
           companionNames={<>
             {game.myPet && game.myPetName && <CompanionNameEditor key={`${profile?.id}:${game.myPet}`} pet={game.myPet} name={game.myPetName}
               connected={game.connectionState === "connected"} onSave={game.setMyPetName} />}

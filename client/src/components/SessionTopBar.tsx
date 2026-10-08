@@ -31,6 +31,7 @@ function SessionStatusDot({ phase }: { phase: GamePhase }) {
 }
 
 interface SessionTopBarProps {
+  quietFocus?: boolean;
   phase: GamePhase;
   displayName: string;
   username?: string;
@@ -52,6 +53,7 @@ interface SessionTopBarProps {
 }
 
 export default function SessionTopBar({
+  quietFocus = false,
   phase,
   displayName,
   username,
@@ -71,6 +73,8 @@ export default function SessionTopBar({
   onOpenPremium,
   onSignOut,
 }: SessionTopBarProps) {
+  // Keep the launcher for an open panel so its draft and close control remain reachable.
+  const quiet = quietFocus && phase === "focus";
   const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const onToggleProfileMenuRef = useRef(onToggleProfileMenu);
   useEffect(() => {
@@ -102,18 +106,20 @@ export default function SessionTopBar({
     <div className="grid grid-cols-[1fr_auto_1fr] items-center pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] bg-surface/85 backdrop-blur border-b border-line z-10">
       {/* Left: Friends */}
       <div className="flex items-center justify-end pr-2">
-        <button
-          aria-label="Toggle friends panel"
-          aria-expanded={friendsOpen}
-          aria-controls="friends-panel"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFriends();
-          }}
-          className={tabClass(friendsOpen)}
-        >
-          <UsersIcon /> <span className="hidden sm:inline">Friends</span>
-        </button>
+        {(!quiet || friendsOpen) && (
+          <button
+            aria-label="Toggle friends panel"
+            aria-expanded={friendsOpen}
+            aria-controls="friends-panel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFriends();
+            }}
+            className={tabClass(friendsOpen)}
+          >
+            <UsersIcon /> <span className="hidden sm:inline">Friends</span>
+          </button>
+        )}
       </div>
 
       {/* Center: Duodoro + status dot */}
@@ -133,30 +139,34 @@ export default function SessionTopBar({
 
       {/* Right: Notes, Stats, Sound, Theme, Account */}
       <div className="flex items-center gap-1.5 pl-2">
-        <button
-          aria-label="Toggle notes panel"
-          aria-expanded={notesOpen}
-          aria-controls="notes-panel"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleNotes();
-          }}
-          className={tabClass(notesOpen)}
-        >
-          <NoteIcon /> <span className="hidden sm:inline">Notes</span>
-        </button>
-        <button
-          aria-label="Toggle stats panel"
-          aria-expanded={statsOpen}
-          aria-controls="stats-panel"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStats();
-          }}
-          className={tabClass(statsOpen)}
-        >
-          <ChartIcon /> <span className="hidden sm:inline">Stats</span>
-        </button>
+        {(!quiet || notesOpen) && (
+          <button
+            aria-label="Toggle notes panel"
+            aria-expanded={notesOpen}
+            aria-controls="notes-panel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleNotes();
+            }}
+            className={tabClass(notesOpen)}
+          >
+            <NoteIcon /> <span className="hidden sm:inline">Notes</span>
+          </button>
+        )}
+        {(!quiet || statsOpen) && (
+          <button
+            aria-label="Toggle stats panel"
+            aria-expanded={statsOpen}
+            aria-controls="stats-panel"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStats();
+            }}
+            className={tabClass(statsOpen)}
+          >
+            <ChartIcon /> <span className="hidden sm:inline">Stats</span>
+          </button>
+        )}
         <SoundToggle />
         <ThemeToggle />
         <div className="flex-1" />

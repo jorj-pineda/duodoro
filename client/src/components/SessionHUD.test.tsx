@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import SessionHUD from "./SessionHUD";
 
-function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<typeof SessionHUD>> = {}) {
-  render(
+function ReadyHUD({ onGoAgain = vi.fn(), ...overrides }: Partial<ComponentProps<typeof SessionHUD>>) {
+  return (
     <SessionHUD
       phase="ready"
       serverMode="pomodoro"
@@ -32,8 +32,12 @@ function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<type
       shareInviteBusy={false}
       onLeave={vi.fn()}
       {...overrides}
-    />,
+    />
   );
+}
+
+function renderReady(onGoAgain = vi.fn(), overrides: Partial<ComponentProps<typeof SessionHUD>> = {}) {
+  render(<ReadyHUD onGoAgain={onGoAgain} {...overrides} />);
   return onGoAgain;
 }
 
@@ -83,4 +87,37 @@ it.each(['ready', 'focus', 'break', 'celebration', 'returning'] as const)('hides
 it('shows presets during waiting setup', () => {
   renderReady(vi.fn(), { phase: 'waiting', timerPresets: <span>Preset setup controls</span> });
   expect(screen.getByText('Preset setup controls')).toBeVisible();
+});
+
+it.each(['waiting', 'ready', 'break', 'celebration', 'returning'] as const)('restores extras during %s with quiet mode enabled', phase => {
+  renderReady(vi.fn(), { phase, quietFocus: true, reactions: <span>Reaction choices</span>, companionNames: <span>Companion names</span> });
+  expect(screen.getByText('Reaction choices')).toBeVisible(); expect(screen.getByText('Companion names')).toBeVisible();
+  expect(screen.getByText('2 rounds completed in this room')).toBeVisible();
+});
+it.each(['pomodoro', 'flow'] as const)('keeps %s timer and essential actions usable in quiet focus', serverMode => {
+  const onStop = vi.fn(), onLeave = vi.fn(), onFinishFlow = vi.fn();
+  renderReady(vi.fn(), { phase: 'focus', serverMode, sessionStarted: true, quietFocus: true,
+    quietFocusSetting: <span>Quiet choice</span>, reactions: <span>Reaction choices</span>,
+    companionGrowth: <span>Companion growth</span>, companionNames: <span>Companion names</span>,
+    intentionPrompt: <span>Intention draft</span>, timeLeft: 123, flowElapsed: 123, phaseProgress: .4,
+    onStop, onLeave, onFinishFlow });
+  expect(screen.getByRole('timer')).toHaveTextContent('2:03');
+  for (const text of ['Reaction choices', 'Companion growth', 'Companion names', '2 rounds completed in this room']) expect(screen.queryByText(text)).toBeNull();
+  expect(screen.getByText('Intention draft')).toBeVisible(); expect(screen.getByText('Quiet choice')).toBeVisible();
+  if (serverMode === 'pomodoro') expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40');
+  else { fireEvent.click(screen.getByRole('button', { name: 'Take break' })); expect(onFinishFlow).toHaveBeenCalledOnce(); }
+  fireEvent.click(screen.getByRole('button', { name: 'Stop timer' })); expect(onStop).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: '← Leave room' })); expect(onLeave).toHaveBeenCalledOnce();
+});
+
+it("keeps setup slots distinct across repeated renders even with equal account keys", () => {
+  const props = { phase: "waiting" as const,
+    timerPresets: <section key="account" aria-label="Setup presets">Preset choices</section>,
+    quietFocusSetting: <label key="account">Quiet setting<input type="checkbox" /></label> };
+  const { rerender } = render(<ReadyHUD {...props} playerCount={0} />);
+  for (let count = 0; count < 5; count++) {
+    rerender(<ReadyHUD {...props} playerCount={count % 2 + 1} completedRounds={count} />);
+    expect(screen.getAllByRole("region", { name: "Setup presets" })).toHaveLength(1);
+    expect(screen.getAllByRole("checkbox", { name: "Quiet setting" })).toHaveLength(1);
+  }
 });
