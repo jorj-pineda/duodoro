@@ -11,6 +11,8 @@ import { expectNoAxeViolations } from "@/test/axe";
 // to onFocus. With the rotation the choice doesn't exist: there is one world,
 // the server picks it, and pressing Focus takes whatever is up.
 
+vi.mock("@/hooks/useSharedMilestones", () => ({ useSharedMilestones: () => ({ rows: [], loaded: true, error: null, retry: vi.fn() }) }));
+
 vi.mock("@/hooks/useWeeklyDuoRecap", () => ({ useWeeklyDuoRecap: () => ({ rows: [], loaded: true, error: null, timezone: "UTC", retry: vi.fn() }) }));
 
 vi.mock("@/lib/useStats", () => ({
