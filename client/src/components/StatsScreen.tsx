@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStats } from "@/lib/useStats";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import FocusCalendar from "./FocusCalendar";
 import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -160,6 +161,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
           </div>
 
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
+            <FocusCalendar key={userId} userId={userId} />
             {loading && (
               <p className="text-faint text-sm text-center py-12">
                 Loading stats...

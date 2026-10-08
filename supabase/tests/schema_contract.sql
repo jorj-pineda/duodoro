@@ -258,5 +258,12 @@ select ok(
   and (select proconfig from pg_proc where oid = 'public.get_weekly_duo_recap(text)'::regprocedure) = array['search_path=""']::text[],
   'weekly recap is authenticated-only with a pinned definer search path'
 );
+select ok(
+  has_function_privilege('authenticated', 'public.get_focus_calendar(date,text)', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.get_focus_calendar(date,text)', 'EXECUTE')
+  and (select prosecdef from pg_proc where oid = 'public.get_focus_calendar(date,text)'::regprocedure)
+  and (select proconfig from pg_proc where oid = 'public.get_focus_calendar(date,text)'::regprocedure) = array['search_path=""']::text[],
+  'focus calendar is authenticated-only with a pinned definer search path'
+);
 select * from finish();
 rollback;
