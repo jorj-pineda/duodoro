@@ -289,3 +289,26 @@ describe("accessible structure", () => {
     await expectNoAxeViolations(container);
   });
 });
+
+it("preserves the dirty draft when an explicit reload fails", async () => {
+  seed("old", 1); render(<Harness />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit reflection" }));
+  fireEvent.change(textarea(), { target: { value: "my unsaved draft" } });
+  seed("other device", 2);
+  await act(async () => { await loadSessionReflections("alice", ["s1"]); });
+  server.failRead = true;
+  fireEvent.click(screen.getByRole("button", { name: /Reload saved reflection/ }));
+  await act(async () => { await Promise.resolve(); });
+  expect(textarea().value).toBe("my unsaved draft");
+  expect(screen.getByText(/Couldn't reload/)).toBeVisible();
+});
+it("deletion confirmation does not silently adopt a newer saved version", async () => {
+  seed("original", 1); render(<Harness />);
+  fireEvent.click(await screen.findByRole("button", { name: "Delete reflection" }));
+  seed("new from other device", 2);
+  await act(async () => { await loadSessionReflections("alice", ["s1"]); });
+  fireEvent.click(within(screen.getByRole("group", { name: "Delete reflection?" })).getByRole("button", { name: "Delete reflection" }));
+  await act(async () => { await Promise.resolve(); });
+  expect(server.rows.get("s1")?.reflection_text).toBe("new from other device");
+  expect(server.rpcArgs.at(-1)).toMatchObject({ p_expected_version: 1 });
+});

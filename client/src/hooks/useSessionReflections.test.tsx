@@ -237,3 +237,35 @@ describe("refresh lifecycle", () => {
     expect(reads[1].ids).toEqual(["s2"]);
   });
 });
+
+it("does not let a late mutation response overwrite a newer read", async () => {
+  const initial = loadSessionReflections("alice", ["s1"]); answer(0, [row("s1", "alice", "v1", 1)]); await initial;
+  let finish!: (value: unknown) => void;
+  fake.rpc.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const saving = saveSessionReflection("alice", "s1", "v2", 1);
+  const refreshing = loadSessionReflections("alice", ["s1"]); answer(1, [row("s1", "alice", "v3", 3)]); await refreshing;
+  finish({ data: [row("s1", "alice", "v2", 2)], error: null }); await saving;
+  const { result } = renderHook(() => useSessionReflection("alice", "s1"));
+  expect(result.current?.reflection?.version).toBe(3);
+  expect(result.current?.pending).toBeNull();
+});
+it.each(["save", "delete"] as const)("releases pending state and allows retry after rejected %s transport", async kind => {
+  const initial = loadSessionReflections("alice", ["s1"]); answer(0, [row("s1", "alice", "v1", 1)]); await initial;
+  fake.rpc.mockRejectedValueOnce(new Error("transport rejected"));
+  const mutate = () => kind === "save" ? saveSessionReflection("alice", "s1", "v2", 1) : deleteSessionReflection("alice", "s1", 1);
+  const outcome = await mutate().catch(() => ({ threw: true }));
+  expect(outcome).toMatchObject({ ok: false });
+  const { result } = renderHook(() => useSessionReflection("alice", "s1"));
+  expect(result.current?.pending).toBeNull();
+  fake.rpc.mockResolvedValueOnce({ data: kind === "save" ? [row("s1", "alice", "v2", 2)] : [{ session_id: "s1", user_id: "alice", deleted_version: 1 }], error: null });
+  await act(async () => { expect(await mutate()).toMatchObject({ ok: true }); });
+});
+it("ignores pre-reset responses after the same account loads again", async () => {
+  const old = loadSessionReflections("alice", ["s1"]);
+  resetSessionReflectionStore();
+  const newer = loadSessionReflections("alice", ["s1"]);
+  answer(1, [row("s1", "alice", "new", 3)]); await newer;
+  answer(0, [row("s1", "alice", "old", 1)]); await old;
+  const { result } = renderHook(() => useSessionReflection("alice", "s1"));
+  expect(result.current?.reflection?.version).toBe(3);
+});

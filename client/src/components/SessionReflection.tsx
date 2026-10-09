@@ -17,7 +17,9 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
   const entry = useSessionReflection(userId, sessionId);
   const saved = entry?.reflection ?? null;
   const status = entry?.status ?? "loading";
-  const busy = entry?.pending != null;
+  const [reloading, setReloading] = useState(false);
+  const [deleteVersion, setDeleteVersion] = useState<number | null>(null);
+  const busy = entry?.pending != null || reloading;
   const [mode, setMode] = useState<Mode>("view");
   const [following, setFollowing] = useState(true);
   const [draftValue, setDraftValue] = useState("");
@@ -84,10 +86,10 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
   }
 
   async function confirmDelete() {
-    if (inFlight.current || busy || saved === null) return;
+    if (inFlight.current || busy || deleteVersion === null) return;
     inFlight.current = true;
     try {
-      const result = await deleteSessionReflection(userId, sessionId, saved.version);
+      const result = await deleteSessionReflection(userId, sessionId, deleteVersion);
       if (result.ok) {
         setMode("view"); setNotice({ tone: "status", text: "Reflection deleted" }); focusTrigger();
       } else if (result.failure.kind === "changed") {
@@ -103,22 +105,30 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
 
   // Explicit reload replaces the draft with the saved text. The user chooses it.
   async function reloadSaved(nextMode: "edit" | "view") {
-    await loadSessionReflections(userId, [sessionId]);
-    setFollowing(true); setDraftValue(""); setDiscarding(false); setAttempted(false); setNotice(null);
-    setMode(nextMode);
-    if (nextMode === "view") focusTrigger();
+    if (reloading) return;
+    setReloading(true);
+    try {
+      const loaded = await loadSessionReflections(userId, [sessionId]);
+      if (!loaded) {
+        setNotice({ tone: "alert", text: "Couldn't reload your reflection. Your draft is still here. Try again.", reload: nextMode === "view" ? "view" : undefined });
+        return;
+      }
+      setFollowing(true); setDraftValue(""); setDiscarding(false); setAttempted(false); setNotice(null);
+      setMode(nextMode);
+      if (nextMode === "view") focusTrigger();
+    } finally { setReloading(false); }
   }
 
   const label = <h4 id={ids.heading} className="text-xs font-semibold text-ink">Private reflection</h4>;
 
-  if (status === "error" && !entry?.reflection) {
+  if (status === "error" && !entry?.reflection && mode !== "edit") {
     return <section aria-labelledby={ids.heading} className="space-y-1 border-t border-line pt-2">
       {label}
       <p role="alert" className="text-xs text-danger">Couldn&apos;t load your reflection. Other rounds are unaffected.</p>
       <button className={button} onClick={() => void loadSessionReflections(userId, [sessionId])}>Retry reflection</button>
     </section>;
   }
-  if (!entry || status === "loading") {
+  if ((!entry || status === "loading") && mode !== "edit") {
     return <section aria-labelledby={ids.heading} className="space-y-1 border-t border-line pt-2">
       {label}
       <p role="status" className="text-xs text-muted">Loading reflection…</p>
@@ -142,7 +152,7 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
         <p className="text-xs text-danger">This reflection changed in another tab or device. Your draft is still here; nothing was overwritten.</p>
         <button className={button} disabled={busy} onClick={() => void reloadSaved("edit")}>Reload saved reflection (replaces your draft)</button>
       </div>}
-      {busy && <p role="status" className="text-xs text-muted">Saving reflection…</p>}
+      {busy && <p role="status" className="text-xs text-muted">{reloading ? "Reloading reflection…" : "Saving reflection…"}</p>}
       {discarding ? <div role="group" aria-label="Discard draft?" className="space-y-1">
         <p className="text-xs text-ink">Discard this draft? Unsaved text will be lost.</p>
         <div className="flex flex-wrap gap-1">
@@ -179,7 +189,7 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
       <p className="text-[11px] text-muted">Only you can see this.</p>
       <div className="flex flex-wrap gap-1">
         <button ref={triggerRef} className={button} disabled={busy} onClick={openEditor}>Edit reflection</button>
-        <button ref={deleteTriggerRef} className={danger} disabled={busy} onClick={() => { setNotice(null); setMode("confirm-delete"); }}>Delete reflection</button>
+        <button ref={deleteTriggerRef} className={danger} disabled={busy} onClick={() => { setNotice(null); setDeleteVersion(saved.version); setMode("confirm-delete"); }}>Delete reflection</button>
       </div>
     </> : <>
       <p className="text-[11px] text-muted">Only you can see this.</p>
