@@ -77,6 +77,7 @@ type ErrorLike = { code?: string | null; message?: string | null };
 
 export function classifyReflectionError(error: ErrorLike | null | undefined): ReflectionFailure {
   switch (error?.code) {
+    case "PT409":
     case "40001":
       return { kind: "changed", message: "This reflection changed in another tab or device." };
     case "23505":

@@ -60,6 +60,9 @@ select throws_ok(
   $$insert into public.session_reflections(session_id, user_id, reflection_text) values ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000c001', 'outsider note')$$,
   '23503', null, 'composite participant key prevents notes from non-participants');
 
+select ok(not has_sequence_privilege('authenticated', 'public.session_reflection_revision_seq', 'USAGE')
+  and not has_sequence_privilege('anon', 'public.session_reflection_revision_seq', 'USAGE'), 'clients cannot advance the private revision sequence');
+
 -- ── Owner writes through RPCs ───────────────────────────────────────────────
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000a001', true);
@@ -88,11 +91,12 @@ select throws_ok($$select public.create_session_reflection('30000000-0000-0000-0
   'P0002', 'Session reflection unavailable', 'a nonexistent session matches the same error');
 
 select is(
-  (select reflection_text || '|' || version || '|' || (session_id = '30000000-0000-0000-0000-000000000001'::uuid) || '|' || (user_id = '00000000-0000-0000-0000-00000000a001'::uuid)
+  (select reflection_text || '|' || (version > 0) || '|' || (session_id = '30000000-0000-0000-0000-000000000001'::uuid) || '|' || (user_id = '00000000-0000-0000-0000-00000000a001'::uuid)
      from public.create_session_reflection('30000000-0000-0000-0000-000000000001', E'Good focus.\nNext: stretch')),
-  'Good focus.' || E'\n' || 'Next: stretch|1|true|true',
-  'create returns the saved row with server owner, normalized text and version 1');
+  'Good focus.' || E'\n' || 'Next: stretch|true|true|true',
+  'create returns the saved row with server owner, normalized text and a positive revision');
 
+select set_config('test.reflection_old_version', (select version::text from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001'), true);
 select throws_ok($$select public.create_session_reflection('30000000-0000-0000-0000-000000000001', 'second attempt')$$,
   '23505', 'Reflection already exists', 'duplicate creation conflicts instead of overwriting');
 select is((select reflection_text from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001' and user_id = '00000000-0000-0000-0000-00000000a001'),
@@ -100,24 +104,35 @@ select is((select reflection_text from public.session_reflections where session_
 
 select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'edit', 0)$$,
   '22023', 'Expected version is required', 'update requires a positive expected version');
-select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'edit', 9)$$,
-  '40001', 'Reflection changed elsewhere', 'stale update version is rejected');
+select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'edit', 9007199254740991)$$,
+  'PT409', 'Reflection changed elsewhere', 'stale update version is rejected');
 select is(
-  (select version || '|' || reflection_text from public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'Edited note', 1)),
-  '2|Edited note', 'matching update increments the version and returns the saved row');
-select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'stale second edit', 1)$$,
-  '40001', 'Reflection changed elsewhere', 'a second writer holding the old version cannot overwrite');
+  (select (version > current_setting('test.reflection_old_version')::bigint) || '|' || reflection_text from public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'Edited note', current_setting('test.reflection_old_version')::bigint)),
+  'true|Edited note', 'matching update advances the revision and returns the saved row');
+select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'stale second edit', current_setting('test.reflection_old_version')::bigint)$$,
+  'PT409', 'Reflection changed elsewhere', 'a second writer holding the old version cannot overwrite');
 select ok(
   (select updated_at >= created_at from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001' and user_id = '00000000-0000-0000-0000-00000000a001'),
   'updated_at is never before created_at');
 
-select throws_ok($$select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', 1)$$,
-  '40001', 'Reflection changed elsewhere', 'stale delete version is rejected');
+select set_config('test.reflection_deleted_version', (select version::text from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001'), true);
+select throws_ok($$select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', current_setting('test.reflection_old_version')::bigint)$$,
+  'PT409', 'Reflection changed elsewhere', 'stale delete version is rejected');
 select is(
-  (select session_id::text || '|' || deleted_version from public.delete_session_reflection('30000000-0000-0000-0000-000000000001', 2)),
-  '30000000-0000-0000-0000-000000000001|2', 'matching delete returns the deleted record');
-select throws_ok($$select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', 2)$$,
-  '40001', 'Reflection changed elsewhere', 'a repeated delete is a conflict, not silent success');
+  (select session_id::text || '|' || deleted_version from public.delete_session_reflection('30000000-0000-0000-0000-000000000001', current_setting('test.reflection_deleted_version')::bigint)),
+  '30000000-0000-0000-0000-000000000001|' || current_setting('test.reflection_deleted_version'), 'matching delete returns the deleted record');
+select throws_ok($$select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', current_setting('test.reflection_deleted_version')::bigint)$$,
+  'PT409', 'Reflection changed elsewhere', 'a repeated delete is a conflict, not silent success');
+
+-- Delete/recreate must not revive a stale writer's token.
+select ok((select version > current_setting('test.reflection_deleted_version')::bigint
+  from public.create_session_reflection('30000000-0000-0000-0000-000000000001', 'replacement note')), 'recreation receives a new revision');
+select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000001', 'stale overwrite', current_setting('test.reflection_old_version')::bigint)$$,
+  'PT409', 'Reflection changed elsewhere', 'pre-deletion revision cannot overwrite a replacement');
+select throws_ok($$select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', current_setting('test.reflection_old_version')::bigint)$$,
+  'PT409', 'Reflection changed elsewhere', 'pre-deletion revision cannot delete a replacement');
+select is((select reflection_text from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001'), 'replacement note', 'replacement survives stale writes');
+select public.delete_session_reflection('30000000-0000-0000-0000-000000000001', (select version from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000001'));
 
 -- ── Duo: each person writes their own note; neither can read or change the other's
 select is(public.create_session_reflection('30000000-0000-0000-0000-000000000002', 'A duo note')::text is not null, true, 'duo owner A saves a note');
@@ -126,10 +141,10 @@ select is((select count(*)::int from public.session_reflections where session_id
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000b001', true);
 select is((select count(*)::int from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000002'), 0, 'B does not see A''s duo note');
 select throws_ok($$select public.update_session_reflection('30000000-0000-0000-0000-000000000002', 'B wants this', 1)$$,
-  '40001', 'Reflection changed elsewhere', 'B cannot update A''s note: B has no row there, so the stale-or-missing check rejects it');
+  'PT409', 'Reflection changed elsewhere', 'B cannot update A''s note: B has no row there, so the stale-or-missing check rejects it');
 select is((select reflection_text from public.create_session_reflection('30000000-0000-0000-0000-000000000002', 'B private note')), 'B private note', 'B saves an independent note on the same duo session');
 select is((select count(*)::int from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000002'), 1, 'B sees only B''s note');
-select is((select user_id::text from public.delete_session_reflection('30000000-0000-0000-0000-000000000002', 1)), '00000000-0000-0000-0000-00000000b001', 'B''s delete can only ever target B''s own row');
+select is((select user_id::text from public.delete_session_reflection('30000000-0000-0000-0000-000000000002', (select version from public.session_reflections where session_id = '30000000-0000-0000-0000-000000000002'))), '00000000-0000-0000-0000-00000000b001', 'B''s delete can only ever target B''s own row');
 select is((select count(*)::int from public.session_reflections where user_id = '00000000-0000-0000-0000-00000000a001'), 0, 'B cannot read A''s rows by user filter');
 select throws_ok($$select public.create_session_reflection('30000000-0000-0000-0000-000000000001', 'not a participant')$$,
   'P0002', 'Session reflection unavailable', 'B cannot write to a session B did not join');

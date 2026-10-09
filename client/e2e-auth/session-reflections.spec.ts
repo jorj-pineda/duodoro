@@ -186,10 +186,48 @@ test('a failed read or save keeps every draft recoverable, and a stale tab canno
   await expect(noteBox(failed)).toHaveValue('Tab one stale draft');
   await failed.scrollIntoViewIfNeeded();
   await a.page.screenshot({ path: test.info().outputPath('session-reflections-conflict.png') });
+  const staleSaveResponse = a.page.waitForResponse(response => response.url().endsWith('/rpc/update_session_reflection'));
   await failed.getByRole('button', { name: 'Save reflection', exact: true }).click();
-  await expect(failed.getByText(/Your draft is still here/)).toBeVisible();
+  expect((await staleSaveResponse).status()).toBe(409);
+  await expect(failed.getByText('Your draft is still here. Nothing was overwritten.', { exact: true })).toBeVisible();
   await expect(noteBox(failed)).toHaveValue('Tab one stale draft');
+  // Explicit reload must not discard the draft when its request fails.
+  await a.page.route('**/rest/v1/session_reflections**', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Unavailable"}' }));
+  await failed.getByRole('button', { name: /Reload saved reflection/ }).click();
+  await expect(failed.getByText(/Couldn't reload/)).toBeVisible();
+  await expect(noteBox(failed)).toHaveValue('Tab one stale draft');
+  await a.page.unroute('**/rest/v1/session_reflections**');
   await failed.getByRole('button', { name: /Reload saved reflection/ }).click();
   await expect(noteBox(failed)).toHaveValue('Tab two wins');
+  await failed.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  // Confirm only the revision the user saw, even if a newer one is refreshed.
+  await failed.getByRole('button', { name: 'Delete reflection', exact: true }).click();
+  await other.getByRole('button', { name: 'Edit reflection', exact: true }).click();
+  await noteBox(other).fill('Newer unseen note');
+  await other.getByRole('button', { name: 'Save reflection', exact: true }).click();
+  await expect(other.getByText('Reflection saved')).toBeVisible();
+  await a.page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(() => failed.getByRole('button', { name: 'Delete reflection', exact: true }).isEnabled()).toBe(true);
+  const staleDeleteResponse = a.page.waitForResponse(response => response.url().endsWith('/rpc/delete_session_reflection'));
+  await failed.getByRole('group', { name: 'Delete reflection?' }).getByRole('button', { name: 'Delete reflection', exact: true }).click();
+  expect((await staleDeleteResponse).status()).toBe(409);
+  await expect(failed.getByText(/Reload it before deleting/)).toBeVisible();
+  await failed.getByRole('button', { name: 'Reload saved reflection', exact: true }).click();
+  await expect(failed.getByText('Newer unseen note', { exact: true })).toBeVisible();
+
+  // Delete/recreate cannot revive the token held by this dirty editor.
+  await failed.getByRole('button', { name: 'Edit reflection', exact: true }).click();
+  await noteBox(failed).fill('Stale before recreation');
+  await other.getByRole('button', { name: 'Delete reflection', exact: true }).click();
+  await other.getByRole('group', { name: 'Delete reflection?' }).getByRole('button', { name: 'Delete reflection', exact: true }).click();
+  await other.getByRole('button', { name: 'Add reflection', exact: true }).click();
+  await noteBox(other).fill('Recreated note');
+  await other.getByRole('button', { name: 'Save reflection', exact: true }).click();
+  await expect(other.getByText('Reflection saved')).toBeVisible();
+  await failed.getByRole('button', { name: 'Save reflection', exact: true }).click();
+  await expect(failed.getByText('Your draft is still here. Nothing was overwritten.', { exact: true })).toBeVisible();
+  await expect(noteBox(failed)).toHaveValue('Stale before recreation');
+  await expect(other.getByText('Recreated note', { exact: true })).toBeVisible();
   await tabTwo.close();
 });

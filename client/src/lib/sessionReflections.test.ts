@@ -55,7 +55,7 @@ describe("reflection text rules", () => {
 
 describe("error classification", () => {
   it("maps conflicts, duplicates, ineligible sessions and auth without leaking details", () => {
-    expect(classifyReflectionError({ code: "40001", message: "Reflection changed elsewhere" }).kind).toBe("changed");
+    expect(classifyReflectionError({ code: "PT409", message: "Reflection changed elsewhere" }).kind).toBe("changed");
     expect(classifyReflectionError({ code: "23505", message: "Reflection already exists" }).kind).toBe("exists");
     expect(classifyReflectionError({ code: "P0002", message: "Session reflection unavailable" }).kind).toBe("unavailable");
     expect(classifyReflectionError({ code: "42501", message: "permission denied" }).kind).toBe("auth");
