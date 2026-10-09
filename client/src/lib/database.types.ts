@@ -153,6 +153,41 @@ export type Database = {
           },
         ]
       }
+      session_reflections: {
+        Row: {
+          created_at: string
+          reflection_text: string
+          session_id: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          reflection_text: string
+          session_id: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          reflection_text?: string
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_reflections_participant_fk"
+            columns: ["session_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "session_participants"
+            referencedColumns: ["session_id", "user_id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           actual_focus: number
@@ -312,7 +347,15 @@ export type Database = {
     }
     Functions: {
       accept_shared_daily_goal: { Args: { goal_id: string }; Returns: string }
+      assert_reflection_session_eligible: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       change_display_name: { Args: { new_name: string }; Returns: Json }
+      check_session_reflection_text: {
+        Args: { p_text: string }
+        Returns: undefined
+      }
       claim_premium: {
         Args: { p_marketing_opt_in?: boolean }
         Returns: {
@@ -330,9 +373,28 @@ export type Database = {
         }
       }
       claim_username: { Args: { desired_username: string }; Returns: Json }
+      create_session_reflection: {
+        Args: { p_session_id: string; p_text: string }
+        Returns: {
+          created_at: string
+          reflection_text: string
+          session_id: string
+          updated_at: string
+          user_id: string
+          version: number
+        }[]
+      }
       create_shared_daily_goal: {
         Args: { friend_id: string; minutes: number; tz: string }
         Returns: string
+      }
+      delete_session_reflection: {
+        Args: { p_expected_version: number; p_session_id: string }
+        Returns: {
+          deleted_version: number
+          session_id: string
+          user_id: string
+        }[]
       }
       generate_discriminator: {
         Args: { base_username: string }
@@ -473,6 +535,21 @@ export type Database = {
         }
       }
       total_focus_seconds: { Args: { target: string }; Returns: number }
+      update_session_reflection: {
+        Args: {
+          p_expected_version: number
+          p_session_id: string
+          p_text: string
+        }
+        Returns: {
+          created_at: string
+          reflection_text: string
+          session_id: string
+          updated_at: string
+          user_id: string
+          version: number
+        }[]
+      }
       update_shared_daily_goal: {
         Args: { goal_id: string; minutes: number }
         Returns: string
@@ -609,3 +686,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

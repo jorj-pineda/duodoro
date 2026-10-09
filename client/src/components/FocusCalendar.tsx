@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import { useFocusCalendar } from "@/hooks/useFocusCalendar";
+import { useLoadSessionReflections } from "@/hooks/useSessionReflections";
 import { dayTotals, focusLabel, monthDays, monthLabel, shiftMonth, type CalendarFilter } from "@/lib/focusCalendar";
+import SessionReflection from "./SessionReflection";
 import WorldThumb from "./WorldThumb";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -18,6 +20,9 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   const byDay = new Map(rows.map(row => [row.day, row]));
   const totals = rows.reduce((sum, row) => { const next = dayTotals(row, filter); return { seconds: sum.seconds + next.seconds, rounds: sum.rounds + next.rounds }; }, { seconds: 0, rounds: 0 });
   const details = (byDay.get(selected)?.sessions ?? []).filter(row => filter === "all" || row.is_duo === (filter === "duo"));
+  const visibleDetails = details.slice(0, shown);
+  // One bounded batch for the rounds on screen, not one request per round.
+  useLoadSessionReflections(userId, visibleDetails.map(session => session.id));
   const select = (day: string) => { setChosenDay(day); setShown(20); };
   const changeMonth = (offset: number) => { setChosenMonth(shiftMonth(month, offset)); setShown(20); };
   const buttonId = (day: string) => `focus-calendar-${userId}-${day}`;
@@ -63,11 +68,14 @@ export default function FocusCalendar({ userId }: { userId: string }) {
           <div className="border-t border-line pt-3 space-y-2">
             <h3 className="text-sm font-semibold">{selected}</h3>
             {!details.length ? <p className="text-xs text-muted">No completed {filter === "all" ? "focus" : filter} rounds on this day.</p> : <>
-              {details.slice(0, shown).map(session => <article key={session.id} className="flex gap-2 items-center bg-raise p-2 rounded-lg">
-                <WorldThumb worldId={session.world} /><div className="min-w-0 text-xs">
-                  <p className="break-words">{focusLabel(session.focus_seconds)} · {session.is_duo ? `With ${session.partner_name}` : "Solo focus"}</p>
-                  <p className="text-muted">{new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone ?? undefined }).format(new Date(session.ended_at))}</p>
+              {visibleDetails.map(session => <article key={`round-${userId}-${session.id}`} className="space-y-2 bg-raise p-2 rounded-lg">
+                <div className="flex gap-2 items-center">
+                  <WorldThumb worldId={session.world} /><div className="min-w-0 text-xs">
+                    <p className="break-words">{focusLabel(session.focus_seconds)} · {session.is_duo ? `With ${session.partner_name}` : "Solo focus"}</p>
+                    <p className="text-muted">{new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone ?? undefined }).format(new Date(session.ended_at))}</p>
+                  </div>
                 </div>
+                <SessionReflection key={`reflection-${userId}-${session.id}`} userId={userId} sessionId={session.id} />
               </article>)}
               {shown < details.length && <button className="min-h-11 text-xs underline" onClick={() => setShown(count => count + 20)}>Show more rounds ({details.length - shown} remaining)</button>}
             </>}
