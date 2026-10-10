@@ -37,3 +37,13 @@ describe('live room reactions', () => {
     expect(emit).not.toHaveBeenCalled();
   });
 });
+
+it('targets only the sender companion, rejects missing pets and unsupported interactions', () => {
+  const { send, session, emit } = setup();
+  expect(send({ target: 'companion' }).ok).toBe(false);
+  session.players.a.pet = 'cat';
+  expect(send({ target: 'companion', playerId: 'b', pet: 'dragon' })).toEqual({ ok: true });
+  expect(emit).toHaveBeenCalledWith('room_reaction', expect.objectContaining({ playerId: 'a', target: 'companion', pet: 'cat', reaction: 'heart' }));
+  expect(send({ target: 'companion', reaction: 'cheer' }).ok).toBe(false);
+  expect(send({ target: 'everyone' }).ok).toBe(false);
+});

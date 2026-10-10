@@ -42,6 +42,13 @@ for exercising the deployed client → server → database flow.
 
 ## Done
 
+- [x] Companion interactions: tap your own companion for a room-shared heart
+      and happy hop. Uses the existing reaction channel and three-second server
+      cooldown, never changes growth/timers, and ignores old pets after switching.
+      Touch targets do not alter standing art dimensions; reduced motion keeps
+      the heart static (`CompanionInteraction.tsx`, `server/reactionHandlers.js`,
+      `client/e2e-auth/companion-interactions.spec.ts`; 2026-10-06).
+
 - [x] Editable companion names: Mochi, Buddy, Ember and Clover defaults; each
       account keeps separate names for each companion in this browser. The room
       HUD shows both people's names, owner-only edits sync live in every phase,
