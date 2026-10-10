@@ -45,6 +45,7 @@ interface SessionTopBarProps {
   onToggleFriends: () => void;
   onToggleNotes: () => void;
   onToggleStats: () => void;
+  onOpenShortcuts?: () => void;
   onToggleProfileMenu: () => void;
   onGoHome: () => void;
   onEditAvatar: () => void;
@@ -67,6 +68,7 @@ export default function SessionTopBar({
   onToggleFriends,
   onToggleNotes,
   onToggleStats,
+  onOpenShortcuts,
   onToggleProfileMenu,
   onGoHome,
   onEditAvatar,
@@ -167,7 +169,8 @@ export default function SessionTopBar({
             <ChartIcon /> <span className="hidden sm:inline">Stats</span>
           </button>
         )}
-        <SoundToggle />
+        {onOpenShortcuts && <button aria-label="Keyboard shortcuts" onClick={onOpenShortcuts} className="hidden sm:inline-flex items-center justify-center min-h-11 min-w-11 text-muted text-sm">?</button>}
+          <SoundToggle />
         <ThemeToggle />
         <div className="flex-1" />
         <div className="relative">
@@ -218,6 +221,7 @@ export default function SessionTopBar({
               >
                 <SignOutIcon className="w-3.5 h-3.5" /> Sign out
               </button>
+{onOpenShortcuts && <button onClick={() => { onToggleProfileMenu(); onOpenShortcuts(); }} className="sm:hidden w-full min-h-11 text-left text-xs text-muted">Keyboard shortcuts</button>}
               <FocusNotificationSetting />
             </div>
           )}
