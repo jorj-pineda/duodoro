@@ -117,6 +117,41 @@ export type Database = {
         }
         Relationships: []
       }
+      session_focus_tags: {
+        Row: {
+          created_at: string
+          session_id: string
+          tag: string | null
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          session_id: string
+          tag?: string | null
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          session_id?: string
+          tag?: string | null
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_focus_tags_participant_fk"
+            columns: ["session_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "session_participants"
+            referencedColumns: ["session_id", "user_id"]
+          },
+        ]
+      }
       session_participants: {
         Row: {
           created_at: string | null
@@ -347,6 +382,10 @@ export type Database = {
     }
     Functions: {
       accept_shared_daily_goal: { Args: { goal_id: string }; Returns: string }
+      assert_focus_tag_session_eligible: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       assert_reflection_session_eligible: {
         Args: { p_session_id: string }
         Returns: undefined
@@ -512,6 +551,20 @@ export type Database = {
           id: string
           is_premium: boolean
           username: string
+        }[]
+      }
+      set_session_focus_tag: {
+        Args: {
+          p_expected_version: number
+          p_session_id: string
+          p_tag: string
+        }
+        Returns: {
+          session_id: string
+          tag: string
+          updated_at: string
+          user_id: string
+          version: number
         }[]
       }
       toggle_shared_task: {
