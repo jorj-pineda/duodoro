@@ -75,3 +75,21 @@ describe('private tag fields on calendar rounds', () => {
     expect(result.current.error).toBeNull();
   });
 });
+
+it.each(['month', 'account', 'unmount'])('ignores a retained refresh callback after %s changes', async change => {
+  rpc.mockResolvedValue({ data: [], error: null });
+  const { result, rerender, unmount } = renderHook(({ id, month }) => useFocusCalendar(id, month), { initialProps: { id: 'alice', month: '2026-10' } });
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  const oldRetry = result.current.retry;
+  if (change === 'unmount') unmount();
+  else {
+    rerender({ id: change === 'account' ? 'bob' : 'alice', month: change === 'month' ? '2026-09' : '2026-10' });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+  }
+  const calls = rpc.mock.calls.length;
+  let refreshed = true;
+  await act(async () => { refreshed = await oldRetry(); });
+  expect(refreshed).toBe(false);
+  expect(rpc).toHaveBeenCalledTimes(calls);
+  if (change !== 'unmount') expect(result.current.loaded).toBe(true);
+});

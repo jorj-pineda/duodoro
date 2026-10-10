@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useLocalDay } from "./useDailyFocusGoal";
 import type { CalendarDay, CalendarSession } from "@/lib/focusCalendar";
@@ -50,18 +50,25 @@ export function useFocusCalendar(userId: string, month: string) {
   const owner = `${userId}:${month}`;
   const [state, setState] = useState<State>({ owner, rows: [], loaded: false, error: null, timezone: null, tagsAvailable: false });
   const requests = useRef(0);
+  // Every owner gets a separate lifetime, including callbacks retained by an old editor.
+  const scope = useMemo(() => ({ owner }), [owner]);
+  const activeScope = useRef<typeof scope | null>(null);
 
   // Declared before the load effect so the account is current before any response is recorded.
-  useEffect(() => { retainFocusTagAccount(userId); }, [userId]);
+  useEffect(() => {
+    activeScope.current = scope;
+    retainFocusTagAccount(userId);
+    return () => { if (activeScope.current === scope) activeScope.current = null; };
+  }, [userId, scope]);
 
   // Resolves true only when this request succeeded and is still the latest.
   const load = useCallback(async (): Promise<boolean> => {
-    if (!month) return false;
+    if (!month || activeScope.current !== scope) return false;
     const request = ++requests.current;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     try {
       const { data, error } = await getSupabase().rpc("get_focus_calendar", { month_start: `${month}-01`, tz });
-      if (request !== requests.current) return false;
+      if (activeScope.current !== scope || request !== requests.current) return false;
       if (error) throw error;
       const parsed = parseRows((data ?? []) as RpcRow[]);
       if (parsed.tagsAvailable) {
@@ -73,14 +80,14 @@ export function useFocusCalendar(userId: string, month: string) {
       setState({ owner, rows: parsed.rows, loaded: true, error: null, timezone: tz, tagsAvailable: parsed.tagsAvailable });
       return true;
     } catch {
-      if (request !== requests.current) return false;
+      if (activeScope.current !== scope || request !== requests.current) return false;
       // A failed refresh keeps the last loaded rounds on screen, marked as stale.
       setState(previous => previous.owner === owner && previous.loaded
         ? { ...previous, error: REFRESH_ERROR, timezone: tz }
         : { owner, rows: [], loaded: false, error: LOAD_ERROR, timezone: tz, tagsAvailable: false });
       return false;
     }
-  }, [month, owner, userId]);
+  }, [month, owner, userId, scope]);
 
   useEffect(() => {
     let cancelled = false;
