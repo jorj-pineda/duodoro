@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 const hook = vi.fn();
 vi.mock('@/hooks/useFocusCalendar', () => ({ useFocusCalendar: (...args: unknown[]) => hook(...args) }));
 vi.mock('@/hooks/useDailyFocusGoal', () => ({ useLocalDay: () => '2026-10-07' }));
+vi.mock('@/lib/supabase', () => ({ getSupabase: () => ({ from: () => ({ select: () => ({ eq: () => ({ in: async () => ({ data: [], error: null }) }) }) }) }) }));
 import FocusCalendar from './FocusCalendar';
 beforeEach(() => hook.mockReset());
 it('shows errors independently from empty saved history', () => {

@@ -23,7 +23,8 @@ select has_table(
     'sessions',
     'session_participants',
     'premium_grants',
-    'shared_daily_goals'
+    'shared_daily_goals',
+    'session_reflections'
   ]) as table_name;
 
 select has_column(
@@ -62,7 +63,8 @@ select ok(
      where n.nspname = 'public'
        and c.relname = any(array[
          'profiles', 'friendships', 'tasks', 'waitlist', 'sessions',
-         'session_participants', 'premium_grants', 'shared_daily_goals'
+         'session_participants', 'premium_grants', 'shared_daily_goals',
+         'session_reflections'
        ])
        and not c.relrowsecurity
   ),
@@ -84,6 +86,7 @@ select is(
     'profiles_insert_own',
     'profiles_read_known',
     'profiles_update_own',
+    'session_reflections_read_own',
     'sessions_read_own',
     'shared_daily_goals_delete',
     'shared_daily_goals_read',
@@ -264,6 +267,24 @@ select ok(
   and (select prosecdef from pg_proc where oid = 'public.get_focus_calendar(date,text)'::regprocedure)
   and (select proconfig from pg_proc where oid = 'public.get_focus_calendar(date,text)'::regprocedure) = array['search_path=""']::text[],
   'focus calendar is authenticated-only with a pinned definer search path'
+);
+select ok(
+  has_function_privilege('authenticated', signature, 'EXECUTE')
+  and not has_function_privilege('anon', signature, 'EXECUTE')
+  and not has_function_privilege('public', signature, 'EXECUTE')
+  and (select prosecdef from pg_proc where oid = signature::regprocedure)
+  and (select proconfig from pg_proc where oid = signature::regprocedure) = array['search_path=""']::text[],
+  signature || ' is authenticated-only with a pinned definer search path'
+) from unnest(array[
+  'public.create_session_reflection(uuid,text)',
+  'public.update_session_reflection(uuid,text,bigint)',
+  'public.delete_session_reflection(uuid,bigint)'
+]) signature;
+select ok(
+  not has_table_privilege('authenticated', 'public.session_reflections', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.session_reflections', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.session_reflections', 'DELETE'),
+  'private reflections have no direct client write grants'
 );
 select * from finish();
 rollback;
