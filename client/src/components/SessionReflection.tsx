@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { deleteSessionReflection, loadSessionReflections, saveSessionReflection, useSessionReflection } from "@/hooks/useSessionReflections";
 import { REFLECTION_MAX_CODE_POINTS, validateReflectionText } from "@/lib/sessionReflections";
 
@@ -13,7 +13,7 @@ type Notice = { tone: "status" | "alert"; text: string; reload?: "edit" | "view"
 // freezes the baseline version it was opened from. Later saved changes from
 // another tab or device then stay out of the draft, and a save from the stale
 // baseline is rejected by the server.
-export default function SessionReflection({ userId, sessionId }: { userId: string; sessionId: string }) {
+export default function SessionReflection({ userId, sessionId, onDirtyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean) => void }) {
   const entry = useSessionReflection(userId, sessionId);
   const saved = entry?.reflection ?? null;
   const status = entry?.status ?? "loading";
@@ -39,6 +39,7 @@ export default function SessionReflection({ userId, sessionId }: { userId: strin
   const base = following ? latest : baseline;
   const validation = validateReflectionText(draft);
   const dirty = mode === "edit" && !following && draft !== base.text;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const changedElsewhere = mode === "edit" && !following && (saved?.version ?? null) !== base.version;
   const showProblem = !validation.ok && (validation.reason !== "blank" || attempted || draft !== "");
   const describedBy = [ids.help, ids.count, showProblem ? ids.problem : null].filter(Boolean).join(" ");

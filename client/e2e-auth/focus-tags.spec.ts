@@ -302,3 +302,37 @@ test('a failed save keeps the draft, a retry saves it, and a save that filters i
   await expect(soloRounds(calendarFor(a.page))).toHaveCount(0);
   await expect(a.page.locator('[aria-pressed="true"][id^="focus-calendar-"]')).toBeFocused();
 });
+
+test('a filtered tag save preserves a dirty reflection until it is saved', async ({ duo }) => {
+  test.setTimeout(240_000);
+  const { a, admin, roomCodes } = duo;
+  const suffix = randomUUID().slice(0, 8);
+  await a.page.goto('/');
+  await onboard(a.page, 'Draft Tagger', `dt_${suffix}`);
+  const room = randomUUID(); roomCodes.add(room);
+  const saved = await admin.rpc('record_focus_session', {
+    p_recording_key: randomUUID(), p_room_code: room, p_world: 'forest', p_focus_duration: 900,
+    p_break_duration: 60, p_actual_focus: 900, p_completed: true,
+    p_started_at: new Date(Date.now() - 900_000).toISOString(), p_user_ids: [a.id],
+  });
+  requireSuccess(saved.error, 'Save solo tag fixture');
+
+  await openStats(a.page);
+  await filterBox(calendarFor(a.page)).selectOption('untagged');
+  const round = soloRounds(calendarFor(a.page)).first();
+  await expect(tagBox(round)).toHaveValue('');
+  await round.getByRole('button', { name: 'Add reflection', exact: true }).click();
+  const draft = round.getByRole('textbox', { name: 'How did this session go?' });
+  await draft.fill('Keep this unfinished thought.');
+  await tagBox(round).selectOption('work');
+  await saveButton(round).click();
+  await expect(round.getByText('Tag saved', { exact: true })).toBeVisible();
+  await expect(draft).toHaveValue('Keep this unfinished thought.');
+  await expect(calendarFor(a.page).getByText('0s · 0 matching rounds this month')).toBeVisible();
+  await expect(round.getByText(/stays here while you finish/)).toBeVisible();
+  await round.getByRole('button', { name: 'Save reflection', exact: true }).click();
+  await expect(soloRounds(calendarFor(a.page))).toHaveCount(0);
+  await expect(a.page.locator('[aria-pressed="true"][id^="focus-calendar-"]')).toBeFocused();
+  await filterBox(calendarFor(a.page)).selectOption('all');
+  await expect(soloRounds(calendarFor(a.page)).first().getByText('Keep this unfinished thought.')).toBeVisible();
+});

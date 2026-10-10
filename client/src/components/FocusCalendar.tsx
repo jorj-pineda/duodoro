@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import { useFocusCalendar } from "@/hooks/useFocusCalendar";
 import { useLoadSessionReflections } from "@/hooks/useSessionReflections";
@@ -38,6 +38,15 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   const [filter, setFilter] = useState<CalendarFilter>("all");
   const [tagFilter, setTagFilter] = useState<TagFilter>("all");
   const [shown, setShown] = useState(PAGE);
+  const [dirtyReflections, setDirtyReflections] = useState<ReadonlySet<string>>(() => new Set());
+  const reflectionChanged = useCallback((sessionId: string, dirty: boolean) => {
+    setDirtyReflections(previous => {
+      if (previous.has(sessionId) === dirty) return previous;
+      const next = new Set(previous);
+      if (dirty) next.add(sessionId); else next.delete(sessionId);
+      return next;
+    });
+  }, []);
   const [announcement, setAnnouncement] = useState("");
   const pendingFocus = useRef<string | null>(null);
   // Bumped after each save so the focus check runs once the removed round has rendered.
@@ -56,8 +65,11 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   }, { seconds: 0, rounds: 0 });
   // Filtering uses the complete day from the server before the display limit.
   const details = (byDay.get(selected)?.sessions ?? []).filter(session => sessionMatches(session, filter, activeTag));
-  const visibleDetails = details.slice(0, shown);
-  const detailIds = details.map(session => session.id).join(",");
+  // Keep dirty editors mounted when a tag change excludes their round.
+  // These exceptions do not contribute to matching totals or pagination.
+  const retainedDrafts = (byDay.get(selected)?.sessions ?? []).filter(session => dirtyReflections.has(session.id) && !sessionMatches(session, filter, activeTag));
+  const visibleDetails = [...details.slice(0, shown), ...retainedDrafts];
+  const detailIds = visibleDetails.map(session => session.id).join(",");
   // One bounded batch for the rounds on screen, not one request per round.
   useLoadSessionReflections(userId, visibleDetails.map(session => session.id));
 
@@ -85,7 +97,7 @@ export default function FocusCalendar({ userId }: { userId: string }) {
       setAnnouncement("");
     } else {
       pendingFocus.current = sessionId;
-      setAnnouncement("Tag saved. That round no longer matches the current filters, so it left this list.");
+      setAnnouncement("Tag saved. That round no longer matches the current filters.");
     }
     setFocusRequest(count => count + 1);
     void retry();
@@ -144,7 +156,7 @@ export default function FocusCalendar({ userId }: { userId: string }) {
           {!totals.rounds && <p className="text-sm text-muted">No completed {typeWord} rounds{tagPhrase(activeTag)} this month.</p>}
           <div className="border-t border-line pt-3 space-y-2">
             <h3 className="text-sm font-semibold">{selected}</h3>
-            {!details.length ? <p className="text-xs text-muted">No completed {typeWord} rounds{tagPhrase(activeTag)} on this day.</p> : <>
+            {!visibleDetails.length ? <p className="text-xs text-muted">No completed {typeWord} rounds{tagPhrase(activeTag)} on this day.</p> : <>
               {visibleDetails.map(session => <article key={`round-${userId}-${session.id}`} className="space-y-2 bg-raise p-2 rounded-lg">
                 <div className="flex gap-2 items-center">
                   <WorldThumb worldId={session.world} /><div className="min-w-0 text-xs">
@@ -155,7 +167,8 @@ export default function FocusCalendar({ userId }: { userId: string }) {
                 <SessionFocusTag key={`tag-${userId}-${session.id}`} userId={userId} sessionId={session.id}
                   saved={session.private_tag_version === null ? null : { tag: session.private_tag, version: session.private_tag_version }}
                   available={tagsAvailable} onSaved={onTagSaved} reload={retry} />
-                <SessionReflection key={`reflection-${userId}-${session.id}`} userId={userId} sessionId={session.id} />
+                {!sessionMatches(session, filter, activeTag) && <p role="status" className="text-xs text-muted">This round stays here while you finish your reflection draft. It is excluded from matching totals.</p>}
+                <SessionReflection key={`reflection-${userId}-${session.id}`} userId={userId} sessionId={session.id} onDirtyChange={dirty => reflectionChanged(session.id, dirty)} />
               </article>)}
               {shown < details.length && <button className="min-h-11 text-xs underline" onClick={() => setShown(count => count + PAGE)}>Show more rounds ({details.length - shown} remaining)</button>}
             </>}

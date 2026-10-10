@@ -154,3 +154,22 @@ it("shows a conflict for a stale revision and keeps the user's selection", async
   expect(rpc).toHaveBeenCalledWith("set_session_focus_tag", { p_session_id: "s1", p_tag: "other", p_expected_version: 4 });
   expect(within(row).getByRole("combobox", { name: "Private tag" })).toHaveValue("other");
 });
+
+it("keeps a dirty reflection visible when its tag no longer matches the filter", async () => {
+  rpc.mockResolvedValue({ data: [{ session_id: "s1", user_id: "alice", tag: "reading", version: 3, updated_at: "2026-10-09T10:00:00Z" }], error: null });
+  calendar([day([round("s1", null, { version: null })])]);
+  render(<FocusCalendar userId="alice" />);
+  fireEvent.change(tagFilter(), { target: { value: "untagged" } });
+  const row = article("10m · Solo focus");
+  fireEvent.click(await within(row).findByRole("button", { name: "Add reflection" }));
+  fireEvent.change(within(row).getByRole("textbox", { name: "How did this session go?" }), { target: { value: "still typing" } });
+  fireEvent.change(within(row).getByRole("combobox", { name: "Private tag" }), { target: { value: "reading" } });
+  await act(async () => { fireEvent.click(within(row).getByRole("button", { name: "Save tag" })); });
+  expect(await within(row).findByText("Tag saved")).toBeVisible();
+  expect(screen.getByRole("textbox", { name: "How did this session go?" })).toHaveValue("still typing");
+  expect(screen.getByText("0s · 0 matching rounds this month")).toBeVisible();
+  fireEvent.click(within(row).getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(row).getByRole("button", { name: "Discard draft" }));
+  await waitFor(() => expect(screen.queryAllByRole("article")).toHaveLength(0));
+  expect(document.getElementById("focus-calendar-alice-2026-10-07")).toHaveFocus();
+});
