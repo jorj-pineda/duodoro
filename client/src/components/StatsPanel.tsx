@@ -5,6 +5,7 @@ import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStats } from "@/lib/useStats";
 import FocusCalendar from "./FocusCalendar";
+import FocusInsights from "./FocusInsights";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -17,8 +18,8 @@ interface Props {
   onViewFullStats: () => void;
 }
 
-type Tab = "personal" | "duo" | "history" | "calendar";
-const TABS: readonly Tab[] = ["personal", "duo", "history", "calendar"];
+type Tab = "personal" | "duo" | "history" | "calendar" | "insights";
+const TABS: readonly Tab[] = ["personal", "duo", "history", "calendar", "insights"];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -208,16 +209,17 @@ export default function StatsPanel({
                 aria-labelledby={`stats-tab-${tab}`}
                 className="flex-1 overflow-y-auto p-3"
               >
-                {tab !== "calendar" && loading && (
+                {tab !== "calendar" && tab !== "insights" && loading && (
                   <p className="text-faint text-sm text-center py-8">
                     Loading...
                   </p>
                 )}
 
                 {tab === "calendar" && <FocusCalendar key={userId} userId={userId} />}
+                {tab === "insights" && <FocusInsights key={userId} userId={userId} />}
 
                 {/* Personal tab */}
-                {tab !== "calendar" && !loading && statsError && (
+                {tab !== "calendar" && tab !== "insights" && !loading && statsError && (
                   <StatsErrorState onRetry={retry} className="py-10" />
                 )}
 
