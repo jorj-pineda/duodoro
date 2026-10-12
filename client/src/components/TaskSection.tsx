@@ -16,15 +16,17 @@ interface Props {
   deleteTask: (id: string) => void;
   editTask: (id: string, content: string) => Promise<string | null>;
   clearCompleted: () => void;
+  onFocusGoal?: (task: Task) => void;
+  focusDisabled?: boolean;
   error?: string | null;
   onDismissError?: () => void;
 }
 
-function GoalRow({ task, missing, onEditingChange, toggleTask, deleteTask, editTask }: {
+function GoalRow({ task, missing, onEditingChange, toggleTask, deleteTask, editTask, onFocusGoal, focusDisabled }: {
   task: Task;
   missing: boolean;
   onEditingChange: (task: Task, editing: boolean) => void;
-} & Pick<Props, "toggleTask" | "deleteTask" | "editTask">) {
+} & Pick<Props, "toggleTask" | "deleteTask" | "editTask" | "onFocusGoal" | "focusDisabled">) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
@@ -68,6 +70,9 @@ function GoalRow({ task, missing, onEditingChange, toggleTask, deleteTask, editT
         )}
       </div>
       <div className="flex flex-col flex-shrink-0">
+        {onFocusGoal && !task.is_done && task.room_code === null && <button
+          aria-label={`Focus on ${task.content}`} disabled={editing || saving || missing || focusDisabled}
+          className="min-h-11 px-2 text-xs text-accent disabled:opacity-40" onClick={() => onFocusGoal(task)}>Focus</button>}
         <button
           ref={editButton}
           onClick={() => {
@@ -105,6 +110,8 @@ export default function TaskSection({
   editTask,
   clearCompleted,
   error,
+  onFocusGoal,
+  focusDisabled,
   onDismissError,
 }: Props) {
   const newGoalInput = useRef<HTMLInputElement>(null);
@@ -161,6 +168,7 @@ export default function TaskSection({
         )}
       </div>
 
+      {onFocusGoal && <p className="text-xs text-muted mb-2">Focus opens a private draft. Save intention to share its text in the room.</p>}
       <div className="space-y-1.5 max-h-48 overflow-y-auto">
         <AnimatePresence mode="popLayout">
           {visibleTasks.map((task) => (
@@ -172,6 +180,8 @@ export default function TaskSection({
               toggleTask={toggleTask}
               deleteTask={deleteTask}
               editTask={editTask}
+              onFocusGoal={onFocusGoal}
+              focusDisabled={focusDisabled || editingTasks.length > 0}
             />
           ))}
         </AnimatePresence>

@@ -63,3 +63,30 @@ describe("session intentions", () => {
     await expectNoAxeViolations(container);
   });
 });
+it('stages goal text privately, preserves long text for review, and publishes only after Save', async () => {
+  const onSave = vi.fn(async () => null); const onGoalDismiss = vi.fn();
+  render(<SessionIntentions {...props} goalDraft={'x'.repeat(200)} onSave={onSave} onGoalDismiss={onGoalDismiss} />);
+  expect(screen.getByRole('textbox')).toHaveValue('x'.repeat(200));
+  expect(screen.getByRole('button',{ name: 'Save intention' })).toBeDisabled();
+  expect(onSave).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByRole('textbox'),{ target: { value: 'Reviewed goal' } });
+  fireEvent.click(screen.getByRole('button',{ name: 'Save intention' }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledWith('Reviewed goal'));
+  expect(onGoalDismiss).toHaveBeenCalled();
+});
+it('cancels a goal draft without sharing or editing the underlying goal', () => {
+  const onSave = vi.fn(); const onGoalDismiss = vi.fn();
+  render(<SessionIntentions {...props} goalDraft="Private goal" onSave={onSave} onGoalDismiss={onGoalDismiss} />);
+  fireEvent.click(screen.getByRole('button',{ name: 'Cancel' }));
+  expect(onSave).not.toHaveBeenCalled(); expect(onGoalDismiss).toHaveBeenCalled();
+});
+it('keeps a selected goal private while an existing focus round is running, then allows review during break', () => {
+  const onSave = vi.fn();
+  const { rerender } = render(<SessionIntentions {...props} phase="focus" goalDraft="Next private goal" onSave={onSave} />);
+  expect(screen.getByRole('textbox')).toHaveValue('Next private goal');
+  expect(screen.getByRole('button',{ name: 'Save intention' })).toBeDisabled();
+  expect(onSave).not.toHaveBeenCalled();
+  rerender(<SessionIntentions {...props} phase="break" goalDraft="Next private goal" onSave={onSave} />);
+  expect(screen.getByRole('textbox')).toHaveValue('Next private goal');
+  expect(screen.getByRole('button',{ name: 'Save intention' })).toBeEnabled();
+});

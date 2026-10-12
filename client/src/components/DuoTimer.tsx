@@ -4,6 +4,8 @@ import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
 import CompanionNameEditor from "./CompanionNameEditor";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
+import SessionWrapUp from "./SessionWrapUp";
+import type { Task } from "@/lib/types";
 import BreakActivities from "./BreakActivities";
 import BreakCheckIn from "./BreakCheckIn";
 import { useEffect, useRef, useState } from "react";
@@ -52,6 +54,8 @@ export default function DuoTimer() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcuts = useShortcutPreference(auth.profile?.id);
   const [intentionEditing, setIntentionEditing] = useState(false);
+  const [goalDraft, setGoalDraft] = useState<{ owner: string; text: string } | null>(null);
+  const [wrapScope, setWrapScope] = useState<{ owner: string; room: string } | null>(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
@@ -81,8 +85,10 @@ export default function DuoTimer() {
   useGameTitle(appStep === "game" && !!profile, game);
 
   const shortcutScreen = !!profile && (appStep === "home" || appStep === "game");
-  const shortcutBlocked = shortcutsOpen || friendsOpen || notesOpen || premiumOpen || profileMenuOpen || statsOpen || fullStatsOpen || usernameModalOpen || displayNameModalOpen || !!game.pendingInvite;
-  const shortcutStart = startShortcutAction({ inGame: appStep === "game", sessionId: game.sessionId, connected: game.connectionState === "connected", playerCount: game.playerCount, sessionStarted: game.sessionStarted, intentionEditing, phase: game.phase });
+  const hasIntentionDraft = intentionEditing || Boolean(profile && goalDraft?.owner === profile.id);
+  const wrapOpen = appStep === "game" && !!profile && wrapScope?.owner === profile.id && wrapScope.room === game.sessionId;
+  const shortcutBlocked = wrapOpen || shortcutsOpen || friendsOpen || notesOpen || premiumOpen || profileMenuOpen || statsOpen || fullStatsOpen || usernameModalOpen || displayNameModalOpen || !!game.pendingInvite;
+  const shortcutStart = startShortcutAction({ inGame: appStep === "game", sessionId: game.sessionId, connected: game.connectionState === "connected", playerCount: game.playerCount, sessionStarted: game.sessionStarted, intentionEditing: hasIntentionDraft, phase: game.phase });
   useKeyboardShortcuts(shortcutScreen && shortcuts.enabled, shortcutBlocked, {
     start: shortcutStart === "start" ? game.startSession : shortcutStart === "again" ? game.goAgain : undefined,
     stats: () => setStatsOpen(true),
@@ -123,6 +129,13 @@ export default function DuoTimer() {
     handleCreateSession();
   };
 
+  const handleFocusGoal = (task: Task) => {
+    if (!profile || task.owner_id !== profile.id || task.room_code !== null || task.is_done) return;
+    if (game.connectionState !== "connected") { showError("Reconnect before focusing on a goal."); return; }
+    setGoalDraft({ owner: profile.id, text: task.content });
+    handleFocus();
+  };
+
   const handleRejoinSession = () => {
     const sid =
       game.sessionId || game.resumeSessionId || profile?.current_session_id;
@@ -132,6 +145,8 @@ export default function DuoTimer() {
   };
 
   const handleLeaveSession = () => {
+    setGoalDraft(null);
+    setWrapScope(null);
     game.leaveSession();
     setAppStep("home");
   };
@@ -290,6 +305,9 @@ export default function DuoTimer() {
   const sharedOverlays = (
     <>
       {errorToastEl}
+      {wrapOpen && profile && <SessionWrapUp key={`wrap-up:${profile.id}:${game.sessionId}`} userId={profile.id} phase={game.phase} completedRounds={game.completedRounds}
+        intentions={game.intentions} recap={game.roundRecap} saveStatus={game.focusSaveStatus} draftOpen={hasIntentionDraft}
+        onClose={() => setWrapScope(null)} onLeave={handleLeaveSession} />}
       <KeyboardShortcuts key={profile?.id ?? "signed-out"} open={shortcutScreen && shortcutsOpen} onClose={() => setShortcutsOpen(false)} enabled={shortcuts.enabled} onEnabledChange={shortcuts.setEnabled} />
       <ConnectionBanner
         state={game.connectionState}
@@ -474,6 +492,7 @@ export default function DuoTimer() {
     return (
       <>
         <HomeDashboard
+          key={profile?.id}
           profile={profile!}
           activeSessionId={
             game.sessionId ||
@@ -484,6 +503,7 @@ export default function DuoTimer() {
           socketRef={game.socketRef}
           connectionState={game.connectionState}
           onFocus={handleFocus}
+          onFocusGoal={handleFocusGoal}
           onOpenPremium={() => setPremiumOpen(true)}
           onRejoinSession={handleRejoinSession}
           onJoinSession={handleJoinSession}
@@ -646,10 +666,10 @@ export default function DuoTimer() {
             {game.partnerPetName && <p className="text-xs text-muted max-w-xs break-words">{game.partnerName ?? "Partner"}&apos;s companion · <strong>{game.partnerPetName}</strong></p>}
           </>}
           reactions={<ReactionControls key={game.sessionId} connected={game.connectionState === "connected" && Boolean(game.sessionId)} onSend={game.sendReaction} />}
-          startBlocked={intentionEditing}
-          intentionPrompt={profile && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
+          startBlocked={hasIntentionDraft}
+          intentionPrompt={profile && game.sessionId && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
             names={Object.fromEntries([[profile.id, displayName], ...(game.partnerUserId ? [[game.partnerUserId, game.partnerName ?? "Partner"]] : [])])}
-            onSave={game.setIntention} onEditingChange={setIntentionEditing} />}
+            onSave={game.setIntention} onEditingChange={setIntentionEditing} goalDraft={goalDraft?.owner === profile.id ? goalDraft.text : undefined} onGoalDismiss={() => setGoalDraft(null)} />}
           companionGrowth={companionGrowth}
           recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} intentions={<IntentionRecap recap={game.roundRecap} userId={profile.id} roomId={game.sessionId ?? undefined} next={game.intentions.next[profile.id] ?? ""} onResolve={game.resolveIntention} />} /> : null}
           phase={game.phase}
@@ -679,6 +699,7 @@ export default function DuoTimer() {
           onFinishFlow={game.finishFlowFocus}
           onShareInvite={handleShareInvite}
           shareInviteBusy={shareInviteBusy}
+          onWrapUp={() => { if (profile && game.sessionId) setWrapScope({ owner: profile.id, room: game.sessionId }); }}
           onLeave={handleLeaveSession}
           breakCheckIn={profile && game.phaseStartTime !== null && <BreakCheckIn
             key={`break-check-in:${profile.id}:${game.sessionId}:${game.phaseStartTime}`} userId={profile.id}

@@ -24,7 +24,7 @@ import {
   StarIcon,
   SignOutIcon,
 } from "./Icons";
-import type { Profile } from "@/lib/types";
+import type { Profile, Task } from "@/lib/types";
 import type { DuodoroSocket } from "@/lib/socketContract";
 import type { ConnectionState } from "@/hooks/useSessionConnection";
 
@@ -35,6 +35,7 @@ interface Props {
   connectionState?: ConnectionState;
   /** Starts a session in whatever world the rotation is on — see WorldNowCard. */
   onFocus: () => void;
+  onFocusGoal?: (task: Task) => void;
   /**
    * Opens the premium modal. Home had no such prop at all: its Upgrade button
    * called setProfileMenuOpen(false) and stopped there, so the primary
@@ -103,6 +104,7 @@ export default function HomeDashboard({
   socketRef,
   connectionState = "connecting",
   onFocus,
+  onFocusGoal,
   onOpenPremium,
   onRejoinSession,
   onJoinSession,
@@ -397,6 +399,8 @@ export default function HomeDashboard({
           <SharedMilestones key={`milestones:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
 
           <TaskSection
+            onFocusGoal={onFocusGoal}
+            focusDisabled={connectionState !== "connected"}
             tasks={tasks}
             pendingTasks={pendingTasks}
             completedTasks={completedTasks}
