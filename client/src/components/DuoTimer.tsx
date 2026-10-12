@@ -22,6 +22,10 @@ import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
 import QuietFocusSetting from "./QuietFocusSetting";
+import { startShortcutAction } from "@/lib/keyboardShortcuts";
+import KeyboardShortcuts from "./KeyboardShortcuts";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useShortcutPreference } from "@/hooks/useShortcutPreference";
 import { useQuietFocus } from "@/hooks/useQuietFocus";
 import SessionPresets from "./SessionPresets";
 import UsernameChangeModal from "./UsernameChangeModal";
@@ -39,11 +43,13 @@ export default function DuoTimer() {
   const router = useRouter();
   const auth = useAuth();
   const game = useGameSession(auth.profile);
-  const { enabled: quietFocus } = useQuietFocus(auth.profile?.id);
+  const { enabled: quietFocus, setEnabled: setQuietFocus } = useQuietFocus(auth.profile?.id);
   const gameConnectionState = game.connectionState;
   const joinShareInvite = game.joinShareInvite;
 
   // ── UI panel state ──────────────────────────────────────────────────────
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcuts = useShortcutPreference(auth.profile?.id);
   const [intentionEditing, setIntentionEditing] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -72,6 +78,16 @@ export default function DuoTimer() {
     auth;
   const initial = displayName.charAt(0).toUpperCase();
   useGameTitle(appStep === "game" && !!profile, game);
+
+  const shortcutScreen = !!profile && (appStep === "home" || appStep === "game");
+  const shortcutBlocked = shortcutsOpen || friendsOpen || notesOpen || premiumOpen || profileMenuOpen || statsOpen || fullStatsOpen || usernameModalOpen || displayNameModalOpen || !!game.pendingInvite;
+  const shortcutStart = startShortcutAction({ inGame: appStep === "game", sessionId: game.sessionId, connected: game.connectionState === "connected", playerCount: game.playerCount, sessionStarted: game.sessionStarted, intentionEditing, phase: game.phase });
+  useKeyboardShortcuts(shortcutScreen && shortcuts.enabled, shortcutBlocked, {
+    start: shortcutStart === "start" ? game.startSession : shortcutStart === "again" ? game.goAgain : undefined,
+    stats: () => setStatsOpen(true),
+    quiet: appStep === "game" ? () => setQuietFocus(!quietFocus) : undefined,
+    help: () => setShortcutsOpen(true),
+  });
 
   // ── Wrappers that bridge auth + game ────────────────────────────────────
   const handleCreateSession = () => {
@@ -273,6 +289,7 @@ export default function DuoTimer() {
   const sharedOverlays = (
     <>
       {errorToastEl}
+      <KeyboardShortcuts key={profile?.id ?? "signed-out"} open={shortcutScreen && shortcutsOpen} onClose={() => setShortcutsOpen(false)} enabled={shortcuts.enabled} onEnabledChange={shortcuts.setEnabled} />
       <ConnectionBanner
         state={game.connectionState}
         inSession={Boolean(game.sessionId)}
@@ -488,6 +505,7 @@ export default function DuoTimer() {
             setFriendsOpen(true);
             setStatsOpen(false);
           }}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
           onOpenStats={() => {
             setStatsOpen((o) => !o);
             setFriendsOpen(false);
@@ -595,6 +613,7 @@ export default function DuoTimer() {
             setFriendsOpen(false);
             setStatsOpen(false);
           }}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
           onToggleStats={() => {
             setStatsOpen((o) => !o);
             setNotesOpen(false);

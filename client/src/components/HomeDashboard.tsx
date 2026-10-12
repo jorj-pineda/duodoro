@@ -51,6 +51,7 @@ interface Props {
   onAccountDeleted: () => void | Promise<void>;
   onOpenFriends: () => void;
   onOpenStats: () => void;
+  onOpenShortcuts?: () => void;
 }
 
 function greetingForHour(hour: number) {
@@ -113,6 +114,7 @@ export default function HomeDashboard({
   onAccountDeleted,
   onOpenFriends,
   onOpenStats,
+  onOpenShortcuts,
 }: Props) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -227,6 +229,7 @@ export default function HomeDashboard({
           >
             <ChartIcon /> <span className="hidden sm:inline">Stats</span>
           </button>
+          {onOpenShortcuts && <button aria-label="Keyboard shortcuts" onClick={onOpenShortcuts} className="hidden sm:inline-flex items-center justify-center min-h-11 min-w-11 text-muted text-sm">?</button>}
           <SoundToggle />
           <ThemeToggle />
           <div className="relative ml-1">
@@ -315,6 +318,7 @@ export default function HomeDashboard({
                 >
                   <SignOutIcon className="w-3.5 h-3.5" /> Sign out
                 </button>
+{onOpenShortcuts && <button onClick={() => { setProfileMenuOpen(false); onOpenShortcuts(); }} className="sm:hidden w-full min-h-11 text-left text-xs text-muted">Keyboard shortcuts</button>}
                 <FocusNotificationSetting />
               </div>
             )}
