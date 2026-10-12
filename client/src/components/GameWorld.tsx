@@ -369,6 +369,7 @@ export default function GameWorld({
                 type={myPet}
                 stage={myPetStage}
                 anim={myAnim}
+                idleMoments={phase === "waiting" || phase === "ready" || phase === "break"}
                 facing="right"
                 size={artPx}
               />
@@ -417,6 +418,7 @@ export default function GameWorld({
                   type={partnerPet}
                   stage={partnerPetStage}
                   anim={partnerDisconnected ? "idle" : partnerAnim}
+                  idleMoments={!partnerDisconnected && (phase === "waiting" || phase === "ready" || phase === "break")}
                   facing="left"
                   size={artPx}
                 />
