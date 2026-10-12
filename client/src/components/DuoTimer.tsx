@@ -650,7 +650,7 @@ export default function DuoTimer() {
             names={Object.fromEntries([[profile.id, displayName], ...(game.partnerUserId ? [[game.partnerUserId, game.partnerName ?? "Partner"]] : [])])}
             onSave={game.setIntention} onEditingChange={setIntentionEditing} />}
           companionGrowth={companionGrowth}
-          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} intentions={<IntentionRecap recap={game.roundRecap} userId={profile.id} next={game.intentions.next[profile.id] ?? ""} onResolve={game.resolveIntention} />} /> : null}
+          recap={profile && game.roundRecap ? <RoundRecap key={`${profile.id}:${game.sessionId}:${game.roundRecap.round}`} recap={game.roundRecap} userId={profile.id} growth={companionGrowth} intentions={<IntentionRecap recap={game.roundRecap} userId={profile.id} roomId={game.sessionId ?? undefined} next={game.intentions.next[profile.id] ?? ""} onResolve={game.resolveIntention} />} /> : null}
           phase={game.phase}
           serverMode={game.serverMode}
           sessionStarted={game.sessionStarted}

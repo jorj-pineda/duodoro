@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { RoundRecap, SessionIntentions as Intentions } from "@/lib/sessionTypes";
 
+import IntentionGoal from "./IntentionGoal";
+
 type Action = "done" | "undo" | "carry";
 const button = "min-h-11 px-2 text-xs font-semibold text-accent disabled:opacity-50";
 
@@ -79,9 +81,10 @@ export default function SessionIntentions({ intentions, userId, phase, names, on
   );
 }
 
-export function IntentionRecap({ recap, userId, next, onResolve }: {
+export function IntentionRecap({ recap, userId, roomId, next, onResolve }: {
   recap: RoundRecap;
   userId: string;
+  roomId?: string;
   next: string;
   onResolve: (round: number, action: Action) => Promise<string | null>;
 }) {
@@ -109,6 +112,7 @@ export function IntentionRecap({ recap, userId, next, onResolve }: {
             <button className={button} disabled={busy} onClick={() => void resolve(intention.completed ? "undo" : "done")}>{intention.completed ? "Undo intention completion" : "Mark intention done"}</button>
             <button className={button} disabled={busy || Boolean(next)} onClick={() => void resolve("carry")}>{next === intention.text ? "Carried into next round" : next ? "Next round already planned" : "Carry into next round"}</button>
           </div>}
+          {id === userId && !intention.completed && roomId && <IntentionGoal key={`${userId}:${roomId}:${recap.round}`} userId={userId} roomId={roomId} round={recap.round} text={intention.text} />}
         </div>
       ))}
       {error && <p role="alert" className="text-xs text-danger">{error}</p>}
