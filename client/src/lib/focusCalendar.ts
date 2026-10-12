@@ -1,5 +1,17 @@
+import { matchesTagFilter, type FocusTagId, type TagFilter } from "./focusTags";
+
 export type CalendarFilter = "all" | "solo" | "duo";
-export interface CalendarSession { id: string; focus_seconds: number; world: string; ended_at: string; is_duo: boolean; partner_name: string }
+export interface CalendarSession {
+  id: string;
+  focus_seconds: number;
+  world: string;
+  ended_at: string;
+  is_duo: boolean;
+  partner_name: string;
+  // The caller's own private tag and revision. Never a partner's metadata.
+  private_tag: FocusTagId | null;
+  private_tag_version: number | null;
+}
 export interface CalendarDay { day: string; solo_seconds: number; duo_seconds: number; solo_rounds: number; duo_rounds: number; sessions: CalendarSession[] }
 
 export function monthDays(month: string): (string | null)[] {
@@ -26,6 +38,22 @@ export function dayTotals(row: CalendarDay | undefined, filter: CalendarFilter) 
     rounds: (filter !== "duo" ? row?.solo_rounds ?? 0 : 0) + (filter !== "solo" ? row?.duo_rounds ?? 0 : 0),
   };
 }
+
+// One predicate drives totals, day cells, details, empty states and show-more
+// counts, so every figure describes the same set of rounds.
+export function sessionMatches(session: CalendarSession, typeFilter: CalendarFilter, tagFilter: TagFilter): boolean {
+  return (typeFilter === "all" || session.is_duo === (typeFilter === "duo"))
+    && matchesTagFilter(session.private_tag, tagFilter);
+}
+
+// With no tag filter the server's day aggregates stay authoritative. With a tag
+// filter, totals come from the complete month's sessions for that day.
+export function filteredDayTotals(row: CalendarDay | undefined, typeFilter: CalendarFilter, tagFilter: TagFilter) {
+  if (tagFilter === "all") return dayTotals(row, typeFilter);
+  const matching = (row?.sessions ?? []).filter(session => sessionMatches(session, typeFilter, tagFilter));
+  return { seconds: matching.reduce((sum, session) => sum + session.focus_seconds, 0), rounds: matching.length };
+}
+
 export function focusLabel(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);

@@ -24,7 +24,8 @@ select has_table(
     'session_participants',
     'premium_grants',
     'shared_daily_goals',
-    'session_reflections'
+    'session_reflections',
+    'session_focus_tags'
   ]) as table_name;
 
 select has_column(
@@ -64,7 +65,7 @@ select ok(
        and c.relname = any(array[
          'profiles', 'friendships', 'tasks', 'waitlist', 'sessions',
          'session_participants', 'premium_grants', 'shared_daily_goals',
-         'session_reflections'
+         'session_reflections', 'session_focus_tags'
        ])
        and not c.relrowsecurity
   ),
@@ -86,6 +87,7 @@ select is(
     'profiles_insert_own',
     'profiles_read_known',
     'profiles_update_own',
+    'session_focus_tags_read_own',
     'session_reflections_read_own',
     'sessions_read_own',
     'shared_daily_goals_delete',
@@ -280,6 +282,22 @@ select ok(
   'public.update_session_reflection(uuid,text,bigint)',
   'public.delete_session_reflection(uuid,bigint)'
 ]) signature;
+select ok(
+  has_function_privilege('authenticated', 'public.set_session_focus_tag(uuid,text,bigint)', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.set_session_focus_tag(uuid,text,bigint)', 'EXECUTE')
+  and not has_function_privilege('public', 'public.set_session_focus_tag(uuid,text,bigint)', 'EXECUTE')
+  and (select prosecdef from pg_proc where oid = 'public.set_session_focus_tag(uuid,text,bigint)'::regprocedure)
+  and (select proconfig from pg_proc where oid = 'public.set_session_focus_tag(uuid,text,bigint)'::regprocedure) = array['search_path=""']::text[],
+  'private focus tags are written only through the authenticated RPC with a pinned definer search path'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.session_focus_tags', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.session_focus_tags', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.session_focus_tags', 'DELETE')
+  and has_table_privilege('authenticated', 'public.session_focus_tags', 'SELECT')
+  and not has_table_privilege('anon', 'public.session_focus_tags', 'SELECT'),
+  'private focus tags have no direct client write grants'
+);
 select ok(
   not has_table_privilege('authenticated', 'public.session_reflections', 'INSERT')
   and not has_table_privilege('authenticated', 'public.session_reflections', 'UPDATE')
