@@ -121,3 +121,13 @@ it("keeps setup slots distinct across repeated renders even with equal account k
     expect(screen.getAllByRole("checkbox", { name: "Quiet setting" })).toHaveLength(1);
   }
 });
+it('shows the private check-in only during a break, with timer controls intact', () => {
+  const checkIn = <span>Private energy prompt</span>;
+  const { rerender } = render(<ReadyHUD phase="break" sessionStarted breakCheckIn={checkIn} />);
+  expect(screen.getByText('Private energy prompt')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Stop timer' })).toBeVisible();
+  for (const phase of ['focus','celebration','returning','ready','waiting'] as const) {
+    rerender(<ReadyHUD phase={phase} sessionStarted={phase !== 'waiting' && phase !== 'ready'} breakCheckIn={checkIn} />);
+    expect(screen.queryByText('Private energy prompt')).toBeNull();
+  }
+});
