@@ -1,0 +1,56 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { beforeEach, expect, it } from 'vitest';
+import BreakCheckIn from './BreakCheckIn';
+beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
+it('starts optional, keeps energy out of storage, and clears it on skip or a new break', () => {
+  const { unmount } = render(<BreakCheckIn userId="energy" breakId="room:1" mode="pomodoro" />);
+  expect(screen.queryByRole('group')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Enable break check-ins' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Low' }));
+  expect(screen.getByRole('button', { name: 'Low' })).toHaveAttribute('aria-pressed','true');
+  expect(screen.getByRole('status')).toHaveTextContent('finish for now');
+  expect(Object.keys(localStorage)).toEqual(['duodoro:break-check-ins:energy']);
+  expect(localStorage.getItem('duodoro:break-check-ins:energy')).toBe('1');
+  expect(sessionStorage.length).toBe(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Skip this break' }));
+  expect(screen.queryByRole('group')).toBeNull();
+  unmount();
+  const same = render(<BreakCheckIn userId="energy" breakId="room:1" mode="pomodoro" />);
+  expect(screen.getByText('Skipped for this break.')).toBeVisible();
+  same.unmount();
+  render(<BreakCheckIn userId="energy" breakId="room:2" mode="pomodoro" />);
+  expect(screen.getByRole('group')).toBeVisible();
+  expect(screen.queryByRole('status')).toBeNull();
+});
+it('gives mode-accurate guidance, supports changing answers, and turns off without answering', () => {
+  render(<BreakCheckIn userId="flow" breakId="room:1" mode="flow" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Enable break check-ins' }));
+  expect(screen.getByText(/Flow resumes automatically/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'High' }));
+  expect(screen.getByRole('status')).toHaveTextContent('consider another round');
+  fireEvent.click(screen.getByRole('button', { name: 'Steady' }));
+  expect(screen.getByRole('button', { name: 'High' })).toHaveAttribute('aria-pressed','false');
+  expect(screen.getByRole('status')).toHaveTextContent('Take the rest');
+  fireEvent.click(screen.getByRole('button', { name: 'Turn off check-ins' }));
+  expect(screen.queryByRole('group')).toBeNull();
+  expect(screen.queryByRole('status')).toBeNull();
+});
+it('uses neutral opt-out SSR even with an opted-in browser preference', () => {
+  localStorage.setItem('duodoro:break-check-ins:ssr-energy','1');
+  const html = renderToString(<BreakCheckIn userId="ssr-energy" breakId="room:1" mode="pomodoro" />);
+  expect(html).toContain('Enable break check-ins');
+  expect(html).not.toContain('How is your energy?');
+});
+it('discards the answer when another tab turns check-ins off', () => {
+  render(<BreakCheckIn userId="cross-tab" breakId="room:1" mode="flow" />);
+  fireEvent.click(screen.getByRole('button',{ name: 'Enable break check-ins' }));
+  fireEvent.click(screen.getByRole('button',{ name: 'Low' }));
+  localStorage.setItem('duodoro:break-check-ins:cross-tab','0');
+  fireEvent(window,new StorageEvent('storage',{ key: 'duodoro:break-check-ins:cross-tab' }));
+  expect(screen.queryByRole('group')).toBeNull();
+  localStorage.setItem('duodoro:break-check-ins:cross-tab','1');
+  fireEvent(window,new StorageEvent('storage',{ key: 'duodoro:break-check-ins:cross-tab' }));
+  expect(screen.getByRole('button',{ name: 'Low' })).toHaveAttribute('aria-pressed','false');
+  expect(screen.queryByRole('status')).toBeNull();
+});

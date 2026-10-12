@@ -5,6 +5,7 @@ import CompanionNameEditor from "./CompanionNameEditor";
 import CompanionGrowth from "./CompanionGrowth";
 import RoundRecap from "./RoundRecap";
 import BreakActivities from "./BreakActivities";
+import BreakCheckIn from "./BreakCheckIn";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -679,6 +680,9 @@ export default function DuoTimer() {
           onShareInvite={handleShareInvite}
           shareInviteBusy={shareInviteBusy}
           onLeave={handleLeaveSession}
+          breakCheckIn={profile && game.phaseStartTime !== null && <BreakCheckIn
+            key={`break-check-in:${profile.id}:${game.sessionId}:${game.phaseStartTime}`} userId={profile.id}
+            breakId={`${game.sessionId}:${game.phaseStartTime}`} mode={game.serverMode} />}
           breakActivities={profile && game.phaseStartTime !== null && <BreakActivities
             key={`${profile.id}:${game.sessionId}:${game.phaseStartTime}`} userId={profile.id}
             breakId={`${game.sessionId}:${game.phaseStartTime}`} />}
