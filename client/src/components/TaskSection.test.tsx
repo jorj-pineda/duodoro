@@ -88,3 +88,9 @@ describe("drafts during goal synchronization", () => {
     await waitFor(() => expect(screen.getByRole("textbox", { name: "New goal" })).toHaveFocus());
   });
 });
+it('offers focus only on pending personal goals and never auto-completes them', () => {
+  const pending = { ...task, is_done: false }; const onFocusGoal = vi.fn(); const p = props();
+  render(<TaskSection {...p} tasks={[pending]} pendingTasks={[pending]} completedTasks={[]} onFocusGoal={onFocusGoal} />);
+  fireEvent.click(screen.getByRole('button',{ name: 'Focus on Original goal' }));
+  expect(onFocusGoal).toHaveBeenCalledWith(pending); expect(p.toggleTask).not.toHaveBeenCalled();
+});

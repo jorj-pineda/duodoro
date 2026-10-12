@@ -87,6 +87,7 @@ interface SessionHUDProps {
   onShareInvite: () => void;
   shareInviteBusy: boolean;
   onLeave: () => void;
+  onWrapUp?: () => void;
 }
 
 const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
@@ -135,6 +136,7 @@ export default function SessionHUD({
   onShareInvite,
   shareInviteBusy,
   onLeave,
+  onWrapUp,
 }: SessionHUDProps) {
   const quiet = quietFocus && phase === "focus";
   const showTimer = phase === "focus" || phase === "break";
@@ -345,6 +347,7 @@ export default function SessionHUD({
               Stop timer
             </button>
           )}
+          {onWrapUp && <button className="min-h-11 px-3 text-sm text-ink border border-line rounded" onClick={onWrapUp}>Done for today?</button>}
           <button
             onClick={onLeave}
             className="text-xs text-danger/60 hover:text-danger transition-colors mt-2 px-4 py-2.5 sm:px-0 sm:py-0 rounded-lg"
