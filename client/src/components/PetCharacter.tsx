@@ -5,6 +5,8 @@ import type { PetType } from "@/lib/types";
 import { ART_PX } from "@/lib/scene";
 import { PET_ART } from "@/lib/petMaps";
 import type { PetStage } from "@/lib/petLevel";
+import { petIdleMap } from "@/lib/petIdle";
+import { usePetIdleMoment } from "@/hooks/usePetIdleMoment";
 import PixelSprite from "./PixelSprite";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,6 +26,7 @@ interface PetCharacterProps {
   facing?: "right" | "left";
   size?: number;
   outline?: string;
+  idleMoments?: boolean;
 }
 
 const STEP_MS = 250;
@@ -35,8 +38,10 @@ export default function PetCharacter({
   facing = "right",
   size = ART_PX,
   outline,
+  idleMoments = false,
 }: PetCharacterProps) {
   const [walkFrame, setWalkFrame] = useState(0);
+  const moment = usePetIdleMoment(idleMoments && (anim === "idle" || anim === "sit"), `${type}:${stage}:${anim}`);
 
   useEffect(() => {
     // See PixelCharacter: resetting the frame in the effect body was a
@@ -56,7 +61,7 @@ export default function PetCharacter({
 
   return (
     <PixelSprite
-      map={art.frames[frame]}
+      map={moment === "rest" ? art.frames[frame] : petIdleMap(type, stage ?? "grown", moment)}
       palette={art.palette}
       scale={size}
       outline={outline}

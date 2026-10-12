@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, act } from "@testing-library/react";
 import GameWorld, { type GamePhase } from "./GameWorld";
 import { DEFAULT_AVATAR, type WorldId } from "@/lib/avatarData";
 import { ART_PX, ART_PX_COMPACT, GROUND } from "@/lib/scene";
 import { CHAR_W, CHAR_H } from "@/lib/characterMaps";
-import { PET_W, PET_H, PET_STAGE_SIZE } from "@/lib/petMaps";
+import { PET_W, PET_H, PET_STAGE_SIZE, PET_ART } from "@/lib/petMaps";
 import { PET_STAGES, type PetStage } from "@/lib/petLevel";
 
 // The scene used to place characters with `calc(41.7% + 8px)` on `left` and
@@ -15,6 +15,30 @@ import { PET_STAGES, type PetStage } from "@/lib/petLevel";
 
 const me = { id: "me", avatar: DEFAULT_AVATAR };
 const partner = { id: "them", avatar: DEFAULT_AVATAR };
+
+describe("companion idle phase boundaries", () => {
+  for (const phase of ["waiting", "ready", "break", "focus", "celebration", "returning"] as const) {
+    it(`only blinks in resting phases (${phase})`, () => {
+      vi.useFakeTimers();
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const scene = renderScene(phase, 0, 0, true);
+      try {
+        act(() => vi.advanceTimersByTime(7000));
+        const eyes = findSprite(scene.container, 11, 8).querySelectorAll(`rect[fill="${PET_ART.cat.grown.palette.E}"]`);
+        expect(eyes.length === 0).toBe(["waiting", "ready", "break"].includes(phase));
+      } finally { scene.unmount(); vi.restoreAllMocks(); vi.useRealTimers(); }
+    });
+  }
+  it("keeps a reconnecting partner in the resting pose", () => {
+    vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0);
+    const scene = render(<GameWorld worldId="forest" phase="waiting" focusProgress={0} returningProgress={0}
+      me={me} partner={partner} partnerPet="dog" partnerDisconnected />);
+    try {
+      act(() => vi.advanceTimersByTime(7000));
+      expect(findSprite(scene.container, 11, 8).querySelectorAll(`rect[fill="${PET_ART.dog.grown.palette.E}"]`).length).toBeGreaterThan(0);
+    } finally { scene.unmount(); vi.restoreAllMocks(); vi.useRealTimers(); }
+  });
+});
 
 describe("intention labels", () => {
   it("exposes the full text while keeping labels out of the standing art's layout", () => {
