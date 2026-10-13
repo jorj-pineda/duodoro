@@ -5,6 +5,7 @@ import { useStats } from "@/lib/useStats";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import FocusCalendar from "./FocusCalendar";
 import FocusInsights from "./FocusInsights";
+import ReflectionReview from "./ReflectionReview";
 import StatsErrorState from "./StatsErrorState";
 import type { DailyFocus } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -164,6 +165,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
             <FocusInsights key={`insights-${userId}`} userId={userId} />
             <FocusCalendar key={userId} userId={userId} />
+            <ReflectionReview userId={userId} />
             {loading && (
               <p className="text-faint text-sm text-center py-12">
                 Loading stats...

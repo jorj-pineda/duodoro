@@ -15,6 +15,7 @@ import {
   saveSessionReflection,
   useLoadSessionReflections,
   useSessionReflection,
+  useSessionReflections,
 } from "./useSessionReflections";
 
 type ReadRequest = { userId: string; ids: string[]; resolve: (value: unknown) => void; reject: (error: unknown) => void };
@@ -44,6 +45,21 @@ function answer(index: number, data: unknown, error: unknown = null) {
 }
 
 describe("bounded reads", () => {
+  it("projects a whole-month batch for only the current owner and drops stale account responses", async () => {
+    const { result, rerender } = renderHook(({ owner, ids }) => useSessionReflections(owner, ids),
+      { initialProps: { owner: "alice", ids: ["shared", "solo"] } });
+    await waitFor(() => expect(reads).toHaveLength(1));
+    expect(reads[0].ids).toEqual(["shared", "solo"]);
+    rerender({ owner: "bob", ids: ["shared"] });
+    expect(result.current.shared?.reflection).toBeFalsy();
+    expect(result.current.solo).toBeUndefined();
+    await waitFor(() => expect(reads).toHaveLength(2));
+    answer(1, [row("shared", "bob", "Bob private")]);
+    await waitFor(() => expect(result.current.shared?.reflection?.text).toBe("Bob private"));
+    await act(async () => answer(0, [row("shared", "alice", "Alice private"), row("solo", "alice", "Solo private")]));
+    expect(result.current.shared?.reflection?.text).toBe("Bob private");
+    expect(Object.keys(result.current)).toEqual(["shared"]);
+  });
   it("reads in batches of at most 50 sessions rather than one request per round or one huge IN list", async () => {
     const ids = Array.from({ length: 120 }, (_, index) => `s${index}`);
     const pending = loadSessionReflections("alice", ids);
