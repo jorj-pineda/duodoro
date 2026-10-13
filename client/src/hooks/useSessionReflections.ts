@@ -233,3 +233,12 @@ export function useSessionReflection(userId: string, sessionId: string): Reflect
   const all = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
   return all[keyFor(userId, sessionId)];
 }
+
+// Reviews load the complete requested month before filtering or pagination.
+// The projection exposes only this account's requested rounds, even while the
+// shared store is being cleared after an account change.
+export function useSessionReflections(userId: string, sessionIds: string[]): Record<string, ReflectionEntry | undefined> {
+  useLoadSessionReflections(userId, sessionIds);
+  const all = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
+  return Object.fromEntries(sessionIds.map(id => [id, all[keyFor(userId, id)]]));
+}

@@ -6,6 +6,7 @@ import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStats } from "@/lib/useStats";
 import FocusCalendar from "./FocusCalendar";
 import FocusInsights from "./FocusInsights";
+import ReflectionReview from "./ReflectionReview";
 import StatsErrorState from "./StatsErrorState";
 import type { DuoStats, SessionWithPartner } from "@/lib/types";
 import WorldThumb from "./WorldThumb";
@@ -18,8 +19,8 @@ interface Props {
   onViewFullStats: () => void;
 }
 
-type Tab = "personal" | "duo" | "history" | "calendar" | "insights";
-const TABS: readonly Tab[] = ["personal", "duo", "history", "calendar", "insights"];
+type Tab = "personal" | "duo" | "history" | "calendar" | "insights" | "reflections";
+const TABS: readonly Tab[] = ["personal", "duo", "history", "calendar", "insights", "reflections"];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export default function StatsPanel({
               </div>
 
               {/* Tabs */}
-              <div role="tablist" aria-label="Stats sections" className="flex border-b border-line">
+              <div role="tablist" aria-label="Stats sections" className="grid grid-cols-3 border-b border-line">
                 {TABS.map((t) => (
                   <button
                     key={t}
@@ -191,7 +192,7 @@ export default function StatsPanel({
                       )
                     }
                     onClick={() => setTab(t)}
-                    className={`flex-1 py-2.5 text-xs font-bold capitalize transition-colors ${
+                    className={`min-h-11 px-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
                         ? "text-accent border-b-2 border-accent"
                         : "text-muted hover:text-ink"
@@ -209,7 +210,7 @@ export default function StatsPanel({
                 aria-labelledby={`stats-tab-${tab}`}
                 className="flex-1 overflow-y-auto p-3"
               >
-                {tab !== "calendar" && tab !== "insights" && loading && (
+                {tab !== "calendar" && tab !== "insights" && tab !== "reflections" && loading && (
                   <p className="text-faint text-sm text-center py-8">
                     Loading...
                   </p>
@@ -217,9 +218,10 @@ export default function StatsPanel({
 
                 {tab === "calendar" && <FocusCalendar key={userId} userId={userId} />}
                 {tab === "insights" && <FocusInsights key={userId} userId={userId} />}
+                {tab === "reflections" && <ReflectionReview userId={userId} />}
 
                 {/* Personal tab */}
-                {tab !== "calendar" && tab !== "insights" && !loading && statsError && (
+                {tab !== "calendar" && tab !== "insights" && tab !== "reflections" && !loading && statsError && (
                   <StatsErrorState onRetry={retry} className="py-10" />
                 )}
 
