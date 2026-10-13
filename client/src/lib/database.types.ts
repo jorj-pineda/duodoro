@@ -376,6 +376,30 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_focus_plans: {
+        Row: {
+          task_ids: string[]
+          updated_at: string
+          user_id: string
+          version: number
+          week_start: string
+        }
+        Insert: {
+          task_ids?: string[]
+          updated_at?: string
+          user_id: string
+          version?: number
+          week_start: string
+        }
+        Update: {
+          task_ids?: string[]
+          updated_at?: string
+          user_id?: string
+          version?: number
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -566,6 +590,26 @@ export type Database = {
           user_id: string
           version: number
         }[]
+      }
+      set_weekly_focus_plan: {
+        Args: {
+          p_expected_version: number
+          p_task_ids: string[]
+          p_week_start: string
+        }
+        Returns: {
+          task_ids: string[]
+          updated_at: string
+          user_id: string
+          version: number
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "weekly_focus_plans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       toggle_shared_task: {
         Args: { p_done: boolean; p_task_id: string }

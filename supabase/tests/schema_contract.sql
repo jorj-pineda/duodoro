@@ -25,7 +25,8 @@ select has_table(
     'premium_grants',
     'shared_daily_goals',
     'session_reflections',
-    'session_focus_tags'
+    'session_focus_tags',
+    'weekly_focus_plans'
   ]) as table_name;
 
 select has_column(
@@ -65,7 +66,7 @@ select ok(
        and c.relname = any(array[
          'profiles', 'friendships', 'tasks', 'waitlist', 'sessions',
          'session_participants', 'premium_grants', 'shared_daily_goals',
-         'session_reflections', 'session_focus_tags'
+         'session_reflections', 'session_focus_tags', 'weekly_focus_plans'
        ])
        and not c.relrowsecurity
   ),
@@ -97,7 +98,8 @@ select is(
     'tasks_insert',
     'tasks_read',
     'tasks_update',
-    'waitlist_insert'
+    'waitlist_insert',
+    'weekly_focus_plans_read_own'
   ]::text[],
   'the final RLS policy set matches the application contract'
 );

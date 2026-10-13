@@ -36,7 +36,7 @@ function createFakeSupabase() {
   const builder = (kind: string, filters: unknown[] = []) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chain: any = {};
-    for (const method of ["select", "eq", "is", "order", "in", "single"]) {
+    for (const method of ["select", "eq", "is", "order", "in", "single", "range"]) {
       chain[method] = (...args: unknown[]) => {
         if (method === "eq" || method === "is") filters.push([method, ...args]);
         return chain;
@@ -82,6 +82,28 @@ let fake: ReturnType<typeof createFakeSupabase>;
 vi.mock("@/lib/supabase", () => ({ getSupabase: () => fake.sb }));
 
 import { useTasks } from "./useTasks";
+
+it("loads all personal goals across response pages before exposing a complete list", async () => {
+  fake = createFakeSupabase();
+  const first = Array.from({ length: 500 }, (_, index) => task(`goal-${index}`, false));
+  fake.pendingReads.push(Promise.resolve({ data: first, error: null }), Promise.resolve({ data: [task("last-page", false)], error: null }));
+  const hook = renderHook(() => useTasks(OWNER));
+  expect(hook.result.current.loaded).toBe(false);
+  await waitFor(() => expect(hook.result.current.loaded).toBe(true));
+  expect(hook.result.current.tasks).toHaveLength(501);
+  expect(hook.result.current.tasks.at(-1)?.id).toBe("last-page");
+  expect(fake.reads).toHaveLength(2);
+});
+
+it("never exposes a partial goal list when a later page fails", async () => {
+  fake = createFakeSupabase();
+  fake.pendingReads.push(Promise.resolve({ data: Array.from({ length: 500 }, (_, index) => task(`goal-${index}`, false)), error: null }),
+    Promise.resolve({ data: null, error: {} }));
+  const hook = renderHook(() => useTasks(OWNER));
+  await waitFor(() => expect(hook.result.current.error).toMatch(/Couldn't load/));
+  expect(hook.result.current.tasks).toEqual([]);
+  expect(hook.result.current.loaded).toBe(false);
+});
 
 describe("useTasks bulk deletion", () => {
   beforeEach(() => {

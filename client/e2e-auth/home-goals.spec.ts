@@ -16,7 +16,7 @@ test("Home edits survive a failed save, refresh and a session round trip", async
   await onboard(page, "Home Goals", `home_${randomUUID().slice(0, 8)}`);
   await page.getByRole("textbox", { name: "New goal", exact: true }).fill(original);
   await page.getByRole("button", { name: "Add goal", exact: true }).click();
-  await expect(page.getByText(original, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Personal goals", exact: true }).getByText(original, { exact: true })).toBeVisible();
   const created = await a.client.from("tasks").select("id").eq("owner_id", a.id).eq("content", original).single();
   requireSuccess(created.error, "Read created Home goal");
   const goalId = created.data!.id;
@@ -53,9 +53,9 @@ test("Home edits survive a failed save, refresh and a session round trip", async
     await page.unroute(endpoint);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(editor).toBeHidden();
-    await expect(page.getByText(edited, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Personal goals", exact: true }).getByText(edited, { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByText(edited, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Personal goals", exact: true }).getByText(edited, { exact: true })).toBeVisible();
   });
 
   await test.step("editing a completed goal preserves its state", async () => {
@@ -83,7 +83,7 @@ test("Home edits survive a failed save, refresh and a session round trip", async
     await page.getByRole("button", { name: /Leave room/ }).click();
     await expect(page.getByRole("button", { name: `Mark ${completed} incomplete`, exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByText(completed, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Personal goals", exact: true }).getByText(completed, { exact: true })).toBeVisible();
     expect(pageErrors).toEqual([]);
   });
 });

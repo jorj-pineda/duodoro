@@ -14,6 +14,7 @@ import { expectNoAxeViolations } from "@/test/axe";
 vi.mock("@/hooks/useSharedMilestones", () => ({ useSharedMilestones: () => ({ rows: [], loaded: true, error: null, retry: vi.fn() }) }));
 
 vi.mock("@/hooks/useWeeklyDuoRecap", () => ({ useWeeklyDuoRecap: () => ({ rows: [], loaded: true, error: null, timezone: "UTC", retry: vi.fn() }) }));
+vi.mock("@/hooks/useWeeklyPlan", () => ({ useWeeklyPlan: () => ({ plan: { ids: [], version: null }, loaded: true, saving: false, error: null, reload: vi.fn(), save: vi.fn() }) }));
 
 vi.mock("@/lib/useStats", () => ({
   useStats: () => ({
@@ -36,6 +37,7 @@ vi.mock("@/hooks/useSharedDailyGoals", () => ({
 vi.mock("@/hooks/useTasks", () => ({
   useTasks: () => ({
     tasks: [],
+    loaded: true,
     newTask: "",
     setNewTask: vi.fn(),
     addTask: vi.fn(),

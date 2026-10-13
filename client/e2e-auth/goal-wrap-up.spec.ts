@@ -62,7 +62,7 @@ test('a private goal becomes a reviewed room intention, and wrap-up keeps drafts
     await a.page.screenshot({path:test.info().outputPath(`wrap-up-${name}.png`)});
   }
   await wrap.getByRole('button',{ name: 'Finish and leave room' }).click();
-  await expect(a.page.getByText('Private chapter',{ exact: true })).toBeVisible();
+  await expect(a.page.getByRole('button',{ name: 'Focus on Private chapter', exact: true })).toBeVisible();
   const retained = await a.client.from('tasks').select('is_done').eq('owner_id',a.id).single();
   requireSuccess(retained.error,'Keep goal incomplete'); expect(retained.data?.is_done).toBe(false);
 });
