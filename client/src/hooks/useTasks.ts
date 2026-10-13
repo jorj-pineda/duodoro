@@ -10,6 +10,7 @@ export function useTasks(ownerId: string) {
   // an RLS refusal on update/delete is not an error — it matches zero rows. So
   // these check what actually happened instead of assuming success.
   const [error, setError] = useState<string | null>(null);
+  const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
   const sb = getSupabase();
 
   const writeRevision = useRef(0);
@@ -28,12 +29,18 @@ export function useTasks(ownerId: string) {
           queued = false;
           const revision = writeRevision.current;
           try {
-            const { data, error: err } = await sb
-              .from("tasks")
-              .select("*")
-              .eq("owner_id", ownerId)
-              .is("room_code", null)
-              .order("created_at", { ascending: true });
+            // A weekly plan may reference any personal goal. Page the full
+            // list so PostgREST's response cap cannot make a saved goal vanish.
+            const rows: Task[] = [];
+            for (let start = 0; ; start += 500) {
+              const { data, error: err } = await sb.from("tasks").select("*")
+                .eq("owner_id", ownerId).is("room_code", null)
+                .order("created_at", { ascending: true }).order("id", { ascending: true }).range(start, start + 499);
+              if (disposed) return;
+              if (err || !data) throw new Error("read failed");
+              rows.push(...data.map(taskFromRow));
+              if (data.length < 500) break;
+            }
             if (disposed) return;
             // A read started before a successful write must not roll it back.
             // Re-read once, also coalescing events received during this request.
@@ -41,11 +48,8 @@ export function useTasks(ownerId: string) {
               queued = true;
               continue;
             }
-            if (err || !data) {
-              setError("Couldn't load your tasks.");
-              continue;
-            }
-            setTasks(data.map(taskFromRow));
+            setTasks(rows);
+            setLoadedOwner(ownerId);
             setError((current) => current === "Couldn't load your tasks." ? null : current);
           } catch {
             if (!disposed) setError("Couldn't load your tasks.");
@@ -191,6 +195,7 @@ export function useTasks(ownerId: string) {
 
   return {
     tasks,
+    loaded: loadedOwner === ownerId,
     newTask,
     setNewTask,
     addTask,

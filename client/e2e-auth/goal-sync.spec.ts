@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { test, expect, requireSuccess } from "./duoFixture";
 import { onboard } from "./onboard";
+const personalGoals = (page: Page) => page.getByRole("region", { name: "Personal goals", exact: true });
 
 function goalRow(page: Page, content: string, done = false) {
   return page.getByRole("button", { name: `Mark ${content} ${done ? "incomplete" : "complete"}`, exact: true }).locator("..");
@@ -22,9 +23,9 @@ test("two Home tabs synchronize goals while preserving unsaved drafts", async ({
   await onboard(first, "Goal Sync", `sync_${randomUUID().slice(0, 8)}`);
   await first.getByRole("textbox", { name: "New goal", exact: true }).fill(original);
   await first.getByRole("button", { name: "Add goal", exact: true }).click();
-  await expect(first.getByText(original, { exact: true })).toBeVisible();
+  await expect(personalGoals(first).getByText(original, { exact: true })).toBeVisible();
   await second.goto("/");
-  await expect(second.getByText(original, { exact: true })).toBeVisible();
+  await expect(personalGoals(second).getByText(original, { exact: true })).toBeVisible();
   const created = await a.client.from("tasks").select("id").eq("owner_id", a.id).eq("content", original).single();
   requireSuccess(created.error, "Read synchronization goal");
   const id = created.data!.id;
@@ -36,7 +37,7 @@ test("two Home tabs synchronize goals while preserving unsaved drafts", async ({
     await second.getByRole("textbox", { name: "New goal", exact: true }).fill("An unsaved new goal");
     await first.getByRole("textbox", { name: "New goal", exact: true }).fill(extra);
     await first.getByRole("button", { name: "Add goal", exact: true }).click();
-    for (const page of [first, second]) await expect(page.getByText(extra, { exact: true })).toHaveCount(1);
+    for (const page of [first, second]) await expect(personalGoals(page).getByText(extra, { exact: true })).toHaveCount(1);
     await expect(second.getByRole("textbox", { name: "New goal", exact: true })).toHaveValue("An unsaved new goal");
   });
 
@@ -53,7 +54,7 @@ test("two Home tabs synchronize goals while preserving unsaved drafts", async ({
     await expect(second.getByRole("button", { name: `Mark ${remote} incomplete`, exact: true })).toBeVisible();
     await expect(editor).toHaveValue(draft);
     await editor.press("Escape");
-    await expect(second.getByText(remote, { exact: true })).toBeVisible();
+    await expect(personalGoals(second).getByText(remote, { exact: true })).toBeVisible();
   });
 
   await test.step("a failed refresh preserves loaded goals and catches up on tab return", async () => {
@@ -64,7 +65,7 @@ test("two Home tabs synchronize goals while preserving unsaved drafts", async ({
     });
     await second.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(second.getByRole("alert").filter({ hasText: "Couldn't load your tasks" })).toBeVisible();
-    await expect(second.getByText(remote, { exact: true })).toBeVisible();
+    await expect(personalGoals(second).getByText(remote, { exact: true })).toBeVisible();
     await first.getByRole("button", { name: `Mark ${remote} incomplete`, exact: true }).click();
     await second.unroute(endpoint);
     // Simulate the visibility event without claiming a physical sleeping tab.
@@ -87,11 +88,11 @@ test("two Home tabs synchronize goals while preserving unsaved drafts", async ({
     expect(remaining.data).toEqual([]);
     await first.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(editor).toBeHidden();
-    await expect(first.getByText(remote, { exact: true })).toHaveCount(0);
+    await expect(personalGoals(first).getByText(remote, { exact: true })).toHaveCount(0);
     for (const page of [first, second]) {
       await page.reload();
-      await expect(page.getByText(extra, { exact: true })).toHaveCount(1);
-      await expect(page.getByText(remote, { exact: true })).toHaveCount(0);
+      await expect(personalGoals(page).getByText(extra, { exact: true })).toHaveCount(1);
+      await expect(personalGoals(page).getByText(remote, { exact: true })).toHaveCount(0);
     }
     expect(pageErrors).toEqual([]);
   });

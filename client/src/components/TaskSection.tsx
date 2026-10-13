@@ -18,6 +18,7 @@ interface Props {
   clearCompleted: () => void;
   onFocusGoal?: (task: Task) => void;
   focusDisabled?: boolean;
+  onDraftStateChange?: (editing: boolean) => void;
   error?: string | null;
   onDismissError?: () => void;
 }
@@ -112,11 +113,15 @@ export default function TaskSection({
   error,
   onFocusGoal,
   focusDisabled,
+  onDraftStateChange,
   onDismissError,
 }: Props) {
   const newGoalInput = useRef<HTMLInputElement>(null);
   const [editingTasks, setEditingTasks] = useState<Task[]>([]);
+  const editingIds = useRef(new Set<string>());
   const onEditingChange = (task: Task, editing: boolean) => {
+    if (editing) editingIds.current.add(task.id); else editingIds.current.delete(task.id);
+    onDraftStateChange?.(editingIds.current.size > 0);
     setEditingTasks((rows) => editing
       ? [...rows.filter((row) => row.id !== task.id), task]
       : rows.filter((row) => row.id !== task.id));
@@ -129,7 +134,7 @@ export default function TaskSection({
     ...editingTasks.filter((draft) => !tasks.some((row) => row.id === draft.id)),
   ];
   return (
-    <div className="bg-surface rounded-2xl border border-line p-4">
+    <section aria-label="Personal goals" className="bg-surface rounded-2xl border border-line p-4">
       {error && (
         <div
           role="alert"
@@ -213,6 +218,6 @@ export default function TaskSection({
           +
         </button>
       </div>
-    </div>
+    </section>
   );
 }

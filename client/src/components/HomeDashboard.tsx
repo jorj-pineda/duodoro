@@ -14,6 +14,7 @@ import ThemeToggle from "./ThemeToggle";
 import SoundToggle from "./SoundToggle";
 import FocusNotificationSetting from "./FocusNotificationSetting";
 import WeeklyDuoRecap from "./WeeklyDuoRecap";
+import WeeklyFocusPlan from "./WeeklyFocusPlan";
 import WorldNowCard from "./WorldNowCard";
 import Button from "./Button";
 import AccountSettingsModal from "./AccountSettingsModal";
@@ -121,6 +122,7 @@ export default function HomeDashboard({
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [goalDraftOpen, setGoalDraftOpen] = useState(false);
   const greeting = useLocalGreeting();
 
   useEffect(() => {
@@ -146,6 +148,7 @@ export default function HomeDashboard({
 
   const {
     tasks,
+    loaded: tasksLoaded,
     newTask,
     setNewTask,
     addTask,
@@ -398,7 +401,11 @@ export default function HomeDashboard({
 
           <SharedMilestones key={`milestones:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
 
+          <WeeklyFocusPlan userId={profile.id} tasks={tasks} tasksLoaded={tasksLoaded} tasksError={taskError}
+            onFocusGoal={onFocusGoal} focusDisabled={connectionState !== "connected" || goalDraftOpen || !!newTask.trim()} />
+
           <TaskSection
+            onDraftStateChange={setGoalDraftOpen}
             onFocusGoal={onFocusGoal}
             focusDisabled={connectionState !== "connected"}
             tasks={tasks}
