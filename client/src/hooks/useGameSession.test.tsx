@@ -94,6 +94,7 @@ import { useGameSession } from "./useGameSession";
 import { useGameTitle } from "./useGameTitle";
 import { SITE_TITLE } from "@/lib/site";
 import type { Profile } from "@/lib/types";
+import type { BreakExtensionState } from "@/lib/sessionTypes";
 
 const profile: Profile = {
   id: "user-1",
@@ -127,6 +128,65 @@ describe("useGameSession connection lifecycle", () => {
     localStorage.clear();
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["pomodoro", "flow"])("updates only the current %s break from confirmed consent and restores it on sync", async mode => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    const start = Date.now() - 10000;
+    const state: BreakExtensionState = { eligibleUserIds: [profile.id, "partner"], status: "available", requesterId: null, proposalId: null, extraSeconds: 0 };
+    const snapshot = { sessionId: "break-room", mode, phase: "break", phaseStartTime: start, focusDuration: 1500, breakDuration: 60, players: {}, breakExtension: state };
+    act(() => fakeSocket.fire("sync_state", snapshot));
+    expect(result.current.timeLeft).toBeCloseTo(50, 0);
+    const accepted: BreakExtensionState = { ...state, status: "accepted", requesterId: profile.id, proposalId: "00000000-0000-4000-8000-000000000001", extraSeconds: 120 };
+    act(() => fakeSocket.fire("break_extension_changed", { sessionId: "other-room", phaseStartTime: start, state: accepted }));
+    act(() => fakeSocket.fire("break_extension_changed", { sessionId: "break-room", phaseStartTime: start - 1, state: accepted }));
+    expect(result.current.breakExtension?.status).toBe("available");
+    act(() => fakeSocket.fire("break_extension_changed", { sessionId: "break-room", phaseStartTime: start, state: { ...accepted, extraSeconds: 999 } }));
+    expect(result.current.timeLeft).toBeCloseTo(50, 0);
+    act(() => fakeSocket.fire("break_extension_changed", { sessionId: "break-room", phaseStartTime: start, state: accepted }));
+    expect(result.current.timeLeft).toBeCloseTo(170, 0);
+    expect(result.current.phaseProgress).toBeCloseTo(10 / 180, 2);
+    expect(result.current.phaseStartTime).toBe(start);
+    expect(playSound).not.toHaveBeenCalledWith("break-finished");
+    act(() => fakeSocket.fire("sync_state", { ...snapshot, breakExtension: accepted }));
+    expect(result.current.timeLeft).toBeCloseTo(170, 0);
+    act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "ready", phaseStartTime: null, breakExtension: null }));
+    expect(result.current.breakExtension).toBeNull();
+    act(() => result.current.goAgain());
+    expect(fakeSocket.emitted.findLast(event => event.ev === "start_session")?.payload).toMatchObject({ breakDuration: 60 });
+  });
+
+  it("scopes break votes to the server phase and rejects acknowledgements after that phase changes", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    const start = Date.now();
+    const snapshot = { sessionId: "break-room", mode: "flow", phase: "break", phaseStartTime: start, focusDuration: 7200, breakDuration: 60, players: {} };
+    act(() => fakeSocket.fire("sync_state", snapshot));
+    let request!: Promise<string | null>;
+    act(() => { request = result.current.requestBreakExtension("00000000-0000-4000-8000-000000000001", false); });
+    const sent = fakeSocket.emitted.findLast(event => event.ev === "respond_break_extension")!;
+    expect(sent.payload).toMatchObject({ phaseStartTime: start, accept: false, sessionId: "break-room" });
+    act(() => fakeSocket.fire("phase_change", { ...snapshot, phase: "returning" }));
+    await act(async () => { sent.callback?.({ ok: true }); expect(await request).toContain("ended or changed"); });
+  });
+
+  it("refreshes an unconfirmed break request instead of assuming the break was extended", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("sync_state", { sessionId: "break-room", mode: "flow", phase: "break", phaseStartTime: Date.now(), focusDuration: 7200, breakDuration: 60, players: {} }));
+    vi.useFakeTimers();
+    try {
+      let request!: Promise<string | null>;
+      act(() => { request = result.current.requestBreakExtension(); });
+      expect(fakeSocket.emitted.findLast(event => event.ev === "request_break_extension")?.payload).toMatchObject({ sessionId: "break-room" });
+      await act(async () => { await vi.advanceTimersByTimeAsync(5001); expect(await request).toContain("Couldn't confirm"); });
+      expect(fakeSocket.emittedNames()).toContain("request_sync");
+      expect(result.current.breakExtension).toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
 
   it("confirms names before persisting, filters other-room changes, and preserves names during growth", async () => {
     const { result } = renderHook(() => useGameSession(profile));

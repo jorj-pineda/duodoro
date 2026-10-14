@@ -1,4 +1,6 @@
 const CLIENT_EVENT_NAMES = Object.freeze([
+  'request_break_extension',
+  'respond_break_extension',
   'send_reaction',
   'set_intention',
   'resolve_intention',
@@ -21,6 +23,7 @@ const CLIENT_EVENT_NAMES = Object.freeze([
 ]);
 
 const SERVER_EVENT_NAMES = Object.freeze([
+  'break_extension_changed',
   'room_reaction',
   'intentions_changed',
   'session_created',

@@ -155,7 +155,14 @@ function parseReaction(payload) {
   return valid({ sessionId: payload.sessionId, reaction: payload.reaction });
 }
 
+function parseBreakExtension(payload, responding = false) {
+  if (typeof payload.sessionId !== 'string' || !Number.isSafeInteger(payload.phaseStartTime) || payload.phaseStartTime < 0) return invalid('break_extension');
+  if (responding && (typeof payload.proposalId !== 'string' || payload.proposalId.length !== 36 || typeof payload.accept !== 'boolean')) return invalid('break_extension');
+  return valid({ sessionId: payload.sessionId, phaseStartTime: payload.phaseStartTime, proposalId: payload.proposalId, accept: payload.accept });
+}
+
 module.exports = {
+  parseBreakExtension,
   parseReaction,
   parseSetIntention,
   parseResolveIntention,

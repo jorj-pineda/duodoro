@@ -120,6 +120,7 @@ function registerPhasePetHandlers({
     }
     session.intentions = { current: {}, next: session.intentions?.next || {} };
     session.roundRecap = null;
+    session.breakExtension = null;
     session.phase = 'waiting';
     session.phaseStartTime = null;
     session.focusRoundId = null;
@@ -128,6 +129,7 @@ function registerPhasePetHandlers({
       completedRounds: session.completedRounds,
       roundRecap: session.roundRecap,
       mode: session.mode,
+      breakExtension: null,
       phase: 'waiting',
       phaseStartTime: null,
       focusDuration: session.focusDuration,

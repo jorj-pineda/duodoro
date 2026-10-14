@@ -37,6 +37,7 @@ const { registerReactionHandlers } = require('./reactionHandlers');
 const { registerIntentionHandlers } = require('./intentionHandlers');
 const { registerPhasePetHandlers } = require('./phasePetHandlers');
 const { nextPhaseFor } = require('./phaseSequence');
+const { startBreakExtension, registerBreakExtensionHandlers } = require('./breakExtensionHandlers');
 const { registerRoomMembershipHandlers } = require('./roomMembershipHandlers');
 
 /** @typedef {import('../shared/socketContract').ClientToServerEvents} ClientToServerEvents */
@@ -181,6 +182,7 @@ const rateLimits = {
   shareInvite:   createRateLimiter(10, 60_000),
   companionName: createRateLimiter(20, 60_000),
   reaction: createRateLimiter(1, 3000),
+  breakExtension: createRateLimiter(10, 60_000),
   intention: createRateLimiter(30, 60_000),
   companionProgress: createRateLimiter(10, 60_000),   // 10 per minute
 };
@@ -460,6 +462,7 @@ function advancePhase(sessionId) {
     session.phase = nextPhase;
     session.phaseStartTime = nextPhase === 'ready' ? null : Date.now();
     if (nextPhase === 'ready') session.focusRoundId = null;
+    session.breakExtension = nextPhase === 'break' ? startBreakExtension(session) : null;
   }
 
   io.to(sessionId).emit('phase_change', {
@@ -467,6 +470,7 @@ function advancePhase(sessionId) {
     roundRecap: session.roundRecap,
     mode: session.mode,
     intentions: session.intentions,
+    breakExtension: session.breakExtension,
     phase: nextPhase,
     phaseStartTime: session.phaseStartTime,
     focusDuration: session.focusDuration,
@@ -686,6 +690,8 @@ io.on('connection', (socket) => {
   registerCompanionNameHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.companionName(socket.id) });
   registerReactionHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.reaction(socket.id) });
   registerIntentionHandlers({ socket, io, onPayload, getSession, allow: () => rateLimits.intention(socket.id) });
+
+  registerBreakExtensionHandlers({ socket, io, onPayload, getSession, advancePhase, allow: () => rateLimits.breakExtension(socket.id) });
 
   registerPhasePetHandlers({
     socket,

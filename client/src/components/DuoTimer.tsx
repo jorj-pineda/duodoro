@@ -8,6 +8,7 @@ import SessionWrapUp from "./SessionWrapUp";
 import type { Task } from "@/lib/types";
 import BreakActivities from "./BreakActivities";
 import BreakCheckIn from "./BreakCheckIn";
+import BreakExtension from "./BreakExtension";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -701,6 +702,9 @@ export default function DuoTimer() {
           shareInviteBusy={shareInviteBusy}
           onWrapUp={() => { if (profile && game.sessionId) setWrapScope({ owner: profile.id, room: game.sessionId }); }}
           onLeave={handleLeaveSession}
+          breakExtension={profile && <BreakExtension key={`extension:${profile.id}:${game.sessionId}:${game.phaseStartTime}`}
+            state={game.breakExtension} userId={profile.id} connected={game.connectionState === "connected" && game.playerCount === 2 && !game.partnerDisconnected && Boolean(game.breakExtension?.eligibleUserIds.includes(game.partnerUserId ?? ""))}
+            hasTime={game.timeLeft > 0} onRequest={game.requestBreakExtension} />}
           breakCheckIn={profile && game.phaseStartTime !== null && <BreakCheckIn
             key={`break-check-in:${profile.id}:${game.sessionId}:${game.phaseStartTime}`} userId={profile.id}
             breakId={`${game.sessionId}:${game.phaseStartTime}`} mode={game.serverMode} />}

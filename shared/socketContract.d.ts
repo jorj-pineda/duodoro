@@ -1,3 +1,11 @@
+export interface BreakExtensionState {
+  eligibleUserIds: string[];
+  status: 'available' | 'pending' | 'accepted' | 'declined';
+  proposalId: string | null;
+  requesterId: string | null;
+  extraSeconds: number;
+}
+
 export type ReactionType = 'heart' | 'cheer' | 'wave';
 export interface RoomReaction { id: string; sessionId: string; playerId: string; reaction: ReactionType; }
 export interface ReactionResponse { ok: boolean; message?: string; }
@@ -48,6 +56,7 @@ export interface PlayerData {
 }
 
 export interface SyncPayload {
+  breakExtension?: BreakExtensionState | null;
   intentions?: SessionIntentions;
   /** Private saved-focus total for this recipient, never their partner. */
   companionFocusSeconds?: number | null;
@@ -65,6 +74,7 @@ export interface SyncPayload {
 }
 
 export interface PhaseChangePayload {
+  breakExtension?: BreakExtensionState | null;
   intentions?: SessionIntentions;
   completedRounds?: number;
   roundRecap?: RoundRecap | null;
@@ -95,6 +105,8 @@ export interface AccountDeletionResponse {
 }
 
 export interface ClientToServerEvents {
+  request_break_extension: (payload: { sessionId: string; phaseStartTime: number }, respond: (response: { ok: boolean; message?: string }) => void) => void;
+  respond_break_extension: (payload: { sessionId: string; phaseStartTime: number; proposalId: string; accept: boolean }, respond: (response: { ok: boolean; message?: string }) => void) => void;
   set_pet_name: (payload: { sessionId: string; name: string }, respond: (response: { ok: boolean; name?: string; message?: string }) => void) => void;
   send_reaction: (payload: { sessionId: string; reaction: ReactionType }, respond: (response: ReactionResponse) => void) => void;
   set_intention: (payload: { sessionId: string; text: string }, respond: (response: IntentionResponse) => void) => void;
@@ -147,6 +159,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  break_extension_changed: (payload: { sessionId: string; phaseStartTime: number; state: BreakExtensionState }) => void;
   companion_name_changed: (payload: { sessionId: string; playerId: string; petName: string }) => void;
   room_reaction: (payload: RoomReaction) => void;
   intentions_changed: (payload: { sessionId: string; intentions: SessionIntentions; recap: RoundRecap | null }) => void;

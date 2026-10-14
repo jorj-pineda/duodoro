@@ -19,6 +19,7 @@ const serverSource = readSources('.', [
   'socialHandlers.js',
   'roomMembershipHandlers.js',
   'phasePetHandlers.js',
+  'breakExtensionHandlers.js',
 ]);
 const clientSource = readSources('../client/src', [
   'hooks/useGameSession.ts',

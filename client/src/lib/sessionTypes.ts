@@ -1,4 +1,5 @@
 export type {
+  BreakExtensionState,
   ReactionType,
   RoomReaction,
   SessionIntentions,

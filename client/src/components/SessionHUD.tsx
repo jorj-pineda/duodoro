@@ -60,6 +60,7 @@ interface SessionHUDProps {
   serverMode: "pomodoro" | "flow";
   breakActivities?: ReactNode;
   breakCheckIn?: ReactNode;
+  breakExtension?: ReactNode;
   sessionStarted: boolean;
   playerCount: number;
   completedRounds: number;
@@ -113,6 +114,7 @@ export default function SessionHUD({
   serverMode,
   breakActivities,
   breakCheckIn,
+  breakExtension,
   sessionStarted,
   playerCount,
   completedRounds,
@@ -185,6 +187,7 @@ export default function SessionHUD({
           <TimerProgress key={phase} progress={phaseProgress} phase={phase} />
         )}
 
+        {phase === "break" && breakExtension}
         {phase === "break" && breakCheckIn}
         {phase === "break" && breakActivities}
 
