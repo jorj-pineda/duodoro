@@ -47,10 +47,23 @@ test('both people see the same saved duo milestones without solo or interrupted 
   await a.page.setViewportSize({ width: 375, height: 667 });
   await region(a.page).scrollIntoViewIfNeeded();
   await a.page.screenshot({ path: test.info().outputPath('shared-milestones-phone.png') });
-  await a.page.route('**/rest/v1/rpc/get_duo_stats', async route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Unavailable"}' }));
+  // Keep background refreshes failing until the real Retry click. Otherwise a
+  // focus/reconnect refresh can recover after unroute and remove the button
+  // while Playwright is still scrolling it into view on the phone viewport.
+  await a.page.route('**/rest/v1/rpc/get_duo_stats', async route => {
+    const retryClicked = await a.page.evaluate(() => document.documentElement.dataset.milestonesRetryClicked === 'true');
+    if (retryClicked) await route.continue();
+    else await route.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"Unavailable"}' });
+  });
   await a.page.reload(); await expect(region(a.page).getByRole('alert')).toContainText("Couldn't load");
-  await a.page.unroute('**/rest/v1/rpc/get_duo_stats');
-  await region(a.page).getByRole('button', { name: 'Retry milestones' }).click();
+  const retry = region(a.page).getByRole('button', { name: 'Retry milestones' });
+  await retry.evaluate(button => button.addEventListener('click', () => {
+    document.documentElement.dataset.milestonesRetryClicked = 'true';
+  }, { capture: true, once: true }));
+  await a.page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(retry).toBeVisible();
+  await retry.click();
   await expect(region(a.page).getByText('10 rounds together', { exact: true })).toHaveCount(1);
+  await a.page.unroute('**/rest/v1/rpc/get_duo_stats');
   await a.page.reload(); await expect(region(a.page).getByText('10 rounds together', { exact: true })).toHaveCount(1);
 });
