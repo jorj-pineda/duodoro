@@ -17,6 +17,25 @@ const me = { id: "me", avatar: DEFAULT_AVATAR };
 const partner = { id: "them", avatar: DEFAULT_AVATAR };
 
 describe("companion idle phase boundaries", () => {
+  it("pauses idle poses during a heart hop and resumes them after it expires without resizing the art", () => {
+    vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0);
+    const props = { worldId: "forest" as const, phase: "waiting" as const, focusProgress: 0, returningProgress: 0,
+      me, partner, myPet: "cat" as const, myPetStage: "full" as const };
+    const scene = render(<GameWorld {...props} myCompanionReaction={{ id: "heart", sessionId: "room", playerId: "me", reaction: "heart", target: "companion", pet: "cat" }} />);
+    try {
+      const pet = () => findSprite(scene.container, 15, 12);
+      const dimensions = [pet().getAttribute("width"), pet().getAttribute("height")];
+      expect(pet().parentElement).toHaveClass("pixel-jump");
+      act(() => vi.advanceTimersByTime(7000));
+      expect(pet().querySelectorAll(`rect[fill="${PET_ART.cat.full.palette.E}"]`).length).toBeGreaterThan(0);
+      scene.rerender(<GameWorld {...props} />);
+      expect(pet().parentElement).not.toHaveClass("pixel-jump");
+      act(() => vi.advanceTimersByTime(7000));
+      expect(pet().querySelectorAll(`rect[fill="${PET_ART.cat.full.palette.E}"]`)).toHaveLength(0);
+      expect([pet().getAttribute("width"), pet().getAttribute("height")]).toEqual(dimensions);
+      for (const wrapper of characterWrappers(scene.container)) expect(wrapper.style.bottom).toBe(GROUND);
+    } finally { scene.unmount(); vi.restoreAllMocks(); vi.useRealTimers(); }
+  });
   for (const phase of ["waiting", "ready", "break", "focus", "celebration", "returning"] as const) {
     it(`only blinks in resting phases (${phase})`, () => {
       vi.useFakeTimers();

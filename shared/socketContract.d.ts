@@ -7,7 +7,7 @@ export interface BreakExtensionState {
 }
 
 export type ReactionType = 'heart' | 'cheer' | 'wave';
-export interface RoomReaction { id: string; sessionId: string; playerId: string; reaction: ReactionType; }
+export interface RoomReaction { id: string; sessionId: string; playerId: string; reaction: ReactionType; target?: "companion"; pet?: PetType; }
 export interface ReactionResponse { ok: boolean; message?: string; }
 
 export type TimerMode = 'pomodoro' | 'flow';
@@ -108,7 +108,7 @@ export interface ClientToServerEvents {
   request_break_extension: (payload: { sessionId: string; phaseStartTime: number }, respond: (response: { ok: boolean; message?: string }) => void) => void;
   respond_break_extension: (payload: { sessionId: string; phaseStartTime: number; proposalId: string; accept: boolean }, respond: (response: { ok: boolean; message?: string }) => void) => void;
   set_pet_name: (payload: { sessionId: string; name: string }, respond: (response: { ok: boolean; name?: string; message?: string }) => void) => void;
-  send_reaction: (payload: { sessionId: string; reaction: ReactionType }, respond: (response: ReactionResponse) => void) => void;
+  send_reaction: (payload: { sessionId: string; reaction: ReactionType; target?: "companion" }, respond: (response: ReactionResponse) => void) => void;
   set_intention: (payload: { sessionId: string; text: string }, respond: (response: IntentionResponse) => void) => void;
   resolve_intention: (payload: { sessionId: string; round: number; action: "done" | "undo" | "carry" }, respond: (response: IntentionResponse) => void) => void;
   request_companion_progress: () => void;

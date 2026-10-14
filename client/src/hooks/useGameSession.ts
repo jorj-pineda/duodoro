@@ -309,7 +309,9 @@ export function useGameSession(profile: Profile | null) {
 
     socket.on("room_reaction", (reaction) => {
       if (!reaction || typeof reaction.id !== "string" || typeof reaction.playerId !== "string" || reaction.sessionId !== sessionIdRef.current || document.visibilityState !== "visible" ||
-          !["heart", "cheer", "wave"].includes(reaction.reaction) || seenReactions.current.has(reaction.id)) return;
+          !["heart", "cheer", "wave"].includes(reaction.reaction) || seenReactions.current.has(reaction.id) ||
+          (reaction.target !== undefined && reaction.target !== "companion") ||
+          (reaction.target === "companion" && (reaction.reaction !== "heart" || !["cat", "dog", "dragon", "rabbit"].includes(reaction.pet ?? "")))) return;
       seenReactions.current.add(reaction.id);
       if (seenReactions.current.size > 64) seenReactions.current.delete(seenReactions.current.values().next().value!);
       setReactions((current) => [...current.filter((r) => r.playerId !== reaction.playerId && r.expiresAt > Date.now()).slice(-1), { ...reaction, expiresAt: Date.now() + 2800 }]);
@@ -447,6 +449,7 @@ export function useGameSession(profile: Profile | null) {
         petName,
         petStage,
       }) => {
+        setReactions(current => current.filter(reaction => reaction.playerId !== playerId || reaction.target !== "companion"));
         setPlayers((prev) =>
           prev[playerId]
             ? {
@@ -765,6 +768,10 @@ export function useGameSession(profile: Profile | null) {
 
   // Set/change pet — keeps the ref mirror in sync and relays mid-session
   const setMyPet = useCallback((pet: PetType | null) => {
+    if (pet !== myPetRef.current) {
+      const playerId = socketRef.current?.id;
+      setReactions(current => current.filter(reaction => reaction.playerId !== playerId || reaction.target !== "companion"));
+    }
     setMyPetState(pet);
     myPetRef.current = pet;
     myPetNameRef.current = getPetName(pet);
@@ -829,12 +836,12 @@ export function useGameSession(profile: Profile | null) {
     // World & pet. myWorld is read-only to callers: the world is the server's,
     // and a setter here is a way to put the client back in charge of it.
     reactions,
-    sendReaction: (reaction: ReactionType) => new Promise<string | null>((resolve) => {
+    sendReaction: (reaction: ReactionType, target?: "companion") => new Promise<string | null>((resolve) => {
       const socket = socketRef.current;
       const room = sessionIdRef.current;
       if (!socket?.connected || !room) return resolve("Reconnect before sending a reaction.");
       const timer = setTimeout(() => resolve("Couldn't confirm your reaction. Try again."), 5000);
-      socket.emit("send_reaction", { sessionId: room, reaction }, (response) => {
+      socket.emit("send_reaction", { sessionId: room, reaction, ...(target ? { target } : {}) }, (response) => {
         clearTimeout(timer);
         resolve(sessionIdRef.current !== room ? "You have left that room." : response?.ok ? null : response?.message ?? "Couldn't send your reaction.");
       });
