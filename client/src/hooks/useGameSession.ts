@@ -309,7 +309,9 @@ export function useGameSession(profile: Profile | null) {
 
     socket.on("room_reaction", (reaction) => {
       if (!reaction || typeof reaction.id !== "string" || typeof reaction.playerId !== "string" || reaction.sessionId !== sessionIdRef.current || document.visibilityState !== "visible" ||
-          !["heart", "cheer", "wave"].includes(reaction.reaction) || seenReactions.current.has(reaction.id)) return;
+          !["heart", "cheer", "wave"].includes(reaction.reaction) || seenReactions.current.has(reaction.id) ||
+          (reaction.target !== undefined && reaction.target !== "companion") ||
+          (reaction.target === "companion" && (reaction.reaction !== "heart" || !["cat", "dog", "dragon", "rabbit"].includes(reaction.pet ?? "")))) return;
       seenReactions.current.add(reaction.id);
       if (seenReactions.current.size > 64) seenReactions.current.delete(seenReactions.current.values().next().value!);
       setReactions((current) => [...current.filter((r) => r.playerId !== reaction.playerId && r.expiresAt > Date.now()).slice(-1), { ...reaction, expiresAt: Date.now() + 2800 }]);
@@ -447,6 +449,7 @@ export function useGameSession(profile: Profile | null) {
         petName,
         petStage,
       }) => {
+        setReactions(current => current.filter(reaction => reaction.playerId !== playerId || reaction.target !== "companion"));
         setPlayers((prev) =>
           prev[playerId]
             ? {
@@ -765,6 +768,10 @@ export function useGameSession(profile: Profile | null) {
 
   // Set/change pet — keeps the ref mirror in sync and relays mid-session
   const setMyPet = useCallback((pet: PetType | null) => {
+    if (pet !== myPetRef.current) {
+      const playerId = socketRef.current?.id;
+      setReactions(current => current.filter(reaction => reaction.playerId !== playerId || reaction.target !== "companion"));
+    }
     setMyPetState(pet);
     myPetRef.current = pet;
     myPetNameRef.current = getPetName(pet);

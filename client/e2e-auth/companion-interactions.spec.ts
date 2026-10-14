@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect, AUTH_STORAGE_KEY } from './duoFixture';
 import { onboard } from './onboard';
 
@@ -57,19 +58,26 @@ test('petting a companion shares a crisp heart and respects cooldown, touch targ
   await expect(editor(a.page).getByText('Moon Bean', { exact: true })).toBeVisible();
   await a.page.getByRole('button', { name: 'Flowmodoro', exact: true }).click();
   await a.page.getByRole('button', { name: 'Start session', exact: true }).click();
+  await expect.poll(() => a.page.title()).toContain(' · Flow · ');
   await a.page.setViewportSize({ width: 375, height: 667 });
   const pet = a.page.getByRole('button', { name: 'Pet Moon Bean' });
   await pet.click();
   await expect(pet).toBeDisabled();
   for (const actor of [a, b]) await expect(actor.page.getByRole('img', { name: 'Moon Bean sent a heart reaction' })).toBeVisible();
+  const partnerSprite = b.page.getByRole('img', { name: "Moon Bean, Names Alpha’s cat companion", exact: true }).locator('svg').first();
+  expect(await partnerSprite.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).a)).toBe(-1);
+  const hop = await partnerSprite.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element.parentElement!).transform).f);
+  expect(Number.isInteger(hop)).toBe(true);
   const box = await pet.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
   await a.page.screenshot({ path: test.info().outputPath('pet-heart-phone.png') });
+  expect((await new AxeBuilder({ page: a.page }).include('.z-20').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
   await expect(a.page.getByRole('img', { name: 'Moon Bean sent a heart reaction' })).toHaveCount(0);
   await expect(pet).toBeEnabled();
   await a.page.emulateMedia({ reducedMotion: 'reduce' });
   await pet.click();
   await expect(a.page.locator('.pixel-reaction-heart')).toHaveCSS('animation-name', 'none');
+  await expect(a.page.locator('.z-20 .pixel-jump')).toHaveCSS('animation-name', 'none');
   await a.page.reload();
   await expect(a.page.getByRole('button', { name: 'Pet Moon Bean' })).toBeVisible();
   await expect(a.page.getByRole('img', { name: 'Moon Bean sent a heart reaction' })).toHaveCount(0);

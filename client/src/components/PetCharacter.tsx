@@ -60,13 +60,16 @@ export default function PetCharacter({
   if (anim === "float") animClass = "pixel-float";
 
   return (
-    <PixelSprite
-      map={moment === "rest" ? art.frames[frame] : petIdleMap(type, stage ?? "grown", moment)}
-      palette={art.palette}
-      scale={size}
-      outline={outline}
-      className={animClass}
-      style={{ transform: facing === "left" ? "scaleX(-1)" : undefined }}
-    />
+    // Animate the wrapper so its vertical hop cannot override the sprite's
+    // horizontal facing transform. Both retain the existing integer grid.
+    <span className={`block ${animClass}`}>
+      <PixelSprite
+        map={moment === "rest" ? art.frames[frame] : petIdleMap(type, stage ?? "grown", moment)}
+        palette={art.palette}
+        scale={size}
+        outline={outline}
+        style={{ transform: facing === "left" ? "scaleX(-1)" : undefined }}
+      />
+    </span>
   );
 }

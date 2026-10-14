@@ -129,6 +129,38 @@ describe("useGameSession connection lifecycle", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("clears a companion heart when its owner changes pets, while preserving avatar reactions", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("sync_state", { sessionId: "pet-room", mode: "flow", phase: "waiting", phaseStartTime: null, focusDuration: 7200, breakDuration: 60, players: {} }));
+    act(() => fakeSocket.fire("room_reaction", { id: "pet-heart", sessionId: "pet-room", playerId: "sock-1", reaction: "heart", target: "companion", pet: "cat" }));
+    act(() => fakeSocket.fire("room_reaction", { id: "avatar-wave", sessionId: "pet-room", playerId: "partner", reaction: "wave" }));
+    expect(result.current.reactions).toHaveLength(2);
+    act(() => fakeSocket.fire("pet_changed", { playerId: "sock-1", pet: "dog", petStage: "grown" }));
+    expect(result.current.reactions.map(reaction => reaction.id)).toEqual(["avatar-wave"]);
+    act(() => fakeSocket.fire("pet_changed", { playerId: "sock-1", pet: "cat", petStage: "grown" }));
+    expect(result.current.reactions.map(reaction => reaction.id)).toEqual(["avatar-wave"]);
+    act(() => result.current.setMyPet("cat"));
+    act(() => fakeSocket.fire("room_reaction", { id: "new-pet-heart", sessionId: "pet-room", playerId: "sock-1", reaction: "heart", target: "companion", pet: "cat" }));
+    act(() => result.current.setMyPet("dog"));
+    expect(result.current.reactions.map(reaction => reaction.id)).toEqual(["avatar-wave"]);
+  });
+
+  it("rejects malformed companion targets without rendering a heart or consuming a valid event ID", async () => {
+    const { result } = renderHook(() => useGameSession(profile));
+    await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
+    act(() => fakeSocket.connect());
+    act(() => fakeSocket.fire("sync_state", { sessionId: "pet-room", mode: "flow", phase: "waiting", phaseStartTime: null, focusDuration: 7200, breakDuration: 60, players: {} }));
+    const heart = { id: "heart", sessionId: "pet-room", playerId: "sock-1", reaction: "heart", target: "companion", pet: "cat" };
+    for (const fields of [{ reaction: "wave" }, { pet: "snake" }, { target: "partner" }]) {
+      act(() => fakeSocket.fire("room_reaction", { ...heart, ...fields }));
+      expect(result.current.reactions).toHaveLength(0);
+    }
+    act(() => fakeSocket.fire("room_reaction", heart));
+    expect(result.current.reactions).toHaveLength(1);
+  });
+
   it.each(["pomodoro", "flow"])("updates only the current %s break from confirmed consent and restores it on sync", async mode => {
     const { result } = renderHook(() => useGameSession(profile));
     await waitFor(() => expect(fakeSocket.listenerCount("sync_state")).toBe(1));
