@@ -14,6 +14,7 @@ function createSessionState(world, hostSocketId) {
     breakDuration: 5 * 60,
     phaseStartTime: null,
     phaseTimer: null,
+    breakExtension: null,
     // One stable database idempotency key per focus round. It is created when
     // focus begins, not when persistence begins, so every completion/stop and
     // every retry refers to the same real-world event.
@@ -88,6 +89,7 @@ function beginFocusRound(
   }
   session.intentions = { current, next: {} };
   session.roundRecap = null;
+  session.breakExtension = null;
   session.phase = "focus";
   session.phaseStartTime = startedAt;
   session.focusRoundId = recordingKey;
@@ -278,6 +280,7 @@ function buildSyncPayload(session, recipientSocketId) {
     players[id] = publicPlayer(player);
   }
   return {
+    breakExtension: session.breakExtension ?? null,
     intentions: session.intentions,
     companionFocusSeconds: session.players[recipientSocketId]?.focusSeconds ?? null,
     completedRounds: session.completedRounds,

@@ -7,6 +7,7 @@ import { companionName, normalizeCompanionName } from "@/lib/companionNames";
 import { useCompanionPreference } from "./useCompanionPreference";
 import type { PetStage } from "@/lib/petLevel";
 import type {
+  BreakExtensionState,
   ReactionType,
   RoomReaction,
   SessionIntentions,
@@ -26,6 +27,7 @@ import { playSound } from "@/lib/sounds";
 import { notifyFocusComplete } from "@/lib/focusNotifications";
 import { worldAt } from "@/lib/rotation";
 import { readTimerPrefs, writeTimerPrefs } from "@/lib/timerPrefs";
+import { readBreakExtension } from "@/lib/breakExtension";
 import { isSessionId } from "@/lib/storedData";
 
 // sessionStorage key mirroring the active session id, so a full page reload
@@ -158,6 +160,8 @@ export function useGameSession(profile: Profile | null) {
   const [phaseStartTime, setPhaseStartTime] = useState<number | null>(null);
   const [serverFocusDuration, setServerFocusDuration] = useState(25 * 60);
   const [serverBreakDuration, setServerBreakDuration] = useState(5 * 60);
+  const [breakExtension, setBreakExtension] = useState<BreakExtensionState | null>(null);
+  const breakStartRef = useRef<number | null>(null);
   const [players, setPlayers] = useState<Record<string, PlayerData>>({});
   const [sessionStarted, setSessionStarted] = useState(false);
 
@@ -323,6 +327,14 @@ export function useGameSession(profile: Profile | null) {
       if (grewTo === "grown" || grewTo === "full") setCompanionGrewTo(grewTo);
     });
 
+    socket.on("break_extension_changed", (data) => {
+      if (data?.sessionId !== sessionIdRef.current || observedPhaseRef.current !== "break" || data.phaseStartTime !== breakStartRef.current) return;
+      const state = readBreakExtension(data.state);
+      if (!state) return;
+      setBreakExtension(state);
+      setNow(Date.now());
+    });
+
     socket.on("sync_state", (data: SyncPayload) => {
       setReactions([]);
       setCompanionFocusSeconds(data.companionFocusSeconds ?? null);
@@ -346,6 +358,8 @@ export function useGameSession(profile: Profile | null) {
       setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
+      breakStartRef.current = data.phase === "break" ? data.phaseStartTime : null;
+      setBreakExtension(data.phase === "break" ? readBreakExtension(data.breakExtension) : null);
       setServerFocusDuration(data.focusDuration);
       setServerBreakDuration(data.breakDuration);
       setPlayers(data.players || {});
@@ -393,6 +407,8 @@ export function useGameSession(profile: Profile | null) {
       setRoundRecap(data.roundRecap ?? null);
       setPhase(data.phase);
       setPhaseStartTime(data.phaseStartTime);
+      breakStartRef.current = data.phase === "break" ? data.phaseStartTime : null;
+      setBreakExtension(data.phase === "break" ? readBreakExtension(data.breakExtension) : null);
       setServerFocusDuration(data.focusDuration);
       setServerBreakDuration(data.breakDuration);
       setSessionStarted(data.phase !== "waiting" && data.phase !== "ready");
@@ -524,7 +540,7 @@ export function useGameSession(profile: Profile | null) {
 
   // ── Derived values ──────────────────────────────────────────────────────
   const currentPhaseDuration =
-    phase === "focus" ? serverFocusDuration : serverBreakDuration;
+    phase === "focus" ? serverFocusDuration : serverBreakDuration + (phase === "break" ? breakExtension?.extraSeconds ?? 0 : 0);
 
   const timeLeft = phaseStartTime
     ? Math.max(0, currentPhaseDuration - (now - phaseStartTime) / 1000)
@@ -593,6 +609,8 @@ export function useGameSession(profile: Profile | null) {
         setReactions([]);
         setCompanionFocusSeconds(null);
         setCompanionGrewTo(null);
+        setBreakExtension(null);
+        breakStartRef.current = null;
         setPhase("waiting");
         setPlayers({});
         setSessionId("");
@@ -694,6 +712,8 @@ export function useGameSession(profile: Profile | null) {
     socket.emit("leave_session", { sessionId });
     setSessionStarted(false);
     observedPhaseRef.current = "waiting";
+    breakStartRef.current = null;
+    setBreakExtension(null);
     setCompletedRounds(0);
     setRoundRecap(null);
     setIntentions({ current: {}, next: {} });
@@ -861,6 +881,28 @@ export function useGameSession(profile: Profile | null) {
     breakDuration,
     setBreakDuration,
     // Game state
+    breakExtension,
+    requestBreakExtension: (proposalId?: string, accept?: boolean) => new Promise<string | null>((resolve) => {
+      const socket = socketRef.current;
+      const room = sessionIdRef.current;
+      const start = breakStartRef.current;
+      const owner = profileRef.current?.id;
+      if (!socket?.connected || !room || start === null) return resolve("Reconnect during the break before answering.");
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        if (sessionIdRef.current === room && breakStartRef.current === start && profileRef.current?.id === owner && socket.connected) socket.emit("request_sync");
+        resolve("Couldn't confirm the request. The room will refresh its current state.");
+      }, 5000);
+      const respond = (response: IntentionResponse) => {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        if (sessionIdRef.current !== room || breakStartRef.current !== start || profileRef.current?.id !== owner) return resolve("That break has ended or changed.");
+        resolve(response?.ok ? null : response?.message ?? "Couldn't confirm the request.");
+      };
+      if (proposalId !== undefined && typeof accept === "boolean") socket.emit("respond_break_extension", { sessionId: room, phaseStartTime: start, proposalId, accept }, respond);
+      else socket.emit("request_break_extension", { sessionId: room, phaseStartTime: start }, respond);
+    }),
     serverMode,
     completedRounds,
     roundRecap,
