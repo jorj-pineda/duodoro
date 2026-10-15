@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      focus_dates: {
+        Row: {
+          created_at: string
+          id: string
+          proposer_id: string
+          recipient_id: string
+          starts_at: string
+          status: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          proposer_id: string
+          recipient_id: string
+          starts_at: string
+          status?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          proposer_id?: string
+          recipient_id?: string
+          starts_at?: string
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
       friendships: {
         Row: {
           addressee_id: string
@@ -550,6 +580,24 @@ export type Database = {
         Returns: boolean
       }
       list_accepted_friend_ids: { Args: { target: string }; Returns: string[] }
+      propose_focus_date: {
+        Args: { p_id: string; p_recipient_id: string; p_starts_at: string }
+        Returns: {
+          created_at: string
+          id: string
+          proposer_id: string
+          recipient_id: string
+          starts_at: string
+          status: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "focus_dates"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       record_focus_session: {
         Args: {
           p_actual_focus: number
@@ -566,6 +614,24 @@ export type Database = {
           inserted: boolean
           session_id: string
         }[]
+      }
+      respond_focus_date: {
+        Args: { p_expected_version: number; p_id: string; p_status: string }
+        Returns: {
+          created_at: string
+          id: string
+          proposer_id: string
+          recipient_id: string
+          starts_at: string
+          status: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "focus_dates"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_profiles: {
         Args: { query: string }
