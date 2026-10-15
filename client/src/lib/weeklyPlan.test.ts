@@ -1,5 +1,12 @@
 import { expect, it } from "vitest";
-import { readWeeklyPlan, weekStart, weekLabel } from "./weeklyPlan";
+import { readWeeklyPlan, weekStart, weekLabel, previousWeek } from "./weeklyPlan";
+
+it("finds the preceding civil week without DST or year-boundary shifts", () => {
+  expect(previousWeek("2026-01-05")).toBe("2025-12-29");
+  expect(previousWeek("2026-03-09")).toBe("2026-03-02");
+  expect(previousWeek("2026-11-02")).toBe("2026-10-26");
+  for (const value of ["", "2026-02-30", "2026-10-13"]) expect(previousWeek(value)).toBe("");
+});
 
 it("uses local civil Mondays across Sunday, year and DST boundaries", () => {
   expect(weekStart("2026-10-18")).toBe("2026-10-12");

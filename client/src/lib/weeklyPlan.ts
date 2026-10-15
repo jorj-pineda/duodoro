@@ -10,6 +10,13 @@ export function weekStart(day: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function previousWeek(start: string): string {
+  if (!start || weekStart(start) !== start) return "";
+  const date = new Date(`${start}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 7);
+  return date.toISOString().slice(0, 10);
+}
+
 export function weekLabel(start: string): string {
   const end = new Date(`${start}T00:00:00Z`);
   end.setUTCDate(end.getUTCDate() + 6);
