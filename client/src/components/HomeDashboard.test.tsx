@@ -6,6 +6,7 @@ import { WORLDS } from "@/lib/avatarData";
 import { worldAt } from "@/lib/rotation";
 import type { Profile } from "@/lib/types";
 import { expectNoAxeViolations } from "@/test/axe";
+vi.mock("@/hooks/useFocusDates", () => ({ useFocusDates: () => ({ dates: [], busy: false, disabled: false, loadError: null, actionError: null, reload: vi.fn() }) }));
 
 // Home used to open with an eight-thumbnail world picker and hand the choice
 // to onFocus. With the rotation the choice doesn't exist: there is one world,
