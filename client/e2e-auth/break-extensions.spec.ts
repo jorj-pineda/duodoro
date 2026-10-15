@@ -2,23 +2,14 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, AUTH_STORAGE_KEY } from './duoFixture';
 import { onboard } from './onboard';
-import type { SyncPayload } from '../../shared/socketContract';
+import { RoomTransport } from './roomTransport';
 
 test('two partners consent to this break only, restore accepted time on reconnect, and keep declined or unanswered breaks unchanged', async ({ duo }) => {
   test.setTimeout(240_000);
   const { a, b, roomCodes } = duo;
-  const snapshots: SyncPayload[] = [];
-  await a.page.routeWebSocket(url => url.port === '3301' && url.pathname === '/socket.io/', socket => {
-    const server = socket.connectToServer();
-    socket.onMessage(message => server.send(message));
-    server.onMessage(message => {
-      if (typeof message === 'string' && message.startsWith('42[')) {
-        const [event, data] = JSON.parse(message.slice(2));
-        if (event === 'sync_state') snapshots.push(data);
-      }
-      socket.send(message);
-    });
-  });
+  const transport = new RoomTransport();
+  await transport.observe(a.page);
+  const snapshots = transport.snapshots;
   const suffix = randomUUID().slice(0, 8);
   await a.page.goto('/'); await onboard(a.page, 'Break Alpha', `ba_${suffix}`);
   await a.page.getByRole('button', { name: 'Focus', exact: true }).click();

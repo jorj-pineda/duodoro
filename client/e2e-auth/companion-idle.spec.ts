@@ -66,5 +66,16 @@ test("idle companion poses keep their grid and stop for focus and reduced motion
       .toEqual(earTips);
     await expect(sprite.locator('rect[y="5"][x="4"]')).toHaveCount(1);
   }
+  await page.getByRole("button", { name: "Stop timer", exact: true }).click();
+  // Stopping queues an asynchronous interrupted-round save. Wait for that real
+  // write before leaving and fixture cleanup enumerates/deletes sessions, or
+  // the insert can land after enumeration and leave an orphan session.
+  await expect.poll(async () => {
+    const saved = await admin.from("sessions").select("id,completed").eq("room_code", room);
+    requireSuccess(saved.error, "Wait for interrupted idle-test recording");
+    return saved.data?.map(row => row.completed);
+  }).toEqual([false]);
   await page.getByRole("button", { name: /Leave room/ }).click();
+  await expect(page.getByRole("button", { name: "Focus", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Leave room/ })).toHaveCount(0);
 });
