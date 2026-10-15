@@ -3,6 +3,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useFocusDates } from "@/hooks/useFocusDates";
 import { formatFocusDateTime, parseFocusDateTime } from "@/lib/focusDates";
 import type { Profile } from "@/lib/types";
+import FocusDateCalendar from "./FocusDateCalendar";
 const control = "min-h-11 max-w-full min-w-0 rounded-lg border border-line bg-raise px-3 py-2 text-xs text-ink disabled:opacity-50";
 
 type Props = { userId: string; friends: Profile[]; friendsLoaded: boolean; friendsError: string | null; onOpenFriends: () => void };
@@ -61,6 +62,7 @@ function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriend
             </>}
             {(mine || date.status === "accepted") && <button className={control} disabled={actions.disabled} onClick={async () => { setNotice(""); if (await actions.respond(date, "cancelled")) setNotice("Focus date cancelled."); }}>Cancel date</button>}
           </div>
+          {date.status === "accepted" && <FocusDateCalendar key={`${date.id}:${date.version}`} date={date} userId={userId} disabled={actions.disabled} />}
         </article>;
       })}
     </>}
