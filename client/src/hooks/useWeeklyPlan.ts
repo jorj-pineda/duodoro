@@ -65,7 +65,10 @@ export function useWeeklyPlan(userId: string, week: string) {
         setState({ ...current, error: error?.code === "PT409"
           ? "Your plan changed elsewhere. Reload before making another change."
           : "Couldn't confirm this plan change. Reload to see what was saved." });
-      } else setState({ scope, plan, loaded: true, error: null });
+      } else {
+        setState({ scope, plan, loaded: true, error: null });
+        return plan;
+      }
     } catch {
       if (same()) setState({ ...current, error: "Couldn't confirm this plan change. Reload to see what was saved." });
     } finally {

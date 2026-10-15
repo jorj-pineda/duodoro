@@ -67,3 +67,17 @@ it("has a neutral server frame before the local date is known", () => {
   expect(renderToString(<WeeklyFocusPlan {...props()} />)).toContain("Loading your weekly plan");
   expect(fake.state).toHaveBeenCalledWith("owner", "");
 });
+it("loads review only after opening it and closes it on account or week changes", () => {
+  const { rerender } = render(<WeeklyFocusPlan {...props()} />);
+  expect(fake.state).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("region", { name: "Private weekly plan review" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Review last week" }));
+  expect(screen.getByRole("region", { name: "Private weekly plan review" })).toBeVisible();
+  expect(fake.state).toHaveBeenCalledWith("owner", "2026-10-05");
+  fake.day = "2026-10-19"; rerender(<WeeklyFocusPlan {...props()} />);
+  expect(screen.queryByRole("region", { name: "Private weekly plan review" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Review last week" }));
+  rerender(<WeeklyFocusPlan {...props()} userId="other" />);
+  expect(screen.queryByRole("region", { name: "Private weekly plan review" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Review last week" })).toHaveAttribute("aria-expanded", "false");
+});

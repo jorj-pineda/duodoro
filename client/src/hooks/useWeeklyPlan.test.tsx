@@ -19,14 +19,14 @@ it("saves only a confirmed matching revision and blocks lost-response retries un
   const { result } = renderHook(() => useWeeklyPlan("owner", "2026-10-12"));
   await waitFor(() => expect(result.current.loaded).toBe(true));
   fake.rpc.mockResolvedValueOnce({ data: [], error: null });
-  await act(() => result.current.save([id]));
+  await act(async () => { expect(await result.current.save([id])).toBeUndefined(); });
   expect(result.current.plan.ids).toEqual([]); expect(result.current.error).toMatch(/Couldn't confirm/);
   await act(() => result.current.save([id])); expect(fake.rpc).toHaveBeenCalledTimes(1);
   fake.read.mockResolvedValueOnce({ data: row(2), error: null });
   await act(() => result.current.reload());
   expect(result.current.plan.ids).toEqual([id]);
   fake.rpc.mockResolvedValueOnce({ data: [row(3, [])], error: null });
-  await act(() => result.current.save([]));
+  await act(async () => { expect(await result.current.save([])).toEqual({ ids: [], version: 3 }); });
   expect(fake.rpc).toHaveBeenLastCalledWith("set_weekly_focus_plan", { p_week_start: "2026-10-12", p_task_ids: [], p_expected_version: 2 });
   expect(result.current.plan).toEqual({ ids: [], version: 3 });
 });

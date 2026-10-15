@@ -4,6 +4,7 @@ import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import { useWeeklyPlan } from "@/hooks/useWeeklyPlan";
 import { WEEKLY_GOAL_LIMIT, weekLabel, weekStart } from "@/lib/weeklyPlan";
 import type { Task } from "@/lib/types";
+import WeeklyPlanReview from "./WeeklyPlanReview";
 
 type Props = { userId: string; tasks: Task[]; tasksLoaded: boolean; tasksError: string | null;
   onFocusGoal?: (task: Task) => void; focusDisabled?: boolean };
@@ -16,6 +17,7 @@ export default function WeeklyFocusPlan(props: Props) {
 function Plan({ userId, week, tasks, tasksLoaded, tasksError, onFocusGoal, focusDisabled }: Props & { week: string }) {
   const { plan, loaded, saving, error, reload, save } = useWeeklyPlan(userId, week);
   const [choice, setChoice] = useState("");
+  const [reviewOpen, setReviewOpen] = useState(false);
   const own = tasks.filter(task => task.owner_id === userId && task.room_code === null && !task.is_shared);
   const planned = plan.ids.map(id => own.find(task => task.id === id));
   const done = planned.filter(task => task?.is_done).length;
@@ -68,5 +70,12 @@ function Plan({ userId, week, tasks, tasksLoaded, tasksError, onFocusGoal, focus
     </>}
     {saving && <p role="status" className="text-xs text-muted">Saving your plan…</p>}
     <p className="text-xs text-muted">A new week starts with an empty plan. Removing a goal from the week keeps the original personal goal.</p>
+    {week && <div className="border-t border-line pt-3 space-y-3">
+      <button aria-expanded={reviewOpen} onClick={() => setReviewOpen(open => !open)} className="min-h-11 px-2 text-sm font-bold text-accent">
+        {reviewOpen ? "Close weekly review" : "Review last week"}
+      </button>
+      {reviewOpen && <WeeklyPlanReview userId={userId} week={week} tasks={tasks} tasksLoaded={tasksLoaded} tasksError={tasksError}
+        current={plan} currentBlocked={!loaded || saving || !!error} currentError={!!error} onCarry={save} />}
+    </div>}
   </section>;
 }
