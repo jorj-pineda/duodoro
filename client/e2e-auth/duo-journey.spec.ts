@@ -1,39 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { Page, WebSocketRoute } from "@playwright/test";
-import type { SyncPayload, PhaseChangePayload } from "../src/lib/sessionTypes";
 import { test, expect, AUTH_STORAGE_KEY, requireSuccess } from "./duoFixture";
 import { onboard } from "./onboard";
+import { RoomTransport } from "./roomTransport";
 import { APP_ORIGIN, SOCKET_ORIGIN } from "./localEnvironment";
-
-// A transparent WebSocket proxy observes the shipping protocol and lets us drop
-// a real transport. It never fabricates auth responses, room state or phases.
-class RoomTransport {
-  socket?: WebSocketRoute;
-  upgrades = 0;
-  syncs = 0;
-  snapshot?: SyncPayload;
-  phase?: PhaseChangePayload;
-
-  async observe(page: Page) {
-    await page.routeWebSocket((url) => url.port === "3301" && url.pathname === "/socket.io/", (socket) => {
-      this.socket = socket;
-      const server = socket.connectToServer();
-      socket.onMessage((message) => {
-        if (message === "5") this.upgrades++;
-        server.send(message);
-      });
-      server.onMessage((message) => {
-        if (typeof message === "string" && message.startsWith("42[")) {
-          const [event, payload] = JSON.parse(message.slice(2));
-          if (event === "sync_state") { this.snapshot = payload; this.syncs++; }
-          if (event === "phase_change") this.phase = payload;
-        }
-        socket.send(message);
-      });
-    });
-  }
-}
-
 
 test("two users preserve an invite, complete focus once, reconnect and go again", async ({ duo, request }) => {
   const { a, b, admin, roomCodes } = duo;

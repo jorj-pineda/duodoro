@@ -2,21 +2,13 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, AUTH_STORAGE_KEY } from './duoFixture';
 import { onboard } from './onboard';
+import { RoomTransport } from './roomTransport';
 
 test('private optional energy check-ins respect breaks, refresh-safe skipping, and unchanged Flow controls', async ({ duo }) => {
   test.setTimeout(180_000);
   const { a, b, roomCodes } = duo;
-  let syncs = 0;
-  // Observe real rejoin snapshots so refresh tests do not click timer controls
-  // while cached room UI is still waiting for verified membership.
-  await a.page.routeWebSocket(url => url.port === '3301' && url.pathname === '/socket.io/', socket => {
-    const server = socket.connectToServer();
-    socket.onMessage(message => server.send(message));
-    server.onMessage(message => {
-      if (typeof message === 'string' && message.startsWith('42[') && JSON.parse(message.slice(2))[0] === 'sync_state') syncs++;
-      socket.send(message);
-    });
-  });
+  const transport = new RoomTransport();
+  await transport.observe(a.page);
   const suffix = randomUUID().slice(0,8);
   await a.page.goto('/'); await onboard(a.page,'Energy Alpha',`ea_${suffix}`);
   await a.page.getByRole('button',{ name: 'Focus', exact: true }).click();
@@ -59,9 +51,9 @@ test('private optional energy check-ins respect breaks, refresh-safe skipping, a
   }
   await checkIn.getByRole('button',{ name: 'Skip this break' }).click();
   await expect(checkIn.getByRole('button',{ name: 'Show this check-in' })).toBeFocused();
-  const beforeReload = syncs;
+  const beforeReload = transport.syncs;
   await a.page.reload();
-  await expect.poll(() => syncs).toBeGreaterThan(beforeReload);
+  await expect.poll(() => transport.syncs).toBeGreaterThan(beforeReload);
   await expect(checkIn.getByText('Skipped for this break.')).toBeVisible();
   await checkIn.getByRole('button',{ name: 'Show this check-in' }).click();
   await expect(checkIn.getByRole('button',{ name: 'Low', exact: true })).toHaveAttribute('aria-pressed','false');
@@ -75,8 +67,8 @@ test('private optional energy check-ins respect breaks, refresh-safe skipping, a
   await expect(checkIn.getByRole('button',{ name: 'Low', exact: true })).toHaveAttribute('aria-pressed','false');
   await checkIn.getByRole('button',{ name: 'Turn off check-ins' }).click();
   await expect(checkIn.getByRole('button',{ name: 'Enable break check-ins' })).toBeFocused();
-  const beforeOptOutReload = syncs;
+  const beforeOptOutReload = transport.syncs;
   await a.page.reload();
-  await expect.poll(() => syncs).toBeGreaterThan(beforeOptOutReload);
+  await expect.poll(() => transport.syncs).toBeGreaterThan(beforeOptOutReload);
   await expect(checkIn.getByRole('button',{ name: 'Enable break check-ins' })).toBeVisible();
 });
