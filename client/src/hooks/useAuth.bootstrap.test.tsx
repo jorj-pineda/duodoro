@@ -47,6 +47,26 @@ describe("useAuth bootstrap", () => {
     expect(result.current.myAvatar).toEqual(saved.avatar_config);
   });
 
+  it("ignores a profile response that arrives after sign-out", async () => {
+    const saved = makeProfileRow({ avatar_config: { skinColor: "#FDDBB4" } });
+    let finish!: (value: { data: typeof saved; error: null }) => void;
+    const from = fake.sb.from;
+    vi.spyOn(fake.sb, "from").mockImplementation(() => {
+      const builder = from();
+      builder.single = () => new Promise(resolve => { finish = resolve; });
+      return builder;
+    });
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.appStep).toBe("landing"));
+    act(() => { void fake.authHandlers[0]("INITIAL_SESSION", makeSession({ id: saved.id })); });
+    await act(async () => {
+      await fake.authHandlers[0]("SIGNED_OUT", null);
+      finish({ data: saved, error: null });
+    });
+    expect(result.current.appStep).toBe("landing");
+    expect(result.current.profile).toBeNull();
+  });
+
   it("starts on loading and settles on landing with no session", async () => {
     const { result } = renderHook(() => useAuth());
 

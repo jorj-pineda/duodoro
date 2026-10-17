@@ -113,6 +113,7 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true;
     let sessionHandled = false;
+    let sessionGeneration = 0;
     const hasOAuthCode = window.location.search.includes("code=");
     const timeoutId = setTimeout(
       () => {
@@ -166,6 +167,7 @@ export function useAuth() {
     const handleSession = async (session: Session) => {
       if (sessionHandled) return;
       sessionHandled = true;
+      const generation = ++sessionGeneration;
       clearTimeout(timeoutId);
       if (!mounted) return;
 
@@ -177,7 +179,7 @@ export function useAuth() {
           .eq("id", session.user.id)
           .single()
           .then(({ data }) => {
-            if (data && mounted) {
+            if (data && mounted && generation === sessionGeneration) {
               const fresh = profileFromRow(data);
               setProfile(fresh);
               cacheProfile(fresh);
@@ -194,7 +196,7 @@ export function useAuth() {
             setTimeout(() => resolve({ data: null }), 4000),
           ),
         ]);
-        if (!mounted) return;
+        if (!mounted || generation !== sessionGeneration) return;
 
         if (result.data) {
           applyProfile(profileFromRow(result.data));
@@ -222,6 +224,7 @@ export function useAuth() {
             .then(() => {});
         }
       } catch {
+        if (!mounted || generation !== sessionGeneration) return;
         const provisional = profileFromSession(session);
         applyProfile(provisional);
       }
@@ -255,6 +258,8 @@ export function useAuth() {
           // they finish releases the callback lock on a fresh browser.
           void handleSession(session);
         } else if (event === "SIGNED_OUT") {
+          ++sessionGeneration;
+          sessionHandled = false;
           setProfile(null);
           clearCachedProfile();
           setAppStep("landing");
