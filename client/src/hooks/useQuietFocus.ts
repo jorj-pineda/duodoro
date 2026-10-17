@@ -30,15 +30,20 @@ export function useQuietFocus(userId?: string) {
   const enabled = useSyncExternalStore(subscribe, getSnapshot, serverSnapshot);
   const setEnabled = useCallback((value: boolean) => {
     if (!key) return false;
-    let persisted = false;
-    fallback.set(key, value);
-    try {
-      window.localStorage.setItem(key, String(value));
-      fallback.delete(key);
-      persisted = true;
-    } catch { /* Keep the choice for this page when browser storage is blocked. */ }
-    window.dispatchEvent(new Event(changeEvent));
-    return persisted;
-  }, [key]);
+    return writeQuietDeviceValue(userId!, value);
+  }, [key, userId]);
   return { enabled, setEnabled };
+}
+
+export function quietDeviceValue(userId: string): boolean | undefined {
+  const key = `duodoro:quiet-focus:${userId}`;
+  if (fallback.has(key)) return fallback.get(key);
+  try { const raw = localStorage.getItem(key); return raw === "true" ? true : raw === "false" ? false : undefined; } catch { return undefined; }
+}
+export function writeQuietDeviceValue(userId: string, value: boolean): boolean {
+  const key = `duodoro:quiet-focus:${userId}`;
+  let persisted = false; fallback.set(key, value);
+  try { localStorage.setItem(key, String(value)); fallback.delete(key); persisted = true; } catch { /* Memory remains usable. */ }
+  window.dispatchEvent(new CustomEvent(changeEvent, { detail: { userId, key: "quiet_focus", value } }));
+  return persisted;
 }

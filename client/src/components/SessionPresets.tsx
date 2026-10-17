@@ -19,15 +19,15 @@ export default function SessionPresets({ userId, current, onApply }: {
     </div>
     {presets.map(preset => <div key={preset.name} className="flex gap-2">
       <button onClick={() => onApply(preset)} className="min-h-11 flex-1 min-w-0 break-words border border-line px-2 text-xs hover:border-accent">{label(preset)}</button>
-      <button aria-label={`Remove ${preset.name} preset`} onClick={() => { const persisted = remove(preset.name); setMessage(persisted ? "Favorite removed." : "Removed for this tab; browser storage is unavailable."); }}
+      <button aria-label={`Remove ${preset.name} preset`} onClick={() => { const persisted = remove(preset.name); setMessage(persisted ? "Favorite removed on this device." : "Removed here; browser storage is unavailable. Check account sync."); }}
         className="min-h-11 min-w-11 text-xs text-muted underline">Remove</button>
     </div>)}
-    <p className="text-[11px] text-muted">Favorites belong to this account in this browser. Applying one changes setup; it doesn&apos;t start the timer.</p>
+    <p className="text-[11px] text-muted">Favorites sync privately to your account; check Preferences across devices for status. Applying one changes setup; it doesn&apos;t start the timer.</p>
     {!editing ? <button className="min-h-11 text-xs underline" onClick={() => setEditing(true)}>Save current settings</button>
       : <form className="space-y-2" onSubmit={event => {
         event.preventDefault();
         const result = save(name, current);
-        setMessage(result.error ?? (result.persisted ? "Favorite saved." : "Saved for this tab; browser storage is unavailable."));
+        setMessage(result.error ?? (result.persisted ? "Favorite saved on this device." : "Updated here; browser storage is unavailable. Check account sync."));
         if (!result.error) { setEditing(false); setName(""); }
       }}>
         <label className="block text-xs">Preset name<input value={name} maxLength={24} onChange={event => setName(event.target.value)} autoFocus

@@ -36,14 +36,7 @@ export function useDailyFocusGoal(userId: string) {
     };
   }, [key]);
   const goal = useSyncExternalStore(subscribe, () => readGoal(key), () => DEFAULT_GOAL);
-  const setGoal = (minutes: number) => {
-    if (!DAILY_GOALS.some((value) => value === minutes)) return;
-    try {
-      localStorage.setItem(key, String(minutes));
-      memoryGoals.delete(key);
-    } catch { memoryGoals.set(key, minutes); }
-    window.dispatchEvent(new Event(GOAL_CHANGED));
-  };
+  const setGoal = (minutes: number) => writeDailyGoalDeviceValue(userId, minutes);
   return { goal, setGoal };
 }
 
@@ -74,4 +67,21 @@ function subscribeDay(notify: () => void) {
 /** Uses the same local calendar day as the timezone-aware stats RPC. */
 export function useLocalDay() {
   return useSyncExternalStore(subscribeDay, localDay, () => "");
+}
+
+export function dailyGoalDeviceValue(userId: string): number | undefined {
+  const key = `duodoro:daily-goal:${userId}`;
+  if (memoryGoals.has(key)) return readGoal(key);
+  try {
+    const raw = localStorage.getItem(key);
+    const value = Number(raw);
+    return raw !== null && DAILY_GOALS.some(goal => goal === value) ? value : undefined;
+  } catch { return undefined; }
+}
+export function writeDailyGoalDeviceValue(userId: string, minutes: number) {
+  if (!DAILY_GOALS.some(value => value === minutes)) return;
+  const key = `duodoro:daily-goal:${userId}`;
+  try { localStorage.setItem(key, String(minutes)); memoryGoals.delete(key); }
+  catch { memoryGoals.set(key, minutes); }
+  window.dispatchEvent(new CustomEvent(GOAL_CHANGED, { detail: { userId, key: "daily_goal", value: minutes } }));
 }

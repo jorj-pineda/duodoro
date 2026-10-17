@@ -26,7 +26,7 @@ it("keeps a usable memory choice and explains failed storage", () => {
   render(<QuietFocusSetting userId="blocked" />);
   const checkbox = screen.getByRole("checkbox", { name: "Quiet focus mode" });
   fireEvent.click(checkbox); expect(checkbox).toBeChecked();
-  expect(screen.getByRole("status")).toHaveTextContent("Saved for this page only");
+  expect(screen.getByRole("status")).toHaveTextContent("Browser storage is unavailable");
   fireEvent.click(checkbox); expect(checkbox).not.toBeChecked();
 });
 it("has a neutral server snapshot and accessible opt-in", async () => {
