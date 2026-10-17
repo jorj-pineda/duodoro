@@ -248,10 +248,12 @@ export function useAuth() {
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         if (!mounted) return;
         if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-          await handleSession(session);
+          // Profile queries acquire Supabase's auth lock too. Returning before
+          // they finish releases the callback lock on a fresh browser.
+          void handleSession(session);
         } else if (event === "SIGNED_OUT") {
           setProfile(null);
           clearCachedProfile();

@@ -23,6 +23,30 @@ afterEach(() => {
 });
 
 describe("useAuth bootstrap", () => {
+  it("loads a fresh-device profile without holding the auth callback lock", async () => {
+    const saved = makeProfileRow({ avatar_config: { skinColor: "#FDDBB4", hairStyle: "bob", hairColor: "#5C3317", eyeStyle: "normal", outfitColor: "#3B5BDB" } });
+    fake.selectResults.profile = { data: saved, error: null };
+    const { result } = renderHook(() => useAuth());
+    await waitFor(() => expect(result.current.appStep).toBe("landing"));
+    let unlock!: () => void;
+    const authLock = new Promise<void>(resolve => { unlock = resolve; });
+    const from = fake.sb.from;
+    vi.spyOn(fake.sb, "from").mockImplementation(() => {
+      const builder = from();
+      const single = builder.single;
+      // Supabase's profile request needs the same auth lock held until all
+      // onAuthStateChange callbacks complete.
+      builder.single = () => authLock.then(() => single());
+      return builder;
+    });
+    act(() => {
+      const completed = fake.authHandlers[0]("INITIAL_SESSION", makeSession({ id: saved.id }));
+      void Promise.resolve(completed).then(unlock);
+    });
+    await waitFor(() => expect(result.current.appStep).toBe("home"));
+    expect(result.current.myAvatar).toEqual(saved.avatar_config);
+  });
+
   it("starts on loading and settles on landing with no session", async () => {
     const { result } = renderHook(() => useAuth());
 
