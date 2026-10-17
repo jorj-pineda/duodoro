@@ -9,6 +9,27 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_preferences: {
+        Row: {
+          key: string
+          user_id: string
+          value: Json
+          version: number
+        }
+        Insert: {
+          key: string
+          user_id: string
+          value: Json
+          version?: number
+        }
+        Update: {
+          key?: string
+          user_id?: string
+          value?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       focus_dates: {
         Row: {
           created_at: string
@@ -643,6 +664,21 @@ export type Database = {
           username: string
         }[]
       }
+      set_account_preference: {
+        Args: { p_expected_version: number; p_key: string; p_value: Json }
+        Returns: {
+          key: string
+          user_id: string
+          value: Json
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "account_preferences"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       set_session_focus_tag: {
         Args: {
           p_expected_version: number
@@ -716,6 +752,10 @@ export type Database = {
       update_shared_daily_goal: {
         Args: { goal_id: string; minutes: number }
         Returns: string
+      }
+      valid_account_preference: {
+        Args: { p_key: string; p_value: Json }
+        Returns: boolean
       }
     }
     Enums: {

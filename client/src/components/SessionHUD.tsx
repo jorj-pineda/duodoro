@@ -49,6 +49,7 @@ function DurationSlider({
 interface SessionHUDProps {
   quietFocus?: boolean;
   quietFocusSetting?: ReactNode;
+  preferenceStatus?: ReactNode;
   timerPresets?: ReactNode;
   reactions?: ReactNode;
   startBlocked?: boolean;
@@ -103,6 +104,7 @@ const phaseLabel: Record<GamePhase, (playerCount: number) => string> = {
 export default function SessionHUD({
   quietFocus = false,
   quietFocusSetting,
+  preferenceStatus,
   timerPresets,
   reactions,
   startBlocked = false,
@@ -303,6 +305,7 @@ export default function SessionHUD({
         )}
 
         {/* Start / stop */}
+        {preferenceStatus && <div className="w-full max-w-xs">{preferenceStatus}</div>}
         <div className="flex flex-col items-center gap-2">
           {canStart && phase === "waiting" && (
             <Button

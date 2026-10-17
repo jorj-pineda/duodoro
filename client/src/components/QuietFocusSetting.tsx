@@ -14,7 +14,7 @@ export default function QuietFocusSetting({ userId }: { userId: string }) {
         Quiet focus mode
       </label>
       <p className="text-center text-xs text-faint">Fewer controls while focusing. Full controls return on breaks.</p>
-      {temporary && <p role="status" className="text-center text-xs text-muted mt-1">Saved for this page only. Browser storage is unavailable.</p>}
+      {temporary && <p role="status" className="text-center text-xs text-muted mt-1">Browser storage is unavailable. Check Preferences across devices for account sync status.</p>}
     </div>
   );
 }

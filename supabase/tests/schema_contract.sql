@@ -80,6 +80,7 @@ select is(
      where schemaname = 'public'
   ),
   array[
+    'account_preferences_read_own',
     'focus_dates_participants',
     'friendships_accept',
     'friendships_delete',

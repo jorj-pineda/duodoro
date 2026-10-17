@@ -41,7 +41,7 @@ function write(key: string, presets: SessionPreset[]): boolean {
   let persisted = true;
   try { localStorage.setItem(key, raw); memory.delete(key); }
   catch { memory.set(key, raw); persisted = false; }
-  window.dispatchEvent(new Event(CHANGED));
+  window.dispatchEvent(new CustomEvent(CHANGED, { detail: { userId: key.slice("duodoro:session-presets:".length), key: "presets", value: presets } }));
   return persisted;
 }
 
@@ -69,3 +69,9 @@ export function useSessionPresets(userId: string) {
   }
   return { presets, save, remove: (name: string) => write(key, parseSessionPresets(read(key)).filter(row => row.name !== name)) };
 }
+
+export function presetDeviceValue(userId: string): unknown {
+  const raw = read(`duodoro:session-presets:${userId}`);
+  try { return raw === null ? undefined : JSON.parse(raw); } catch { return undefined; }
+}
+export function writePresetDeviceValue(userId: string, value: SessionPreset[]) { write(`duodoro:session-presets:${userId}`, value); }

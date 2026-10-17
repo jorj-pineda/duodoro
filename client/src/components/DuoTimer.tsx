@@ -31,6 +31,8 @@ import KeyboardShortcuts from "./KeyboardShortcuts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useShortcutPreference } from "@/hooks/useShortcutPreference";
 import { useQuietFocus } from "@/hooks/useQuietFocus";
+import { useAccountPreferenceSync } from "@/hooks/useAccountPreferenceSync";
+import PreferenceSyncStatus from "./PreferenceSyncStatus";
 import SessionPresets from "./SessionPresets";
 import UsernameChangeModal from "./UsernameChangeModal";
 import DisplayNameChangeModal from "./DisplayNameChangeModal";
@@ -46,6 +48,7 @@ import {
 export default function DuoTimer() {
   const router = useRouter();
   const auth = useAuth();
+  useAccountPreferenceSync(auth.profile?.id);
   const game = useGameSession(auth.profile);
   const { enabled: quietFocus, setEnabled: setQuietFocus } = useQuietFocus(auth.profile?.id);
   const gameConnectionState = game.connectionState;
@@ -665,6 +668,7 @@ export default function DuoTimer() {
         <SessionHUD
           quietFocus={quietFocus}
           quietFocusSetting={profile && <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />}
+          preferenceStatus={profile && <PreferenceSyncStatus key={`sync:${profile.id}`} userId={profile.id} />}
           companionNames={<>
             {game.myPet && game.myPetName && <CompanionNameEditor key={`${profile?.id}:${game.myPet}`} pet={game.myPet} name={game.myPetName}
               connected={game.connectionState === "connected"} onSave={game.setMyPetName} />}

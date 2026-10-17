@@ -42,7 +42,7 @@ export default function DailyFocusGoal({ userId, today, dailyFocus, loading, loa
           </div>
         </>
       ) : <p role="status" className="text-xs text-muted">{error ? "Today's progress is unavailable. Retry your stats above." : "Loading today's progress…"}</p>}
-      <p className="text-[11px] text-faint">Completed focus rounds count toward today. Target saved for this account on this browser.</p>
+      <p className="text-[11px] text-faint">Completed focus rounds count toward today. Your target syncs privately; see Preferences across devices for its status.</p>
     </section>
   );
 }
