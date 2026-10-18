@@ -32,7 +32,7 @@ function createFakeSocket() {
     },
     fire(event: string, ...args: unknown[]) {
       if (event === "connect") socket.connected = true;
-      if (event === "connect_error") socket.connected = false;
+      if (event === "connect_error" || event === "disconnect") socket.connected = false;
       for (const handler of handlers.get(event) ?? []) handler(...args);
     },
   };
@@ -170,6 +170,20 @@ describe("useSessionConnection", () => {
     await act(async () => {
       finishRefresh({ data: { session: { access_token: "fresh-token" } }, error: null });
     });
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows manual recovery after a server disconnect instead of promising automatic retries", async () => {
+    const config = options();
+    const { result } = renderHook(() => useSessionConnection(config));
+    await waitFor(() => expect(config.registerSocketHandlers).toHaveBeenCalled());
+    act(() => socket.fire("connect"));
+    act(() => socket.fire("disconnect", "io server disconnect"));
+    expect(result.current.connectionState).toBe("offline");
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(socket.connect).not.toHaveBeenCalled();
+    await act(async () => result.current.reconnect());
+    expect(refreshSession).toHaveBeenCalledTimes(1);
     expect(socket.connect).toHaveBeenCalledTimes(1);
   });
 

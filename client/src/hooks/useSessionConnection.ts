@@ -110,7 +110,7 @@ export function useSessionConnection({
         setMyId(socket.id ?? "");
         setConnectionState("connected");
       });
-      socket.on("disconnect", () => setConnectionState("reconnecting"));
+      socket.on("disconnect", (reason) => setConnectionState(reason === "io server disconnect" ? "offline" : "reconnecting"));
       socket.io.on("reconnect_failed", () => setConnectionState("offline"));
 
       registerSocketHandlers(socket);
