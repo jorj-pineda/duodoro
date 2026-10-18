@@ -11,7 +11,7 @@ export default function PreferenceSyncStatus({ userId }: { userId: string }) {
     : sync.saving || sync.pending.length ? "Using device preferences; syncing to your account…"
     : sync.loaded ? "Preferences are up to date across devices." : "Checking your account preferences…";
   return <details aria-label="Preferences across devices" className="text-xs text-muted max-w-full">
-    <summary className="min-h-11 flex items-center cursor-pointer text-left"><span role="status">{status}</span></summary>
+    <summary className="min-h-11 cursor-pointer py-3 text-left"><span role="status">{status}</span></summary>
     <div className="space-y-3 border border-line rounded-lg p-3 bg-surface">
       <p>Companion choice and names, favorite presets, daily target, and quiet focus sync privately to your account. Changes work here immediately. Refreshing or going online checks for updates.</p>
       <p>Saved preferences belong to your account. Your companion and its name still appear in shared rooms. Syncing favorites never applies them to a running timer.</p>
