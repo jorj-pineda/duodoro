@@ -1,21 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SITE_URL } from "@/lib/site";
 
-// This route receives the OAuth code from the provider and passes it to the
-// browser so the client-side Supabase (with detectSessionInUrl + flowType:pkce)
-// can exchange it for a session itself, storing the token in localStorage.
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
-
-  // Use X-Forwarded headers from Nginx instead of the internal Docker hostname
-  const proto = request.headers.get("x-forwarded-proto") ?? "http";
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "localhost";
-  const origin = `${proto}://${host}`;
-
-  if (code) {
-    return NextResponse.redirect(`${origin}${next}?code=${code}`);
+function callbackOrigin(request: NextRequest): string {
+  // Vercel supplies this deployment hostname; request/forwarding headers do
+  // not establish trust. Production callbacks always use the canonical site.
+  const previewHost = process.env.VERCEL_URL;
+  if (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV === "preview" &&
+      previewHost && previewHost.length <= 253 && /^[a-z0-9.-]+\.vercel\.app$/i.test(previewHost)) {
+    return `https://${previewHost}`;
   }
+  const incoming = new URL(request.url);
+  if (process.env.NODE_ENV === "development" &&
+      ["http:", "https:"].includes(incoming.protocol) &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(incoming.hostname)) {
+    return incoming.origin;
+  }
+  return SITE_URL;
+}
 
-  return NextResponse.redirect(`${origin}/`);
+// The browser exchanges this code using its PKCE verifier. The app resumes
+// invitations from its existing local state, so there is no next destination
+// to accept from the request.
+export async function GET(request: NextRequest) {
+  const destination = new URL("/", callbackOrigin(request));
+  const code = request.nextUrl.searchParams.get("code");
+  if (code) destination.searchParams.set("code", code);
+  return NextResponse.redirect(destination, {
+    headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
+  });
 }
