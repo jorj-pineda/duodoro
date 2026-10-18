@@ -473,13 +473,14 @@ export default function DuoTimer() {
                 .from("profiles")
                 .update({ display_name: name })
                 .eq("id", profile.id)
-                .select("id");
+                .select("display_name, display_name_changed_at");
               if (error || !data || data.length === 0) {
                 showError("Couldn't save your display name. Please try again.");
                 return;
               }
               auth.updateProfile({
-                display_name: name,
+                display_name: data[0].display_name,
+                display_name_changed_at: data[0].display_name_changed_at,
                 avatar_config: config,
               });
             }
