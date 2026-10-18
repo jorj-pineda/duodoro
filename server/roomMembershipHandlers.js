@@ -56,6 +56,7 @@ function registerRoomMembershipHandlers({
   // The rotating world and pet stage are server-owned even if older clients
   // still include world or petStage fields in their payloads.
   onPayload(socket, 'create_session', async (payload) => {
+    const revision = socket.membershipRevision;
     if (!createSessionRateLimit(socket.id)) {
       socket.emit('session_error', { message: 'Too many requests, slow down' });
       return;
@@ -73,7 +74,7 @@ function registerRoomMembershipHandlers({
 
     const userId = socket.userId || null;
     const focusSeconds = await totalFocusSeconds(userId);
-    if (isShuttingDown()) return;
+    if (isShuttingDown() || socket.connected === false || socket.membershipRevision !== revision) return;
     const session = createSessionState(safeWorld, socket.id);
     const sessionId = session.id;
     sessions[sessionId] = session;
@@ -144,6 +145,7 @@ function registerRoomMembershipHandlers({
   // Authorization, seat reservation, and bearer-token consumption must all
   // finish before the focus-total read yields to a competing join.
   onPayload(socket, 'join_session', async (payload) => {
+    const revision = socket.membershipRevision;
     const userId = socket.userId || null;
     const requestedSessionId = payload.sessionId;
     if (!joinSessionRateLimit(socket.id)) {
@@ -206,7 +208,7 @@ function registerRoomMembershipHandlers({
       reportJoinRejection('private', sessionId, userId);
       return;
     }
-    if (isShuttingDown()) return;
+    if (isShuttingDown() || socket.connected === false || socket.membershipRevision !== revision) return;
 
     // Reserve synchronously before the focus read. Existing users bypass the
     // new-seat count so reconnecting to a full room remains valid.
@@ -227,7 +229,7 @@ function registerRoomMembershipHandlers({
 
     try {
       const focusSeconds = await totalFocusSeconds(userId);
-      if (isShuttingDown()) return;
+      if (isShuttingDown() || socket.connected === false || socket.membershipRevision !== revision) return;
       const previousId = userId ? findPlayerByUserId(session, userId) : null;
       const previousPlayer = session.players[previousId];
       const petStage = pet ? (focusSeconds === null ? previousPlayer?.petStage ?? "grown" : stageForTotal(focusSeconds)) : null;

@@ -2,6 +2,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { createRealtimeApp } = require('./app');
 const { createLogger } = require('./observability');
 const { connectFocusQueue } = require('./focusQueue');
+const { createAuthFetch } = require('./authFetch');
 require('dotenv').config({ quiet: true });
 
 function parseAllowedOrigins(value = 'http://localhost:3000') {
@@ -16,6 +17,7 @@ function createSupabaseClient() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: {
+      fetch: createAuthFetch(),
       headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` },
     },
   });
@@ -49,6 +51,8 @@ async function main() {
     focusQueue,
     allowedOrigins: parseAllowedOrigins(process.env.ALLOWED_ORIGIN),
     reconnectGraceMs: Number(process.env.RECONNECT_GRACE_MS) || 60_000,
+    // Empty by default: forwarding headers never establish trust themselves.
+    abuseOptions: { trustedProxyCidrs: (process.env.ABUSE_TRUSTED_PROXY_CIDRS || '').split(',').map(value => value.trim()).filter(Boolean) },
     logger,
   });
   const startPromise = realtime.start(process.env.PORT || 3001);

@@ -21,7 +21,8 @@ function registerAccountHandlers({
     const userId = socket.userId;
     if (!userId) return;
     const cameOnline = presence.add(userId, socket.id);
-    if (cameOnline) broadcastPresence(userId, true);
+    if (!cameOnline) return;
+    broadcastPresence(userId, true);
     logger.info('presence_registered', {
       account_ref: correlationRef('account', userId),
       socket_ref: correlationRef('socket', socket.id),
