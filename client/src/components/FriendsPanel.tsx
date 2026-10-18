@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { WORLDS } from "@/lib/avatarData";
-import type { Profile } from "@/lib/types";
+import type { Profile, ProfileSearchResult } from "@/lib/types";
 import { formatTag } from "@/lib/format";
 import { useFriendsList } from "@/hooks/useFriendsList";
 import { useFriendSearch } from "@/hooks/useFriendSearch";
@@ -106,7 +106,7 @@ function RequestRow({
   onAccept,
   onDecline,
 }: {
-  requester: Profile;
+  requester: ProfileSearchResult;
   friendshipId: string;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;

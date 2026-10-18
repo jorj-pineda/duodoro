@@ -553,6 +553,17 @@ export type Database = {
           weekly_focus_time: number
         }[]
       }
+      get_friend_requests: {
+        Args: never
+        Returns: {
+          discriminator: string
+          display_name: string
+          id: string
+          is_premium: boolean
+          requester_id: string
+          username: string
+        }[]
+      }
       get_recent_sessions: {
         Args: { lim?: number }
         Returns: {

@@ -38,6 +38,7 @@ function createFakeSupabase() {
   };
 
   const sb = {
+    rpc: vi.fn(async () => results.requests),
     from: () => ({
       select: () => makeBuilder("select"),
       update: () => makeBuilder("update"),
@@ -94,6 +95,18 @@ describe("useFriendsList read and mutation integrity", () => {
 
     expect(result.current.loaded).toBe(true);
     expect(result.current.loadError).toBeNull();
+  });
+
+
+  it("loads pending identity from the scoped RPC without retaining presence fields", async () => {
+    fake.results.requests = { data: [{ id: "request-1", requester_id: "sender", username: "alpha", discriminator: "1234", display_name: "Alpha", is_premium: false,
+      current_session_id: "must-not-survive", current_world_id: "forest" }], error: null };
+    const { result } = renderHook(() => useFriendsList("me", true));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(fake.sb.rpc).toHaveBeenCalledWith("get_friend_requests");
+    expect(result.current.requests).toEqual([{ id: "request-1", requester: {
+      id: "sender", username: "alpha", discriminator: "1234", display_name: "Alpha", is_premium: false,
+    } }]);
   });
 
   it("treats an accepted-request update that matched no row as a failure", async () => {
