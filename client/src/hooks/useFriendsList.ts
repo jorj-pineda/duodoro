@@ -1,10 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { Profile } from "@/lib/types";
+import type { Profile, ProfileSearchResult } from "@/lib/types";
 
-// Shape of the embedded-resource rows PostgREST returns for the two queries
-// below. There are no generated DB types in this repo, so the client can't
-// infer them.
+// Embedded accepted-friend profiles remain nullable when RLS filters a row.
 type FriendshipRow = {
   id: string;
   requester_id: string;
@@ -12,12 +10,11 @@ type FriendshipRow = {
   requester: Profile | null;
   addressee: Profile | null;
 };
-type RequestRow = { id: string; requester: Profile | null };
 
 export function useFriendsList(myProfileId: string, active: boolean) {
   const [friends, setFriends] = useState<Profile[]>([]);
   const [requests, setRequests] = useState<
-    { id: string; requester: Profile }[]
+    { id: string; requester: ProfileSearchResult }[]
   >([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -40,16 +37,7 @@ export function useFriendsList(myProfileId: string, active: boolean) {
       `,
         )
         .eq("status", "accepted"),
-      sb
-        .from("friendships")
-        .select(
-          `
-        id,
-        requester:profiles!friendships_requester_id_fkey(id, username, discriminator, display_name, current_session_id, current_world_id)
-      `,
-        )
-        .eq("addressee_id", myProfileId)
-        .eq("status", "pending"),
+      sb.rpc("get_friend_requests"),
     ]);
 
     if (friendsResult.error || requestsResult.error) {
@@ -69,11 +57,13 @@ export function useFriendsList(myProfileId: string, active: boolean) {
         .filter((p): p is Profile => Boolean(p)),
     );
     setRequests(
-      ((requestsResult.data ?? []) as unknown as RequestRow[])
-        .filter((r): r is { id: string; requester: Profile } =>
-          Boolean(r.requester),
-        )
-        .map((r) => ({ id: r.id, requester: r.requester })),
+      (requestsResult.data ?? []).map((row) => ({
+        id: row.id,
+        requester: {
+          id: row.requester_id, username: row.username, discriminator: row.discriminator,
+          display_name: row.display_name, is_premium: row.is_premium,
+        },
+      })),
     );
     setLoaded(true);
     setLoading(false);
