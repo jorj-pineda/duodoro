@@ -92,6 +92,30 @@ function roomWithHost() {
 }
 
 describe('room creation and share invites', () => {
+  it.each(['disconnect', 'leave'])('discards room creation after %s during the focus read', async reason => {
+    const focus = deferred(), harness = setup({ totalFocusSeconds: () => focus.promise });
+    harness.socket.connected = true; harness.socket.membershipRevision = 1;
+    const creating = harness.handlers.get('create_session')({ avatar: AVATAR, displayName: 'Player' });
+    if (reason === 'disconnect') harness.socket.connected = false;
+    else ++harness.socket.membershipRevision;
+    focus.resolve(0); await creating;
+    expect(Object.keys(harness.sessions)).toEqual([]);
+    expect(harness.socket.join).not.toHaveBeenCalled();
+    expect(harness.setPresence).not.toHaveBeenCalled();
+  });
+
+  it('releases a pending join without adding a disconnected player or re-keying a live seat', async () => {
+    const focus = deferred(), harness = setup({ totalFocusSeconds: () => focus.promise });
+    const room = roomWithHost(); harness.sessions[room.id] = room; harness.socket.connected = true;
+    const joining = harness.handlers.get('join_session')({ sessionId: room.id, avatar: AVATAR, displayName: 'Partner' });
+    await Promise.resolve(); expect(room.pendingJoinUserIds.size).toBe(1);
+    harness.socket.connected = false; focus.resolve(0); await joining;
+    expect(room.pendingJoinUserIds.size).toBe(0);
+    expect(Object.keys(room.players)).toEqual(['host-socket']);
+    expect(harness.socket.join).not.toHaveBeenCalled();
+    expect(harness.setPresence).not.toHaveBeenCalled();
+  });
+
   it('announces the verified account identity on live joins instead of a payload claim', async () => {
     const harness = setup();
     const room = roomWithHost();

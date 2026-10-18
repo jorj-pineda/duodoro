@@ -3,6 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
+const { createAbuseProtection } = require('./abuseProtection');
+const { CLIENT_EVENT_NAMES } = require('../shared/socketContract');
 const { createPresenceRegistry } = require('./presence');
 const {
   beginFocusRound,
@@ -51,6 +53,7 @@ function createRealtimeApp({
   replayIntervalMs = 30_000,
   logger = createLogger(),
   metrics = createMetrics({ logger }),
+  abuseOptions = {},
 } = {}) {
 const observeRpc = createRpcObserver({ logger, metrics });
 
@@ -73,7 +76,22 @@ const checkReadiness = createReadinessChecker(supabase, {
 
 const app = express();
 let stopping = false;
+const abuse = createAbuseProtection({ ...abuseOptions, rejected: reason => metrics.increment(`abuse_rejections_${reason}_total`) });
+const admission = new WeakMap();
+const focusSaveHighWater = abuseOptions.focusSaveHighWater ?? 64;
+if (!Number.isInteger(focusSaveHighWater) || focusSaveHighWater < 1 || focusSaveHighWater > 1024) throw new Error('Invalid focus save capacity');
+const clientEvents = new Set(CLIENT_EVENT_NAMES);
+const asyncEvents = new Set(['create_session', 'join_session', 'send_invite', 'get_online_friends', 'delete_account']);
+const accountKey = socket => socket.userId || `development:${socket.id}`;
+const eventActions = { start_session: 'roundControl', finish_flow_focus: 'roundControl', get_online_friends: 'onlineFriends', request_sync: 'sync', set_pet: 'pet' };
 
+app.use((req, res, next) => {
+  if (req.path === '/health') return next();
+  const result = abuse.http(req);
+  if (result.allowed) return next();
+  res.setHeader('Retry-After', String(Math.max(1, Math.ceil(result.retryAfterMs / 1000))));
+  res.status(429).json({ error: 'Too many requests. Retry later.' });
+});
 app.use(cors({ origin: allowedOrigins }));
 app.use(helmet());
 app.get('/', (_, res) => res.json({ status: 'Duodoro server running', ok: true }));
@@ -84,11 +102,39 @@ app.get('/ready', async (_, res) => {
 });
 
 const server = http.createServer(app);
+server.headersTimeout = 10_000;
+server.requestTimeout = 15_000;
+server.maxHeadersCount = 64;
+server.maxConnections = 1024;
+server.on('drop', () => metrics.increment('abuse_rejections_tcp_capacity_total'));
 /** @type {Server<ClientToServerEvents, ServerToClientEvents>} */
 const io = new Server(server, {
   cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
   maxHttpBufferSize: 1e5, // 100KB max payload
+  connectTimeout: 10_000,
+  transports: ['polling', 'websocket'],
+  allowRequest(req, done) {
+    if (stopping || (req.headers.origin && !allowedOrigins.includes(req.headers.origin))) return done('Connection unavailable', false);
+    const result = abuse.admit(req);
+    if (!result.allowed) return done('Too many connections. Retry later.', false);
+    admission.set(req, result.lease); done(null, true);
+  },
 });
+
+io.engine.on('connection', connection => admission.get(connection.request)?.bind(connection));
+io.engine.on('connection_error', ({ req }) => admission.get(req)?.release());
+function connectionLimitError(result) {
+  const error = new Error('Too many connections. Wait a moment and retry.');
+  error.data = { code: 'RATE_LIMITED', retryAfterMs: result.retryAfterMs };
+  return error;
+}
+function admitAccount(socket, next) {
+  if (stopping || socket.conn.readyState !== 'open') return next(new Error('Connection unavailable'));
+  const result = abuse.account(accountKey(socket));
+  if (!result.allowed) return next(connectionLimitError(result));
+  socket.once('disconnect', result.release); socket.conn.once('close', result.release);
+  next();
+}
 
 // ── Auth middleware — verify Supabase JWT on every connection ─────────────
 
@@ -103,7 +149,7 @@ function totalFocusSeconds(userId) {
 
 io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (!token) {
+  if (typeof token !== 'string' || !token || token.length > 8192) {
     metrics.increment('unauthenticated_connections_total');
     logger.info('authentication_not_started', {
       socket_ref: correlationRef('socket', socket.id),
@@ -120,10 +166,19 @@ io.use(async (socket, next) => {
       if (typeof payload?.sub === 'string') socket.userId = payload.sub;
     } catch { /* not a JWT — stay anonymous */ }
     logger.warn('authentication_skipped', { mode: 'development' });
-    return next();
+    return admitAccount(socket, next);
   }
+  const permit = abuse.beginAuth(admission.get(socket.request)?.ip || abuse.address(socket.request));
+  if (!permit.allowed) return next(connectionLimitError(permit));
+  let timeout;
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Keep the concurrency slot until the actual verification settles, even
+    // if its client closes or the response deadline expires.
+    const verification = Promise.resolve().then(() => supabase.auth.getUser(token));
+    verification.then(permit.release, permit.release);
+    const deadline = new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Authentication timeout')), 6000); });
+    const { data: { user }, error } = await Promise.race([verification, deadline]);
+    if (stopping || socket.conn.readyState !== 'open') return next(new Error('Connection unavailable'));
     if (error || !user) {
       metrics.increment('authentication_rejections_total');
       logger.warn('authentication_rejected', {
@@ -135,7 +190,7 @@ io.use(async (socket, next) => {
     }
     socket.userId = user.id;
     socket.userEmail = user.email || null;
-    next();
+    admitAccount(socket, next);
   } catch (err) {
     metrics.increment('authentication_failures_total');
     logger.error('authentication_failed', {
@@ -143,7 +198,7 @@ io.use(async (socket, next) => {
       ...safeErrorFields(err),
     });
     return next(new Error('Authentication failed'));
-  }
+  } finally { clearTimeout(timeout); }
 });
 
 // sessions[sessionId] = {
@@ -158,34 +213,12 @@ const socketToSession = {};
 // sockets, so extra tabs don't evict each other — see presence.js.
 const presence = createPresenceRegistry();
 
-// ── Simple per-socket rate limiter ───────────────────────────────────────────
-function createRateLimiter(maxPerWindow, windowMs) {
-  const counters = new Map(); // socketId -> { count, resetAt }
-  const check = (socketId) => {
-    const now = Date.now();
-    const entry = counters.get(socketId);
-    if (!entry || now > entry.resetAt) {
-      counters.set(socketId, { count: 1, resetAt: now + windowMs });
-      return true;
-    }
-    entry.count++;
-    return entry.count <= maxPerWindow;
-  };
-  check.clear = (socketId) => counters.delete(socketId);
-  return check;
-}
-
-const rateLimits = {
-  createSession: createRateLimiter(5, 60_000),   // 5 per minute
-  joinSession:   createRateLimiter(10, 60_000),   // 10 per minute
-  sendInvite:    createRateLimiter(10, 60_000),   // 10 per minute
-  shareInvite:   createRateLimiter(10, 60_000),
-  companionName: createRateLimiter(20, 60_000),
-  reaction: createRateLimiter(1, 3000),
-  breakExtension: createRateLimiter(10, 60_000),
-  intention: createRateLimiter(30, 60_000),
-  companionProgress: createRateLimiter(10, 60_000),   // 10 per minute
+// Account budgets survive disconnects and are bounded/expired by abuseProtection.
+const limit = name => socketId => {
+  const socket = io.sockets.sockets.get(socketId);
+  return !!socket && abuse.action(name, accountKey(socket));
 };
+const rateLimits = Object.fromEntries(['createSession', 'joinSession', 'sendInvite', 'shareInvite', 'companionName', 'reaction', 'breakExtension', 'intention', 'companionProgress'].map(name => [name, limit(name)]));
 
 // Register a client-originated event behind one runtime boundary. Socket.IO
 // clients are not limited to this repository's TypeScript shapes: they can
@@ -222,7 +255,31 @@ function onPayload(socket, event, handler, options = {}) {
       else if (errorEvent) socket.emit(errorEvent, { message: invalidMessage });
       return;
     }
-    return handler(payload, ...args);
+    const membership = event === 'create_session' || event === 'join_session';
+    const target = typeof payload.sessionId === 'string' ? payload.sessionId : typeof payload.shareToken === 'string' ? payload.shareToken : null;
+    if (membership && socket.membershipPending) {
+      // Reconnect snapshots can repeat the same join while its read is in
+      // flight. Coalesce that retry without consuming a second seat or token.
+      if (socket.membershipPending.event !== event || socket.membershipPending.target !== target) socket.emit('session_error', { message: 'A room change is still in progress. Retry shortly.' });
+      return;
+    }
+    const permit = asyncEvents.has(event) ? abuse.beginAction(accountKey(socket)) : null;
+    if (permit && !permit.allowed) {
+      if (onInvalid) onInvalid(...args);
+      else if (event === 'delete_account' && typeof args[0] === 'function') args[0]({ ok: false, message: 'Server is busy. Try again shortly.' });
+      else if (errorEvent) socket.emit(errorEvent, { message: 'Server is busy. Try again shortly.' });
+      return;
+    }
+    if (membership) {
+      socket.membershipPending = { event, target };
+      socket.membershipRevision = (socket.membershipRevision || 0) + 1;
+    }
+    const release = () => { permit?.release(); if (membership) socket.membershipPending = null; };
+    try {
+      const result = handler(payload, ...args);
+      if (result && typeof result.then === 'function') return result.finally(release);
+      release(); return result;
+    } catch (error) { release(); throw error; }
   }, reportError));
 }
 
@@ -614,11 +671,55 @@ function removeUserFromLiveSessions(userId) {
 // ── Socket Handlers ────────────────────────────────────────────────────────
 
 async function sendFocusSaveStatus(socket) {
-  const state = await recovery.statusForUser(socket.userId);
-  if (socket.connected) socket.emit('focus_save_status', { state });
+  if (!socket.userId || !abuse.action('saveStatus', accountKey(socket))) return;
+  const permit = abuse.beginAction(accountKey(socket));
+  if (!permit.allowed) return;
+  try {
+    const state = await recovery.statusForUser(socket.userId);
+    if (socket.connected) socket.emit('focus_save_status', { state });
+  } catch (error) {
+    metrics.increment('focus_status_failures_total');
+    logger.warn('focus_status_failed', safeErrorFields(error));
+  } finally { permit.release(); }
 }
 
 io.on('connection', (socket) => {
+  socket.use(([event, ...args], next) => {
+    if (stopping) return;
+    const supported = clientEvents.has(event);
+    const result = supported ? abuse.event(accountKey(socket), event === 'stop_session' || event === 'leave_session') : null;
+    if (!supported || !result.allowed) {
+      if (!supported) metrics.increment('abuse_rejections_unknown_event_total');
+      if (!supported || result.reason !== 'events_global') {
+        socket.emit('session_error', { message: 'Too many or unsupported requests. Wait a moment before reconnecting.' });
+        socket.disconnect(true);
+      } else {
+        // Global overload is not evidence that this particular user is
+        // abusive. Reject work with a bounded notice; retain their room.
+        const reply = args.at(-1);
+        if (typeof reply === 'function') reply(event === 'get_online_friends' ? [] : { ok: false, message: 'Server is busy. Try again shortly.' });
+        if (!socket.overloadNoticeAt || performance.now() - socket.overloadNoticeAt >= 1000) {
+          socket.overloadNoticeAt = performance.now();
+          socket.emit('session_error', { message: 'Server is busy. Try again shortly.' });
+        }
+      }
+      return;
+    }
+    if (pendingRecordings.size >= focusSaveHighWater && (event === 'start_session' || event === 'finish_flow_focus')) {
+      // Admit no additional client-driven rounds while saves are backed up.
+      // Natural completions, Stop and Leave still preserve accepted focus.
+      metrics.increment('abuse_rejections_focus_backlog_total');
+      socket.emit('session_error', { message: 'Focus saves are catching up. Try again shortly; Stop timer and Leave room remain available.' });
+      return;
+    }
+    const action = eventActions[event];
+    if (action && !abuse.action(action, accountKey(socket))) {
+      if (event === 'get_online_friends' && typeof args.at(-1) === 'function') args.at(-1)([]);
+      else socket.emit('session_error', { message: 'Too many requests. Wait a moment and retry.' });
+      return;
+    }
+    next();
+  });
   metrics.increment('socket_connections_total');
   logger.info('socket_connected', {
     socket_ref: correlationRef('socket', socket.id),
@@ -713,6 +814,7 @@ io.on('connection', (socket) => {
   // never deleted, and its phase chain keeps recording fabricated focus.
   socket.on('leave_session', () => {
     if (stopping) return;
+    socket.membershipRevision = (socket.membershipRevision || 0) + 1;
     const sessionId = socketToSession[socket.id];
     if (sessionId) leaveSession(socket, sessionId);
   });
@@ -769,8 +871,7 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Drop this socket's rate-limit counters — they'd otherwise accumulate forever
-    Object.values(rateLimits).forEach((limiter) => limiter.clear(socket.id));
+    // Account counters intentionally remain until their idle expiry.
 
     // Clean up presence
     const { userId, wentOffline } = presence.remove(socket.id);
@@ -811,6 +912,7 @@ async function clearAllPresence(reason) {
 }
 
 function reportRuntimeSnapshot() {
+  for (const [name, value] of Object.entries(abuse.snapshot())) metrics.setGauge(`abuse_${name}`, value);
   metrics.setGauge('connected_sockets', io.engine.clientsCount);
   metrics.setGauge('active_sessions', Object.keys(sessions).length);
   metrics.setGauge('pending_focus_recordings', pendingRecordings.size);
@@ -904,6 +1006,7 @@ async function stop(reason = 'shutdown') {
       clearAllPresence(reason),
       closeSockets,
     ]);
+    abuse.clear();
     focusQueue?.close();
   })();
 
