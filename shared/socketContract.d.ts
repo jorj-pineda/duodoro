@@ -159,6 +159,7 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
+  authentication_expired: () => void;
   break_extension_changed: (payload: { sessionId: string; phaseStartTime: number; state: BreakExtensionState }) => void;
   companion_name_changed: (payload: { sessionId: string; playerId: string; petName: string }) => void;
   room_reaction: (payload: RoomReaction) => void;

@@ -61,6 +61,7 @@ export function useSessionConnection({
       socketRef.current = socket;
 
       let authRecoveryAttempted = false;
+      let authenticationExpired = false;
       let refreshInFlight: Promise<void> | null = null;
 
       const refreshAndReconnect = () => {
@@ -105,12 +106,23 @@ export function useSessionConnection({
         void refreshAndReconnect();
       });
 
+      socket.on("authentication_expired", () => { authenticationExpired = true; });
+
       socket.on("connect", () => {
+        authenticationExpired = false;
         authRecoveryAttempted = false;
         setMyId(socket.id ?? "");
         setConnectionState("connected");
       });
-      socket.on("disconnect", (reason) => setConnectionState(reason === "io server disconnect" ? "offline" : "reconnecting"));
+      socket.on("disconnect", (reason) => {
+        if (reason === "io server disconnect" && authenticationExpired) {
+          authenticationExpired = false;
+          authRecoveryAttempted = true;
+          void refreshAndReconnect();
+          return;
+        }
+        setConnectionState(reason === "io server disconnect" ? "offline" : "reconnecting");
+      });
       socket.io.on("reconnect_failed", () => setConnectionState("offline"));
 
       registerSocketHandlers(socket);

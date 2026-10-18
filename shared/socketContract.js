@@ -23,6 +23,7 @@ const CLIENT_EVENT_NAMES = Object.freeze([
 ]);
 
 const SERVER_EVENT_NAMES = Object.freeze([
+  'authentication_expired',
   'break_extension_changed',
   'room_reaction',
   'intentions_changed',

@@ -100,6 +100,42 @@ describe("useSessionConnection", () => {
     expect(socket.connect).toHaveBeenCalledTimes(2);
   });
 
+  it("refreshes and reconnects after authentication expiry without treating abuse disconnects as expiry", async () => {
+    const config = options();
+    const { result } = renderHook(() => useSessionConnection(config));
+    await waitFor(() => expect(config.registerSocketHandlers).toHaveBeenCalled());
+    act(() => socket.fire("connect"));
+    await act(async () => {
+      socket.fire("authentication_expired");
+      socket.fire("disconnect", "io server disconnect");
+    });
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(socket.auth).toEqual({ token: "fresh-token" });
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+    act(() => socket.fire("connect"));
+    expect(result.current.connectionState).toBe("connected");
+    act(() => socket.fire("disconnect", "io server disconnect"));
+    expect(result.current.connectionState).toBe("offline");
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers Retry when expiry recovery cannot refresh the session", async () => {
+    refreshSession.mockResolvedValueOnce({ data: { session: null }, error: new Error("Unavailable") });
+    const config = options();
+    const { result } = renderHook(() => useSessionConnection(config));
+    await waitFor(() => expect(config.registerSocketHandlers).toHaveBeenCalled());
+    act(() => socket.fire("connect"));
+    await act(async () => {
+      socket.fire("authentication_expired");
+      socket.fire("disconnect", "io server disconnect");
+    });
+    expect(result.current.connectionState).toBe("offline");
+    expect(socket.connect).not.toHaveBeenCalled();
+    await act(async () => result.current.reconnect());
+    expect(socket.auth).toEqual({ token: "fresh-token" });
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
   it("shows Retry when the token refresh fails, then recovers on Retry", async () => {
     refreshSession
       .mockResolvedValueOnce({ data: { session: null }, error: new Error("Unavailable") })

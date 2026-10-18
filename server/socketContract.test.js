@@ -11,6 +11,7 @@ const readSources = (root, names) => names
 
 const serverSource = readSources('.', [
   'app.js',
+  'socketAuthentication.js',
   'companionGrowth.js',
   'intentionHandlers.js',
   'reactionHandlers.js',

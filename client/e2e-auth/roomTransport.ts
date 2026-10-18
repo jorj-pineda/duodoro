@@ -8,6 +8,7 @@ export class RoomTransport {
   socket?: WebSocketRoute;
   upgrades = 0;
   syncs = 0;
+  authenticationExpirations = 0;
   snapshot?: SyncPayload;
   snapshots: SyncPayload[] = [];
   phase?: PhaseChangePayload;
@@ -39,6 +40,7 @@ export class RoomTransport {
     for (const packet of body.split("\x1e")) {
       if (!packet.startsWith("42[")) continue;
       const [event, payload] = JSON.parse(packet.slice(2));
+      if (event === "authentication_expired") this.authenticationExpirations++;
       if (event === "sync_state") { this.snapshot = payload; this.snapshots.push(payload); this.syncs++; }
       if (event === "phase_change") this.phase = payload;
     }

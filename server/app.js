@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { createAbuseProtection } = require('./abuseProtection');
+const { tokenExpiresAt, createSocketAuthentication } = require('./socketAuthentication');
 const { CLIENT_EVENT_NAMES } = require('../shared/socketContract');
 const { createPresenceRegistry } = require('./presence');
 const {
@@ -54,6 +55,7 @@ function createRealtimeApp({
   logger = createLogger(),
   metrics = createMetrics({ logger }),
   abuseOptions = {},
+  authenticationOptions = {},
 } = {}) {
 const observeRpc = createRpcObserver({ logger, metrics });
 
@@ -77,6 +79,7 @@ const checkReadiness = createReadinessChecker(supabase, {
 const app = express();
 let stopping = false;
 const abuse = createAbuseProtection({ ...abuseOptions, rejected: reason => metrics.increment(`abuse_rejections_${reason}_total`) });
+const authentication = createSocketAuthentication({ ...authenticationOptions, expired: () => metrics.increment('authentication_expired_total') });
 const admission = new WeakMap();
 const focusSaveHighWater = abuseOptions.focusSaveHighWater ?? 64;
 if (!Number.isInteger(focusSaveHighWater) || focusSaveHighWater < 1 || focusSaveHighWater > 1024) throw new Error('Invalid focus save capacity');
@@ -133,6 +136,10 @@ function admitAccount(socket, next) {
   const result = abuse.account(accountKey(socket));
   if (!result.allowed) return next(connectionLimitError(result));
   socket.once('disconnect', result.release); socket.conn.once('close', result.release);
+  if (supabase) {
+    authentication.bind(socket, socket.authExpiresAt);
+    if (!authentication.valid(socket)) { result.release(); return next(new Error('Invalid or expired token')); }
+  }
   next();
 }
 
@@ -188,6 +195,9 @@ io.use(async (socket, next) => {
       });
       return next(new Error('Invalid or expired token'));
     }
+    const expiresAt = tokenExpiresAt(token);
+    if (expiresAt === null || expiresAt <= authentication.now()) return next(new Error('Invalid or expired token'));
+    socket.authExpiresAt = expiresAt;
     socket.userId = user.id;
     socket.userEmail = user.email || null;
     admitAccount(socket, next);
@@ -686,6 +696,7 @@ async function sendFocusSaveStatus(socket) {
 io.on('connection', (socket) => {
   socket.use(([event, ...args], next) => {
     if (stopping) return;
+    if (supabase && !authentication.valid(socket)) { authentication.expire(socket); return; }
     const supported = clientEvents.has(event);
     const result = supported ? abuse.event(accountKey(socket), event === 'stop_session' || event === 'leave_session') : null;
     if (!supported || !result.allowed) {
