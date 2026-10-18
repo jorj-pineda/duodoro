@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
+import { browserSecurityHeaders } from "./src/lib/securityHeaders";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async headers() {
+    return [{ source: "/:path*", headers: browserSecurityHeaders({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL,
+      development: process.env.NODE_ENV === "development",
+      preview: process.env.VERCEL_ENV === "preview",
+    }) }];
+  },
   async redirects() {
     return [
       {
