@@ -8,7 +8,7 @@ const avatar = { skinColor: '#F1C27D', hairStyle: 'bob', hairColor: '#3B2314', e
 function database() {
   const result = { data: [], error: null };
   function query() { const q = { select: () => q, update: () => q, eq: () => q, not: () => q, then: (resolve, reject) => Promise.resolve(result).then(resolve, reject) }; return q; }
-  return { auth: { getUser: vi.fn(async token => ({ data: { user: { id: token } }, error: null })) }, from: query,
+  return { auth: { getUser: vi.fn(async token => ({ data: { user: { id: JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).sub } }, error: null })) }, from: query,
     rpc: vi.fn(async name => ({ data: name === 'list_accepted_friend_ids' ? [] : 0, error: null })) };
 }
 async function boot(options = {}) {
@@ -21,7 +21,7 @@ function once(socket, event) {
   return new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error(`No ${event}`)), 3000); socket.once(event, value => { clearTimeout(timer); resolve(value); }); });
 }
 async function client(url, token, options = {}, rejected = false) {
-  const socket = connect(url, { autoConnect: false, reconnection: false, transports: ['websocket'], auth: { token }, ...options }); clients.add(socket);
+  const socket = connect(url, { autoConnect: false, reconnection: false, transports: ['websocket'], auth: { token: `test.${Buffer.from(JSON.stringify({ sub: token, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.stub` }, ...options }); clients.add(socket);
   const result = once(socket, rejected ? 'connect_error' : 'connect'); socket.connect();
   const error = await result; if (rejected) { socket.close(); return error; } return socket;
 }
@@ -42,7 +42,7 @@ it('caps pending verification even if its client disconnects, then drops its lat
   const db = database(); let finish;
   db.auth.getUser.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const { app, url } = await boot({ supabase: db, abuseOptions: { limits: { authInFlight: 1 } } });
-  const first = connect(url, { reconnection: false, transports: ['websocket'], auth: { token: 'old-owner' } }); clients.add(first);
+  const first = connect(url, { reconnection: false, transports: ['websocket'], auth: { token: `test.${Buffer.from(JSON.stringify({ sub: 'old-owner', exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.stub` } }); clients.add(first);
   await vi.waitFor(() => expect(db.auth.getUser).toHaveBeenCalledTimes(1)); first.close();
   const denied = await client(url, 'new-owner', {}, true); expect(denied.data.code).toBe('RATE_LIMITED');
   expect(db.auth.getUser).toHaveBeenCalledTimes(1);

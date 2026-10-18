@@ -30,7 +30,7 @@ function fakeDatabase({ recordDelayMs = 0 } = {}) {
     recordingUnavailable: false,
     initialFocus: 0,
     auth: {
-      getUser: vi.fn(async (token) => ({ data: { user: { id: token } }, error: null })),
+      getUser: vi.fn(async (token) => ({ data: { user: { id: JSON.parse(Buffer.from(token.split('.')[1], 'base64url')).sub } }, error: null })),
     },
     rpc: vi.fn(async (name, payload) => {
       if (name === 'total_focus_seconds') return { data: db.initialFocus + records.filter((r) => r.p_completed && r.p_user_ids.includes(payload.target)).reduce((sum, r) => sum + r.p_actual_focus, 0), error: null };
@@ -87,7 +87,7 @@ async function start(db, { reconnectGraceMs, focusQueue, replayIntervalMs } = {}
 
 async function connectUser(url, userId) {
   const socket = connect(url, {
-    auth: { token: userId }, transports: ['websocket'], reconnection: false,
+    auth: { token: `test.${Buffer.from(JSON.stringify({ sub: userId, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.stub` }, transports: ['websocket'], reconnection: false,
   });
   sockets.add(socket);
   await nextEvent(socket, 'connect');
