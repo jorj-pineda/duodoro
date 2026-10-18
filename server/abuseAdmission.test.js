@@ -133,13 +133,21 @@ it('retains async-operation slots through disconnect, then releases without crea
   expect(metrics.snapshot().counters.sessions_created_total).toBeUndefined();
   const created = once(second, 'session_created'); second.emit('create_session', { avatar, displayName: 'Owner' }); await created;
 });
-it('rejects global event overload with an acknowledgement without disconnecting an innocent account', async () => {
-  let time = 0; const { url, metrics } = await boot({ supabase: database(), abuseOptions: { now: () => time, limits: { eventsGlobal: [1, 1000] } } });
+it('rejects global overload without disconnecting innocent accounts and keeps Stop and Leave available', async () => {
+  let time = 0; const { app, url, metrics } = await boot({ supabase: database(), abuseOptions: { now: () => time, limits: { eventsGlobal: [1, 1000] } } });
   const first = await client(url, 'first'), second = await client(url, 'second');
+  const created = once(first, 'session_created'); first.emit('create_session', { avatar, displayName: 'Owner' });
+  const { sessionId } = await created; time = 1001;
+  const focus = once(first, 'phase_change'); first.emit('start_session', { sessionId, mode: 'flow', focusDuration: 1500, breakDuration: 300 });
+  expect((await focus).phase).toBe('focus'); time = 2002;
   await new Promise(resolve => first.emit('get_online_friends', { friendIds: [] }, resolve));
   await new Promise(resolve => second.emit('get_online_friends', { friendIds: [] }, resolve));
   expect(metrics.snapshot().counters.abuse_rejections_events_global_total).toBe(1); expect(second.connected).toBe(true);
-  time = 1001; await new Promise(resolve => second.emit('get_online_friends', { friendIds: [] }, resolve));
+  const stopped = once(first, 'phase_change'); first.emit('stop_session', { sessionId });
+  expect((await stopped).phase).toBe('waiting');
+  const serverSocket = app.io.sockets.sockets.get(first.id); first.emit('leave_session');
+  await vi.waitFor(() => expect(serverSocket.rooms.size).toBe(1));
+  time = 3003; await new Promise(resolve => second.emit('get_online_friends', { friendIds: [] }, resolve));
   expect(second.connected).toBe(true);
 });
 it('applies backpressure to new rounds while preserving Stop and exactly one recording for accepted focus', async () => {
