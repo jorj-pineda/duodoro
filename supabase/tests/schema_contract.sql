@@ -100,7 +100,6 @@ select is(
     'tasks_insert',
     'tasks_read',
     'tasks_update',
-    'waitlist_insert',
     'weekly_focus_plans_read_own'
   ]::text[],
   'the final RLS policy set matches the application contract'
