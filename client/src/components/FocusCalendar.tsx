@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { ReflectionDraftState } from "@/hooks/useReflectionExitGuard";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import { useFocusCalendar } from "@/hooks/useFocusCalendar";
 import { useLoadSessionReflections } from "@/hooks/useSessionReflections";
@@ -31,7 +32,7 @@ function tagPhrase(tag: TagFilter): string {
   return ` tagged ${focusTagLabel(tag)}`;
 }
 
-export default function FocusCalendar({ userId }: { userId: string }) {
+export default function FocusCalendar({ userId, onDraftStateChange }: { userId: string; onDraftStateChange?: (state: ReflectionDraftState) => void }) {
   const today = useLocalDay();
   const [chosenMonth, setChosenMonth] = useState("");
   const [chosenDay, setChosenDay] = useState("");
@@ -84,6 +85,11 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   // These exceptions do not contribute to matching totals or pagination.
   const retainedDrafts = (byDay.get(selected)?.sessions ?? []).filter(session => dirtyReflections.has(session.id) && !sessionMatches(session, filter, activeTag));
   const visibleDetails = [...details.slice(0, shown), ...retainedDrafts];
+  const hasDrafts = dirtyReflections.size > 0;
+  const reflectionBusy = visibleDetails.some(session => pendingReflections.has(session.id));
+  useEffect(() => {
+    onDraftStateChange?.({ dirty: hasDrafts, busy: reflectionBusy });
+  }, [hasDrafts, reflectionBusy, onDraftStateChange]);
   const detailIds = visibleDetails.map(session => session.id).join(",");
   // One bounded batch for the rounds on screen, not one request per round.
   useLoadSessionReflections(userId, visibleDetails.map(session => session.id));

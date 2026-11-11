@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
+import { useReflectionExitGuard } from "@/hooks/useReflectionExitGuard";
 import { handleTabKeyNavigation } from "@/lib/tabKeyboard";
 import { useStats } from "@/lib/useStats";
 import FocusCalendar from "./FocusCalendar";
@@ -121,8 +122,16 @@ export default function StatsPanel({
   userId,
   onViewFullStats,
 }: Props) {
-  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
+  const guard = useReflectionExitGuard(open, userId);
+  const close = () => { guard.leave(onClose); };
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, close);
   const [tab, setTab] = useState<Tab>("personal");
+  const selectTab = (next: Tab) => {
+    if (next === tab) return true;
+    const allowed = guard.leave(() => setTab(next));
+    if (!allowed) document.getElementById(`stats-tab-${tab}`)?.focus();
+    return allowed;
+  };
   const {
     personalStats, duoStats, recentSessions, loading, fetchStats,
     error: statsError, retry,
@@ -141,7 +150,7 @@ export default function StatsPanel({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={close}
           />
           <div className="fixed inset-x-2 sm:inset-x-auto sm:right-4 top-0 bottom-0 z-40 flex items-stretch justify-end py-3 pointer-events-none">
             <motion.div
@@ -164,13 +173,15 @@ export default function StatsPanel({
                 </h2>
                 <button
                   data-autofocus
-                  onClick={onClose}
+                  onClick={close}
                   aria-label="Close"
                   className="text-faint hover:text-ink transition-colors"
                 >
                   <CloseIcon />
                 </button>
               </div>
+
+              {guard.message && <p role="status" className="px-4 py-2 text-xs text-ink">{guard.message}</p>}
 
               {/* Tabs */}
               <div role="tablist" aria-label="Stats sections" className="grid grid-cols-3 border-b border-line">
@@ -187,11 +198,11 @@ export default function StatsPanel({
                         event,
                         TABS,
                         tab,
-                        setTab,
+                        selectTab,
                         (next) => `stats-tab-${next}`,
                       )
                     }
-                    onClick={() => setTab(t)}
+                    onClick={() => selectTab(t)}
                     className={`min-h-11 px-1 py-2.5 text-xs font-bold capitalize transition-colors ${
                       tab === t
                         ? "text-accent border-b-2 border-accent"
@@ -216,7 +227,7 @@ export default function StatsPanel({
                   </p>
                 )}
 
-                {tab === "calendar" && <FocusCalendar key={userId} userId={userId} />}
+                {tab === "calendar" && <FocusCalendar key={userId} userId={userId} onDraftStateChange={guard.onDraftStateChange} />}
                 {tab === "insights" && <FocusInsights key={userId} userId={userId} />}
                 {tab === "reflections" && <ReflectionReview userId={userId} />}
 
@@ -308,7 +319,7 @@ export default function StatsPanel({
               {/* Footer */}
               <div className="border-t border-line px-4 py-3">
                 <button
-                  onClick={onViewFullStats}
+                  onClick={() => guard.leave(onViewFullStats)}
                   className="w-full text-center text-xs text-accent hover:text-accent-deep font-bold transition-colors"
                 >
                   View detailed stats →
