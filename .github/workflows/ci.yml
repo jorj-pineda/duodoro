@@ -136,7 +136,9 @@ jobs:
         working-directory: server
       - run: npm ci
         working-directory: client
-      - run: npx playwright install --with-deps chromium
+      # The pinned hosted image already supplies Chromium runtime libraries.
+      # Avoid apt for extra fonts; browser launch still checks required libraries.
+      - run: npx playwright install chromium
         working-directory: client
 
       - run: npm run build
@@ -185,7 +187,9 @@ jobs:
         working-directory: server
       - run: npm ci
         working-directory: client
-      - run: npx playwright install --with-deps chromium
+      # The pinned hosted image already supplies Chromium runtime libraries.
+      # Avoid apt for extra fonts; browser launch still checks required libraries.
+      - run: npx playwright install chromium
         working-directory: client
       - name: Start disposable local Auth, database and HTTP services
         run: >-
