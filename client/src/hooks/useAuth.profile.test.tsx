@@ -38,7 +38,7 @@ describe("useAuth profile resolution", () => {
 
     await waitFor(() => expect(result.current.appStep).toBe("home"));
     // The row is authoritative: the session profile is only a fallback for a
-    // missing or slow row, and it never carries a real username or avatar.
+    // confirmed missing row, and it never carries a real username or avatar.
     expect(result.current.profile?.username).toBe("from-database");
     expect(fake.calls.upserts).toHaveLength(0);
   });
@@ -54,8 +54,8 @@ describe("useAuth profile resolution", () => {
     const { result } = renderHook(() => useAuth());
 
     await waitFor(() => expect(result.current.profile).not.toBeNull());
-    // Provisional identity comes from the OAuth metadata, sanitised.
-    expect(result.current.profile?.username).toBe("river");
+    // A confirmed missing row is repaired from sanitized OAuth metadata.
+    expect(result.current.profile?.username).toBe("river_user");
     expect(result.current.profile?.display_name).toBe("River Song");
     // No avatar, so the user still has to design a character.
     expect(result.current.appStep).toBe("avatar");
@@ -106,10 +106,10 @@ describe("useAuth profile resolution", () => {
     const { result } = renderHook(() => useAuth());
 
     await waitFor(() => expect(result.current.profile).not.toBeNull());
-    expect(result.current.profile?.username).toBe("riversong");
+    expect(result.current.profile?.username).toBe("riversong_user");
   });
 
-  it("falls back to a provisional profile when the read throws", async () => {
+  it("offers recovery without making a provisional profile when the read throws", async () => {
     fake.sessionResult.session = makeSession({ id: "user-throw", email: "t@y.com" });
     // A rejected builder rather than a resolved error object: the catch branch
     // is a different path from the "no data" branch.
@@ -119,8 +119,8 @@ describe("useAuth profile resolution", () => {
 
     const { result } = renderHook(() => useAuth());
 
-    await waitFor(() => expect(result.current.profile).not.toBeNull());
-    expect(result.current.profile?.id).toBe("user-throw");
-    expect(result.current.appStep).toBe("avatar");
+    await waitFor(() => expect(result.current.appStep).toBe("unavailable"));
+    expect(result.current.profile).toBeNull();
+    expect(fake.calls.upserts).toEqual([]);
   });
 });

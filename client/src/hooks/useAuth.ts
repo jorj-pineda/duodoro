@@ -101,6 +101,17 @@ export function useAuth() {
   const [myAvatar, setMyAvatar] = useState<AvatarConfig>(DEFAULT_AVATAR);
 
   const sb = getSupabase();
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
+  const retryAuth = useCallback(() => {
+    setAppStep("loading");
+    setBootstrapAttempt(attempt => attempt + 1);
+  }, []);
+
+  useEffect(() => {
+    if (appStep !== "unavailable") return;
+    window.addEventListener("online", retryAuth);
+    return () => window.removeEventListener("online", retryAuth);
+  }, [appStep, retryAuth]);
 
   // Kept beside `profile` so callbacks can read the latest value without
   // listing `profile` as a dependency — a dependency on it would change the
@@ -112,15 +123,24 @@ export function useAuth() {
 
   useEffect(() => {
     let mounted = true;
-    let sessionHandled = false;
+    let handledUser: string | null = null;
     let sessionGeneration = 0;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
     const hasOAuthCode = window.location.search.includes("code=");
-    const timeoutId = setTimeout(
-      () => {
-        if (mounted) setAppStep("landing");
-      },
-      hasOAuthCode ? 20000 : 8000,
-    );
+    const startedAt = Date.now();
+    const current = (generation: number) => mounted && generation === sessionGeneration;
+    const unavailable = (generation: number) => {
+      if (current(generation)) setAppStep("unavailable");
+    };
+    async function bounded<T>(operation: PromiseLike<T>, milliseconds = 4000): Promise<T> {
+      let timer!: ReturnType<typeof setTimeout>;
+      const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Account request timed out")), milliseconds);
+        timers.add(timer);
+      });
+      try { return await Promise.race([operation, deadline]); }
+      finally { clearTimeout(timer); timers.delete(timer); }
+    }
 
     const profileFromSession = (session: Session): Profile => {
       const { id, user_metadata, email } = session.user;
@@ -165,84 +185,78 @@ export function useAuth() {
     };
 
     const handleSession = async (session: Session) => {
-      if (sessionHandled) return;
-      sessionHandled = true;
+      if (!mounted || handledUser === session.user.id) return;
+      handledUser = session.user.id;
       const generation = ++sessionGeneration;
-      clearTimeout(timeoutId);
-      if (!mounted) return;
-
       const cached = getCachedProfile();
       if (cached && cached.id === session.user.id && cached.avatar_config) {
         applyProfile(cached);
-        sb.from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data && mounted && generation === sessionGeneration) {
-              const fresh = profileFromRow(data);
-              setProfile(fresh);
-              cacheProfile(fresh);
-              if (fresh.avatar_config) setMyAvatar(fresh.avatar_config);
-            }
-          });
+        try {
+          const { data, error } = await bounded(sb.from("profiles").select("*").eq("id", session.user.id).single());
+          if (!error && data && current(generation)) {
+            const fresh = profileFromRow(data);
+            setProfile(fresh);
+            cacheProfile(fresh);
+            if (fresh.avatar_config) setMyAvatar(fresh.avatar_config);
+          }
+        } catch {
+          // A failed background refresh does not invalidate a usable account cache.
+        }
         return;
       }
 
+      setProfile(null);
+      setAppStep("loading");
       try {
-        const result = await Promise.race([
-          sb.from("profiles").select("*").eq("id", session.user.id).single(),
-          new Promise<{ data: null }>((resolve) =>
-            setTimeout(() => resolve({ data: null }), 4000),
-          ),
-        ]);
-        if (!mounted || generation !== sessionGeneration) return;
-
-        if (result.data) {
-          applyProfile(profileFromRow(result.data));
-        } else {
+        let { data, error } = await bounded(sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle());
+        if (!current(generation)) return;
+        if (error) throw error;
+        if (!data) {
+          // Only a successful empty read may repair a missing signup row.
+          // Confirm the write and re-read the authoritative row before setup.
           const provisional = profileFromSession(session);
-          applyProfile(provisional);
-          // Fallback only: the handle_new_user() trigger already creates this
-          // row at signup, and we also land here when the SELECT above merely
-          // timed out on a slow connection. ignoreDuplicates makes this a
-          // pure insert-if-missing (ON CONFLICT DO NOTHING) — without it, the
-          // conflict path would overwrite a real username with this generated
-          // one, and would need UPDATE rights on columns only the
-          // claim_username RPC should touch.
-          sb.from("profiles")
-            .upsert(
-              {
-                id: provisional.id,
-                username:
-                  provisional.username + "_" + provisional.id.slice(0, 4),
-                discriminator: fallbackDiscriminator(provisional.id),
-                display_name: provisional.display_name,
-              },
-              { onConflict: "id", ignoreDuplicates: true },
-            )
-            .then(() => {});
+          const inserted = await bounded(sb.from("profiles").upsert({
+            id: provisional.id,
+            username: provisional.username + "_" + provisional.id.slice(0, 4),
+            discriminator: fallbackDiscriminator(provisional.id),
+            display_name: provisional.display_name,
+          }, { onConflict: "id", ignoreDuplicates: true }));
+          if (!current(generation)) return;
+          if (inserted.error) throw inserted.error;
+          const confirmed = await bounded(sb.from("profiles").select("*").eq("id", session.user.id).single());
+          if (!current(generation)) return;
+          data = confirmed.data;
+          error = confirmed.error;
         }
+        if (error || !data) throw error ?? new Error("Profile unavailable");
+        applyProfile(profileFromRow(data));
       } catch {
-        if (!mounted || generation !== sessionGeneration) return;
-        const provisional = profileFromSession(session);
-        applyProfile(provisional);
+        unavailable(generation);
       }
     };
 
     const loadUser = async () => {
+      const generation = sessionGeneration;
       try {
-        const {
-          data: { session },
-        } = await sb.auth.getSession();
-        if (!mounted) return;
+        const { data: { session }, error } = await bounded(sb.auth.getSession(), hasOAuthCode ? 20000 : 8000);
+        // Auth events can settle sign-in or sign-out before this snapshot returns.
+        if (!current(generation)) return;
+        if (error) throw error;
         if (!session) {
-          if (!window.location.search.includes("code=")) setAppStep("landing");
+          if (!hasOAuthCode) setAppStep("landing");
+          else {
+            // Allow an in-flight PKCE callback to deliver its auth event.
+            const timer = setTimeout(() => {
+              timers.delete(timer);
+              unavailable(generation);
+            }, Math.max(0, 20000 - (Date.now() - startedAt)));
+            timers.add(timer);
+          }
           return;
         }
         await handleSession(session);
       } catch {
-        if (mounted) setAppStep("landing");
+        unavailable(generation);
       }
     };
 
@@ -259,7 +273,7 @@ export function useAuth() {
           void handleSession(session);
         } else if (event === "SIGNED_OUT") {
           ++sessionGeneration;
-          sessionHandled = false;
+          handledUser = null;
           setProfile(null);
           clearCachedProfile();
           setAppStep("landing");
@@ -269,11 +283,10 @@ export function useAuth() {
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
+      for (const timer of timers) clearTimeout(timer);
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bootstrapAttempt, sb]);
 
   /**
    * Persists the avatar. Returns false if the write didn't land.
@@ -350,6 +363,7 @@ export function useAuth() {
 
   return {
     appStep,
+    retryAuth,
     setAppStep,
     profile,
     setProfile,

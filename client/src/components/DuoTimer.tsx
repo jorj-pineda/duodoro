@@ -423,6 +423,18 @@ export default function DuoTimer() {
     );
   }
 
+  if (appStep === "unavailable") {
+    return (
+      <main className="min-h-dvh bg-bg flex items-center justify-center p-6">
+        <section aria-labelledby="account-unavailable" className="max-w-sm space-y-4 text-center">
+          <h1 id="account-unavailable" className="font-display text-2xl text-ink">Couldn’t load your account</h1>
+          <p role="alert" className="text-sm text-muted">Duodoro couldn’t reach your account. Check your connection and try again.</p>
+          <button autoFocus onClick={auth.retryAuth} className="min-h-11 px-6 py-3 bg-accent text-white font-bold rounded-lg">Retry</button>
+        </section>
+      </main>
+    );
+  }
+
   // ── Landing ─────────────────────────────────────────────────────────────
   if (appStep === "landing") {
     return <LandingPage />;

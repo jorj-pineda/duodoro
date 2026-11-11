@@ -76,12 +76,12 @@ describe("useAuth bootstrap", () => {
     await waitFor(() => expect(result.current.appStep).toBe("landing"));
   });
 
-  it("still reaches landing when getSession throws", async () => {
+  it("offers recovery when getSession throws", async () => {
     fake.setGetSessionError(new Error("offline"));
     const { result } = renderHook(() => useAuth());
 
     // A thrown session check must not strand the user on the loading screen.
-    await waitFor(() => expect(result.current.appStep).toBe("landing"));
+    await waitFor(() => expect(result.current.appStep).toBe("unavailable"));
   });
 
   it("waits longer for an OAuth code than for an ordinary load", async () => {
@@ -103,7 +103,7 @@ describe("useAuth bootstrap", () => {
     await act(async () => {
       vi.advanceTimersByTime(12000);
     });
-    expect(result.current.appStep).toBe("landing");
+    expect(result.current.appStep).toBe("unavailable");
 
     unmount();
     window.history.replaceState({}, "", "/");
