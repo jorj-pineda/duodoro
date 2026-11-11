@@ -12,4 +12,4 @@ export type {
   SyncPayload,
 } from "../../../shared/socketContract";
 
-export type AppStep = "loading" | "landing" | "avatar" | "home" | "game";
+export type AppStep = "loading" | "unavailable" | "landing" | "avatar" | "home" | "game";

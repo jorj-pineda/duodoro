@@ -94,6 +94,7 @@ export function createFakeSupabase() {
       Promise.resolve(
         selectKind === "presence" ? selectResults.presence : selectResults.profile,
       );
+    b.maybeSingle = () => b.single();
     b.update = (values: unknown) => {
       lastUpdate = values;
       calls.updates.push({ values });
@@ -123,6 +124,9 @@ export function createFakeSupabase() {
       b.upsert = (values: unknown, options?: unknown) => {
         calls.upserts.push(values);
         calls.upsertOptions.push(options);
+        if (!selectResults.profile.data && !selectResults.profile.error) {
+          selectResults.profile = { data: makeProfileRow(values as Record<string, unknown>), error: null };
+        }
         return Promise.resolve({ error: null });
       };
       return b;
