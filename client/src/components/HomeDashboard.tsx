@@ -196,11 +196,11 @@ export default function HomeDashboard({
 
   return (
     <div
-      className="min-h-dvh bg-bg texture-dots flex flex-col"
+      className="h-dvh bg-bg texture-dots flex flex-col"
       onClick={() => setProfileMenuOpen(false)}
     >
       {/* Top bar — safe-area insets folded into the padding, see SessionTopBar */}
-      <div className="flex items-center justify-between pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] bg-surface/80 backdrop-blur border-b border-line">
+      <div className="shrink-0 flex items-center justify-between pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] bg-surface/80 backdrop-blur border-b border-line">
         <div className="flex items-center gap-2">
           <span className="font-display text-lg text-ink tracking-wide">
             Duodoro
@@ -334,8 +334,8 @@ export default function HomeDashboard({
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="max-w-lg mx-auto pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] space-y-8">
           <div>
             <h1 className="font-display text-3xl text-ink">
               {greeting}, {displayName}
@@ -343,117 +343,126 @@ export default function HomeDashboard({
             <p className="text-muted text-sm mt-1">Ready to focus?</p>
           </div>
 
-          {!loading && personalStats && (
-            <div className="flex gap-2">
-              <QuickStat
-                label="Total"
-                value={formatDuration(personalStats.totalFocusTime)}
-                accent
-              />
-              <QuickStat
-                label="This Week"
-                value={formatDuration(personalStats.weeklyFocusTime)}
-              />
-              <QuickStat
-                label="Streak"
-                value={`${personalStats.currentStreak}d`}
-                accent
-              />
+          <section aria-label="Start focusing" className="space-y-4">
+            <div className="space-y-2">
+              {activeSessionId && (
+                <Button variant="gold" size="lg" fullWidth onClick={onRejoinSession}>
+                  Return to session
+                </Button>
+              )}
+              <Button
+                variant={activeSessionId ? "surface" : "accent"}
+                size={activeSessionId ? "md" : "lg"}
+                fullWidth
+                onClick={() => onFocus()}
+              >
+                {activeSessionId ? "New session" : "Focus"}
+              </Button>
             </div>
-          )}
+            <WorldNowCard />
+            <PreferenceSyncStatus key={`preferences:${profile.id}`} userId={profile.id} />
+          </section>
 
-          {/* Zeros are only shown once a fetch has actually succeeded. Before,
-              a failed load rendered "0m / 0m / 0d" — identical to a brand-new
-              account — so someone with a 40-day streak and one bad request was
-              told their history was gone. */}
-          {!loading && !personalStats && loaded && !statsError && (
-            <div className="flex gap-2">
-              <QuickStat label="Total" value="0m" />
-              <QuickStat label="This Week" value="0m" />
-              <QuickStat label="Streak" value="0d" />
-            </div>
-          )}
+          <section aria-labelledby="home-today" className="space-y-4">
+            <p id="home-today" className="text-xs font-bold uppercase tracking-widest text-muted">Today</p>
+            <DailyFocusGoal key={profile.id} userId={profile.id} today={today} dailyFocus={dailyFocus}
+              loading={loading} loaded={loaded} error={statsError} />
 
-          {!loading && statsError && (
-            <div
-              role="alert"
-              className="flex items-center gap-3 bg-surface border border-danger/30 rounded-xl px-4 py-3"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-danger text-xs font-semibold">
-                  Couldn&apos;t load your stats
-                </p>
-                <p className="text-faint text-[11px] mt-0.5">
-                  Your history is safe — this was a connection problem.
-                </p>
+            <WeeklyFocusPlan userId={profile.id} tasks={tasks} tasksLoaded={tasksLoaded} tasksError={taskError}
+              onFocusGoal={onFocusGoal} focusDisabled={connectionState !== "connected" || goalDraftOpen || !!newTask.trim()} />
+
+            <TaskSection
+              onDraftStateChange={setGoalDraftOpen}
+              onFocusGoal={onFocusGoal}
+              focusDisabled={connectionState !== "connected"}
+              tasks={tasks}
+              pendingTasks={pendingTasks}
+              completedTasks={completedTasks}
+              newTask={newTask}
+              setNewTask={setNewTask}
+              addTask={addTask}
+              toggleTask={toggleTask}
+              deleteTask={deleteTask}
+              editTask={editTask}
+              clearCompleted={clearCompleted}
+              error={taskError}
+              onDismissError={clearTaskError}
+            />
+          </section>
+
+          <section aria-labelledby="home-together" className="space-y-4">
+            <p id="home-together" className="text-xs font-bold uppercase tracking-widest text-muted">Together</p>
+            <FriendsOnlineSection
+              onlineFriends={onlineFriends}
+              error={friendsError}
+              retry={retryFriends}
+              onOpenFriends={onOpenFriends}
+              onJoinSession={onJoinSession}
+              onInvite={onInvite}
+            />
+
+            <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
+              friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
+            <SharedFocusDates userId={profile.id} friends={friends} friendsLoaded={friendsLoaded}
+              friendsError={friendsError} onOpenFriends={onOpenFriends} />
+          </section>
+
+          <section aria-labelledby="home-progress" className="space-y-4">
+            <p id="home-progress" className="text-xs font-bold uppercase tracking-widest text-muted">Progress</p>
+            {!loading && personalStats && (
+              <div className="flex gap-2">
+                <QuickStat
+                  label="Total"
+                  value={formatDuration(personalStats.totalFocusTime)}
+                  accent
+                />
+                <QuickStat
+                  label="This Week"
+                  value={formatDuration(personalStats.weeklyFocusTime)}
+                />
+                <QuickStat
+                  label="Streak"
+                  value={`${personalStats.currentStreak}d`}
+                  accent
+                />
               </div>
-              <Button variant="surface" size="sm" onClick={retryStats}>
-                Retry
-              </Button>
-            </div>
-          )}
-
-          <DailyFocusGoal key={profile.id} userId={profile.id} today={today} dailyFocus={dailyFocus}
-            loading={loading} loaded={loaded} error={statsError} />
-
-          <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
-            friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
-          <PreferenceSyncStatus key={`preferences:${profile.id}`} userId={profile.id} />
-
-          <SharedFocusDates userId={profile.id} friends={friends} friendsLoaded={friendsLoaded}
-            friendsError={friendsError} onOpenFriends={onOpenFriends} />
-
-          <WeeklyDuoRecap key={`weekly:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
-
-          <SharedMilestones key={`milestones:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
-
-          <WeeklyFocusPlan userId={profile.id} tasks={tasks} tasksLoaded={tasksLoaded} tasksError={taskError}
-            onFocusGoal={onFocusGoal} focusDisabled={connectionState !== "connected" || goalDraftOpen || !!newTask.trim()} />
-
-          <TaskSection
-            onDraftStateChange={setGoalDraftOpen}
-            onFocusGoal={onFocusGoal}
-            focusDisabled={connectionState !== "connected"}
-            tasks={tasks}
-            pendingTasks={pendingTasks}
-            completedTasks={completedTasks}
-            newTask={newTask}
-            setNewTask={setNewTask}
-            addTask={addTask}
-            toggleTask={toggleTask}
-            deleteTask={deleteTask}
-            editTask={editTask}
-            clearCompleted={clearCompleted}
-            error={taskError}
-            onDismissError={clearTaskError}
-          />
-
-          <FriendsOnlineSection
-            onlineFriends={onlineFriends}
-            error={friendsError}
-            retry={retryFriends}
-            onOpenFriends={onOpenFriends}
-            onJoinSession={onJoinSession}
-            onInvite={onInvite}
-          />
-
-          <WorldNowCard />
-
-          <div className="space-y-2 pt-2">
-            {activeSessionId && (
-              <Button variant="gold" size="lg" fullWidth onClick={onRejoinSession}>
-                Return to session
-              </Button>
             )}
-            <Button
-              variant={activeSessionId ? "surface" : "accent"}
-              size={activeSessionId ? "md" : "lg"}
-              fullWidth
-              onClick={() => onFocus()}
-            >
-              {activeSessionId ? "New session" : "Focus"}
-            </Button>
-          </div>
+
+            {/* Zeros are only shown once a fetch has actually succeeded. Before,
+                a failed load rendered "0m / 0m / 0d" — identical to a brand-new
+                account — so someone with a 40-day streak and one bad request was
+                told their history was gone. */}
+            {!loading && !personalStats && loaded && !statsError && (
+              <div className="flex gap-2">
+                <QuickStat label="Total" value="0m" />
+                <QuickStat label="This Week" value="0m" />
+                <QuickStat label="Streak" value="0d" />
+              </div>
+            )}
+
+            {!loading && statsError && (
+              <div
+                role="alert"
+                className="flex items-center gap-3 bg-surface border border-danger/30 rounded-xl px-4 py-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-danger text-xs font-semibold">
+                    Couldn&apos;t load your stats
+                  </p>
+                  <p className="text-faint text-[11px] mt-0.5">
+                    Your history is safe — this was a connection problem.
+                  </p>
+                </div>
+                <Button variant="surface" size="sm" onClick={retryStats}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            <WeeklyDuoRecap key={`weekly:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
+
+            <SharedMilestones key={`milestones:${profile.id}`} userId={profile.id} connected={connectionState === "connected"} />
+          </section>
         </div>
       </div>
       {accountSettingsOpen ? (
