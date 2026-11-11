@@ -5,7 +5,7 @@ export function handleTabKeyNavigation<T extends string>(
   event: KeyboardEvent<HTMLButtonElement>,
   tabs: readonly T[],
   current: T,
-  onSelect: (tab: T) => void,
+  onSelect: (tab: T) => void | boolean,
   idFor: (tab: T) => string,
 ) {
   let nextIndex: number | null = null;
@@ -20,6 +20,6 @@ export function handleTabKeyNavigation<T extends string>(
 
   event.preventDefault();
   const next = tabs[nextIndex];
-  onSelect(next);
+  if (onSelect(next) === false) return;
   document.getElementById(idFor(next))?.focus();
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useReflectionExitGuard } from "@/hooks/useReflectionExitGuard";
 import { useStats } from "@/lib/useStats";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import FocusCalendar from "./FocusCalendar";
@@ -123,7 +124,9 @@ function BigStatCard({
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function StatsScreen({ open, onClose, userId }: Props) {
-  const dialogRef = useModalAccessibility<HTMLDivElement>(open, onClose);
+  const guard = useReflectionExitGuard(open, userId);
+  const close = () => { guard.leave(onClose); };
+  const dialogRef = useModalAccessibility<HTMLDivElement>(open, close);
   const {
     personalStats, duoStats, recentSessions, dailyFocus, loading, fetchStats,
     error: statsError, loaded, retry,
@@ -148,23 +151,24 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
           exit={{ opacity: 0 }}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-line px-6 py-4 flex items-center justify-between">
+          <div className="sticky top-0 z-10 bg-surface/90 backdrop-blur border-b border-line px-6 py-4 flex flex-wrap items-center justify-between gap-y-2">
             <h1 id="stats-screen-title" className="font-display text-ink tracking-wide text-xl">
               Your stats
             </h1>
             <button
               data-autofocus
-              onClick={onClose}
+              onClick={close}
               aria-label="Close"
               className="text-faint hover:text-ink transition-colors"
             >
               <CloseIcon className="w-5 h-5" />
             </button>
+            {guard.message && <p role="status" className="basis-full text-sm text-ink">{guard.message}</p>}
           </div>
 
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
             <FocusInsights key={`insights-${userId}`} userId={userId} />
-            <FocusCalendar key={userId} userId={userId} />
+            <FocusCalendar key={userId} userId={userId} onDraftStateChange={guard.onDraftStateChange} />
             <ReflectionReview userId={userId} />
             {loading && (
               <p className="text-faint text-sm text-center py-12">
