@@ -13,13 +13,14 @@ type Notice = { tone: "status" | "alert"; text: string; reload?: "edit" | "view"
 // freezes the baseline version it was opened from. Later saved changes from
 // another tab or device then stay out of the draft, and a save from the stale
 // baseline is rejected by the server.
-export default function SessionReflection({ userId, sessionId, onDirtyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean) => void }) {
+export default function SessionReflection({ userId, sessionId, onDirtyChange, onBusyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean) => void; onBusyChange?: (busy: boolean) => void }) {
   const entry = useSessionReflection(userId, sessionId);
   const saved = entry?.reflection ?? null;
   const status = entry?.status ?? "loading";
   const [reloading, setReloading] = useState(false);
   const [deleteVersion, setDeleteVersion] = useState<number | null>(null);
   const busy = entry?.pending != null || reloading;
+  useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   const [mode, setMode] = useState<Mode>("view");
   const [following, setFollowing] = useState(true);
   const [draftValue, setDraftValue] = useState("");

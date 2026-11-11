@@ -39,11 +39,13 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   const [tagFilter, setTagFilter] = useState<TagFilter>("all");
   const [shown, setShown] = useState(PAGE);
   const [dirtyReflections, setDirtyReflections] = useState<ReadonlySet<string>>(() => new Set());
-  const reflectionChanged = useCallback((sessionId: string, dirty: boolean) => {
-    setDirtyReflections(previous => {
-      if (previous.has(sessionId) === dirty) return previous;
+  const [pendingReflections, setPendingReflections] = useState<ReadonlySet<string>>(() => new Set());
+  const [editorRevision, setEditorRevision] = useState(0);
+  const reflectionPending = useCallback((sessionId: string, pending: boolean) => {
+    setPendingReflections(previous => {
+      if (previous.has(sessionId) === pending) return previous;
       const next = new Set(previous);
-      if (dirty) next.add(sessionId); else next.delete(sessionId);
+      if (pending) next.add(sessionId); else next.delete(sessionId);
       return next;
     });
   }, []);
@@ -53,6 +55,19 @@ export default function FocusCalendar({ userId }: { userId: string }) {
   const [focusRequest, setFocusRequest] = useState(0);
   const month = chosenMonth || today.slice(0, 7);
   const selected = chosenDay.startsWith(`${month}-`) ? chosenDay : (today.startsWith(`${month}-`) ? today : `${month}-01`);
+  const reflectionChanged = useCallback((sessionId: string, dirty: boolean) => {
+    if (dirty) {
+      // A midnight rollover must not change the selected day under an editor.
+      setChosenMonth(month);
+      setChosenDay(selected);
+    }
+    setDirtyReflections(previous => {
+      if (previous.has(sessionId) === dirty) return previous;
+      const next = new Set(previous);
+      if (dirty) next.add(sessionId); else next.delete(sessionId);
+      return next;
+    });
+  }, [month, selected]);
   const { rows: savedRows, loaded, error, timezone, retry, tagsAvailable } = useFocusCalendar(userId, month);
   const cache = useSessionFocusTagCache();
   const rows = useMemo(() => withSavedTags(savedRows, userId, cache), [savedRows, userId, cache]);
@@ -84,8 +99,30 @@ export default function FocusCalendar({ userId }: { userId: string }) {
     document.getElementById(`focus-calendar-${userId}-${selected}`)?.focus();
   }, [focusRequest, detailIds, selected, userId]);
 
-  const select = (day: string) => { setChosenDay(day); setShown(PAGE); };
-  const changeMonth = (offset: number) => { setChosenMonth(shiftMonth(month, offset)); setShown(PAGE); };
+  const approveNavigation = () => {
+    if (dirtyReflections.size) {
+      if ([...dirtyReflections].some(id => pendingReflections.has(id))) {
+        setAnnouncement("Your reflection is still saving. Wait before changing the calendar.");
+        return false;
+      }
+      if (!window.confirm("Discard your unsaved reflection drafts and change the calendar? Choose Cancel to keep editing.")) return false;
+      setDirtyReflections(new Set());
+      // Explicit discard also resets editors whose rounds still match a filter.
+      setEditorRevision(revision => revision + 1);
+    }
+    setAnnouncement("");
+    return true;
+  };
+  const select = (day: string) => {
+    if (day === selected) return true;
+    if (!approveNavigation()) return false;
+    setChosenDay(day); setShown(PAGE);
+    return true;
+  };
+  const changeMonth = (offset: number) => {
+    if (!approveNavigation()) return;
+    setChosenMonth(shiftMonth(month, offset)); setShown(PAGE);
+  };
   const tagFilterId = useId();
   const typeWord = filter === "all" ? "focus" : filter;
   // Runs after a confirmed save, when the cache already holds the new tag.
@@ -113,12 +150,12 @@ export default function FocusCalendar({ userId }: { userId: string }) {
       </div>
       <div role="group" aria-label="Focus type" className="flex gap-2">
         {(["all", "solo", "duo"] as const).map(value => <button key={value} aria-pressed={filter === value}
-          onClick={() => { setFilter(value); setShown(PAGE); }} className={`min-h-11 flex-1 text-xs border border-line capitalize ${filter === value ? "bg-accent text-white" : "bg-raise"}`}>{value.charAt(0).toUpperCase() + value.slice(1)}</button>)}
+          onClick={() => { if (value !== filter && approveNavigation()) { setFilter(value); setShown(PAGE); } }} className={`min-h-11 flex-1 text-xs border border-line capitalize ${filter === value ? "bg-accent text-white" : "bg-raise"}`}>{value.charAt(0).toUpperCase() + value.slice(1)}</button>)}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={tagFilterId} className="text-xs text-ink">Filter by private tag</label>
         <select id={tagFilterId} value={activeTag} disabled={!tagsAvailable}
-          onChange={event => { if (isTagFilter(event.target.value)) { setTagFilter(event.target.value); setShown(PAGE); } }}
+          onChange={event => { if (isTagFilter(event.target.value) && event.target.value !== activeTag && approveNavigation()) { setTagFilter(event.target.value); setShown(PAGE); } }}
           className="min-h-11 border border-line bg-bg px-2 text-xs text-ink disabled:opacity-50">
           {TAG_FILTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
@@ -146,7 +183,7 @@ export default function FocusCalendar({ userId }: { userId: string }) {
                     event.preventDefault();
                     const target = new Date(`${date}T12:00:00Z`); target.setUTCDate(target.getUTCDate() + offset);
                     const next = target.toISOString().slice(0, 10);
-                    if (next.startsWith(`${month}-`)) { select(next); document.getElementById(buttonId(next))?.focus(); }
+                    if (next.startsWith(`${month}-`) && select(next)) document.getElementById(buttonId(next))?.focus();
                   }} className={`min-h-11 min-w-11 flex flex-col items-center justify-center border text-xs ${fill} ${selected === date ? "border-accent ring-1 ring-inset ring-accent" : "border-transparent"}`}>
                   <span>{Number(date.slice(-2))}</span><span className="text-[9px]">{seconds ? focusLabel(seconds) : "·"}</span>
                 </button>;
@@ -168,7 +205,7 @@ export default function FocusCalendar({ userId }: { userId: string }) {
                   saved={session.private_tag_version === null ? null : { tag: session.private_tag, version: session.private_tag_version }}
                   available={tagsAvailable} onSaved={onTagSaved} reload={retry} />
                 {!sessionMatches(session, filter, activeTag) && <p role="status" className="text-xs text-muted">This round stays here while you finish your reflection draft. It is excluded from matching totals.</p>}
-                <SessionReflection key={`reflection-${userId}-${session.id}`} userId={userId} sessionId={session.id} onDirtyChange={dirty => reflectionChanged(session.id, dirty)} />
+                <SessionReflection key={`reflection-${userId}-${session.id}-${editorRevision}`} userId={userId} sessionId={session.id} onDirtyChange={dirty => reflectionChanged(session.id, dirty)} onBusyChange={busy => reflectionPending(session.id, busy)} />
               </article>)}
               {shown < details.length && <button className="min-h-11 text-xs underline" onClick={() => setShown(count => count + PAGE)}>Show more rounds ({details.length - shown} remaining)</button>}
             </>}
