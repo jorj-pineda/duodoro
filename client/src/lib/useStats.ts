@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type {
   SessionWithPartner,
@@ -33,7 +33,25 @@ const EMPTY: Snapshot = {
 // request and a short-lived result between them.
 const CACHE_TTL_MS = 30_000;
 const cache = new Map<string, { at: number; data: Snapshot }>();
-const inFlight = new Map<string, Promise<Snapshot>>();
+type Request = { promise: Promise<Snapshot> };
+const inFlight = new Map<string, Request>();
+// Retain the newest settled request while consumers exist: an older completion
+// must follow its outcome even after it has left the in-flight map.
+const latest = new Map<string, Request>();
+const consumers = new Map<string, number>();
+
+function startRequest(userId: string): Request {
+  const request = {} as Request;
+  request.promise = loadSnapshot().then(data => {
+    if (latest.get(userId) === request) cache.set(userId, { at: Date.now(), data });
+    return data;
+  }).finally(() => {
+    if (inFlight.get(userId) === request) inFlight.delete(userId);
+  });
+  latest.set(userId, request);
+  inFlight.set(userId, request);
+  return request;
+}
 
 function localTimeZone(): string {
   try {
@@ -90,54 +108,79 @@ async function loadSnapshot(): Promise<Snapshot> {
 }
 
 export function useStats(userId: string | undefined) {
-  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
-  const [loading, setLoading] = useState(false);
-  // A failed load used to be console.error only, leaving the snapshot at EMPTY.
-  // Callers then rendered "Total 0m / Streak 0d" — indistinguishable from a
-  // brand-new account, so one failed request looked like the user's entire
-  // history had been erased. `loaded` exists to tell those two apart: zeros are
-  // only the truth once a fetch has actually succeeded.
-  const [error, setError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [scope, setScope] = useState(() => ({ userId, active: false, sequence: 0 }));
+  const [state, setState] = useState({ snapshot: EMPTY, loading: false, error: null as string | null, loaded: false });
+  // Reset before children render another account's snapshot.
+  if (scope.userId !== userId) {
+    setScope({ userId, active: false, sequence: 0 });
+    setState({ snapshot: EMPTY, loading: false, error: null, loaded: false });
+  }
+  useEffect(() => {
+    scope.active = true;
+    const id = scope.userId;
+    if (id) consumers.set(id, (consumers.get(id) ?? 0) + 1);
+    return () => {
+      scope.active = false;
+      scope.sequence++;
+      if (!id) return;
+      const remaining = (consumers.get(id) ?? 1) - 1;
+      if (remaining) consumers.set(id, remaining);
+      else {
+        consumers.delete(id);
+        cache.delete(id);
+        latest.delete(id);
+        inFlight.delete(id);
+      }
+    };
+  }, [scope]);
 
   const fetchStats = useCallback(
     async (force = false) => {
-      if (!userId) return;
-
-      const fresh = cache.get(userId);
-      if (!force && fresh && Date.now() - fresh.at < CACHE_TTL_MS) {
-        setSnapshot(fresh.data);
-        setError(null);
-        setLoaded(true);
+      const id = scope.userId;
+      if (!id || !scope.active) return;
+      const sequence = ++scope.sequence;
+      const current = () => scope.active && scope.sequence === sequence;
+      // Join an active refresh before considering an older cached snapshot.
+      let pending = inFlight.get(id);
+      const fresh = cache.get(id);
+      if (!force && !pending && fresh && Date.now() - fresh.at < CACHE_TTL_MS) {
+        setState({ snapshot: fresh.data, loading: false, error: null, loaded: true });
         return;
       }
-
-      setLoading(true);
-      setError(null);
+      setState(previous => ({ ...previous, loading: true, error: null }));
       try {
-        let pending = inFlight.get(userId);
-        if (!pending || force) {
-          pending = loadSnapshot().finally(() => inFlight.delete(userId));
-          inFlight.set(userId, pending);
+        if (!pending || force) pending = startRequest(id);
+        // Recheck request identity after every await. Other consumers can force
+        // a newer refresh; follow its success or failure before updating this UI.
+        for (;;) {
+          try {
+            const data = await pending.promise;
+            const newest = latest.get(id);
+            if (!newest) return;
+            if (newest !== pending) { pending = newest; continue; }
+            if (current()) setState({ snapshot: data, loading: false, error: null, loaded: true });
+            break;
+          } catch (err) {
+            const newest = latest.get(id);
+            if (!newest) return;
+            if (newest !== pending) { pending = newest; continue; }
+            throw err;
+          }
         }
-        const data = await pending;
-        cache.set(userId, { at: Date.now(), data });
-        setSnapshot(data);
-        setLoaded(true);
       } catch (err) {
-        // PostgrestError extends Error, so this keeps the real message.
-        console.error("Failed to fetch stats:", err);
-        setError(
-          err instanceof Error && err.message
-            ? err.message
-            : "Couldn't load your stats.",
-        );
+        if (current()) {
+          console.error("Failed to fetch stats:", err);
+          setState(previous => ({ ...previous, error:
+            err instanceof Error && err.message ? err.message : "Couldn't load your stats.",
+          }));
+        }
       } finally {
-        setLoading(false);
+        if (current()) setState(previous => ({ ...previous, loading: false }));
       }
     },
-    [userId],
+    [scope],
   );
+  const { snapshot, loading, error, loaded } = state;
 
   const retry = useCallback(() => fetchStats(true), [fetchStats]);
 
