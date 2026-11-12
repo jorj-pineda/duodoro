@@ -60,6 +60,15 @@ test("accepted focus dates download private calendar copies, preserve timezones 
   const focus = await admin.from("session_participants").select("session_id").in("user_id",[a.id,b.id]);
   requireSuccess(focus.error,"Read unchanged focus after export"); expect(focus.data).toEqual([]);
   await a.page.bringToFront();
+  await a.page.reload();
+  await regionA.getByRole("button",{ name:"Add to calendar",exact:true }).click();
+  const restored = regionA.getByRole("group",{ name:"Calendar export",exact:true });
+  await expect(restored.getByLabel("Calendar block length")).toHaveValue("50");
+  await expect(restored.getByLabel("Calendar reminder")).toHaveValue("0");
+  await restored.getByLabel("Calendar reminder").selectOption("10");
+  await a.page.reload();
+  await regionA.getByRole("button",{ name:"Add to calendar",exact:true }).click();
+  await expect(regionA.getByLabel("Calendar reminder")).toHaveValue("10");
   const panel = regionA.getByRole("group",{ name:"Calendar export",exact:true });
   expect((await new AxeBuilder({ page:a.page }).include('[aria-label="Shared focus dates"]').withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations).toEqual([]);
   for (const [name,width,height] of [["phone",375,667],["landscape",667,375]] as const) {

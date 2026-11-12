@@ -8,7 +8,7 @@ vi.mock("@/lib/focusDateCalendar", async original => ({ ...await original<typeof
 import FocusDateCalendar from "./FocusDateCalendar";
 const row: FocusDate = { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", proposer_id: "a", recipient_id: "b", status: "accepted", version: 2,
   starts_at: "2099-10-20T15:30:00Z", created_at: "2026-10-10T15:30:00Z" };
-beforeEach(() => { vi.clearAllMocks(); fake.read.mockResolvedValue({ data: row, error: null }); });
+beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); fake.read.mockResolvedValue({ data: row, error: null }); });
 const open = () => fireEvent.click(screen.getByRole("button", { name: "Add to calendar" }));
 const download = () => fireEvent.click(screen.getByRole("button", { name: "Download .ics file" }));
 it("has a neutral SSR frame, reads only on explicit download and never claims calendar import", async () => {
@@ -66,4 +66,16 @@ it("defaults to no reminder and exports the explicitly selected reminder after a
   expect(fake.download.mock.calls[1][0].content).toContain("TRIGGER:-PT15M");
   expect(fake.read).toHaveBeenCalledTimes(2);
   expect(screen.getByText(/Support, permissions and calendar settings/)).toBeVisible();
+});
+
+it("uses saved choices for a later calendar file after remount", async () => {
+  const first = render(<FocusDateCalendar userId="a" date={row} disabled={false} />); open();
+  fireEvent.change(screen.getByLabelText("Calendar block length"), { target: { value: "60" } });
+  fireEvent.change(screen.getByLabelText("Calendar reminder"), { target: { value: "30" } }); first.unmount();
+  render(<FocusDateCalendar userId="a" date={row} disabled={false} />); open();
+  expect(screen.getByLabelText("Calendar block length")).toHaveValue("60");
+  expect(screen.getByLabelText("Calendar reminder")).toHaveValue("30");
+  download(); await waitFor(() => expect(fake.download).toHaveBeenCalledOnce());
+  expect(fake.download.mock.calls[0][0].content).toContain("TRIGGER:-PT30M");
+  expect(fake.download.mock.calls[0][0].content).toContain("DTEND:20991020T163000Z");
 });
