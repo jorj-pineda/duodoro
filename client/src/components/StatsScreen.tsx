@@ -5,6 +5,7 @@ import { useReflectionExitGuard } from "@/hooks/useReflectionExitGuard";
 import { useStats } from "@/lib/useStats";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 import FocusCalendar from "./FocusCalendar";
+import FocusHistoryExport from "./FocusHistoryExport";
 import FocusInsights from "./FocusInsights";
 import ReflectionReview from "./ReflectionReview";
 import StatsErrorState from "./StatsErrorState";
@@ -170,6 +171,7 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
             <FocusInsights key={`insights-${userId}`} userId={userId} />
             <FocusCalendar key={userId} userId={userId} onDraftStateChange={guard.onDraftStateChange} />
             <ReflectionReview userId={userId} />
+            <FocusHistoryExport key={`export-${userId}`} userId={userId} />
             {loading && (
               <p className="text-faint text-sm text-center py-12">
                 Loading stats...
