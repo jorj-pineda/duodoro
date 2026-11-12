@@ -1,11 +1,17 @@
 import type { Database } from "./database.types";
-export type FocusDate = Database["public"]["Tables"]["focus_dates"]["Row"];
+type DateRow = Database["public"]["Tables"]["focus_dates"]["Row"];
+// Older deployed schemas have no rescheduling fields; hide that feature until migrated.
+export type FocusDate = Omit<DateRow, "proposed_starts_at" | "reschedule_by"> & { proposed_starts_at?: string | null; reschedule_by?: string | null };
+export type RescheduleAction = "propose" | "accept" | "decline" | "withdraw";
 export type DateResponse = "accepted" | "declined" | "cancelled";
 
 export function readFocusDate(value: unknown, userId: string): FocusDate | null {
   if (!value || typeof value !== "object") return null;
   const row = value as FocusDate;
-  return typeof row.id === "string" && typeof row.proposer_id === "string" && typeof row.recipient_id === "string"
+  const replacementValid = row.proposed_starts_at == null && row.reschedule_by == null
+    || typeof row.proposed_starts_at === "string" && Number.isFinite(Date.parse(row.proposed_starts_at))
+      && [row.proposer_id, row.recipient_id].includes(row.reschedule_by ?? "");
+  return replacementValid && typeof row.id === "string" && typeof row.proposer_id === "string" && typeof row.recipient_id === "string"
     && row.proposer_id !== row.recipient_id && [row.proposer_id, row.recipient_id].includes(userId)
     && ["pending", "accepted", "declined", "cancelled"].includes(row.status)
     && Number.isSafeInteger(row.version) && row.version > 0
