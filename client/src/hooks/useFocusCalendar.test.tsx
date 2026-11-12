@@ -4,7 +4,7 @@ const rpc = vi.fn();
 vi.mock('@/lib/supabase', () => ({ getSupabase: () => ({ rpc }) }));
 vi.mock('./useDailyFocusGoal', () => ({ useLocalDay: () => '2026-10-07' }));
 import { useFocusCalendar } from './useFocusCalendar';
-beforeEach(() => rpc.mockReset());
+beforeEach(() => { rpc.mockReset(); });
 it('requests a complete local month and exposes retry instead of false zero totals', async () => {
   rpc.mockResolvedValueOnce({ data: null, error: {} }).mockResolvedValue({ data: [], error: null });
   const { result } = renderHook(() => useFocusCalendar('alice', '2026-10'));
@@ -92,4 +92,33 @@ it.each(['month', 'account', 'unmount'])('ignores a retained refresh callback af
   expect(refreshed).toBe(false);
   expect(rpc).toHaveBeenCalledTimes(calls);
   if (change !== 'unmount') expect(result.current.loaded).toBe(true);
+});
+
+it('loads each intersecting month before exposing an inclusive local-day range', async () => {
+  rpc.mockImplementation((_fn, args) => Promise.resolve({ error:null,data: args.month_start === '2026-09-01'
+    ? [{ day:'2026-09-29',sessions:[] },{ day:'2026-09-30',sessions:[] }]
+    : [{ day:'2026-10-01',sessions:[] },{ day:'2026-10-02',sessions:[] }] }));
+  const { result } = renderHook(() => useFocusCalendar('range-owner','',{ from:'2026-09-30',to:'2026-10-01' }));
+  await waitFor(() => expect(result.current.loaded).toBe(true));
+  expect(result.current.rows.map(row => row.day)).toEqual(['2026-09-30','2026-10-01']);
+  expect(rpc.mock.calls.map(call => call[1].month_start)).toEqual(['2026-09-01','2026-10-01']);
+});
+it('does not expose a partial range if a later month fails', async () => {
+  rpc.mockResolvedValueOnce({ data:[{ day:'2026-09-30',sessions:[] }],error:null }).mockResolvedValueOnce({ data:null,error:{} });
+  const { result } = renderHook(() => useFocusCalendar('failed-range','',{ from:'2026-09-30',to:'2026-10-01' }));
+  await waitFor(() => expect(result.current.error).toBeTruthy());
+  expect(result.current.loaded).toBe(false); expect(result.current.rows).toEqual([]);
+});
+it('blocks invalid ranges before issuing an RPC', async () => {
+  const { result } = renderHook(() => useFocusCalendar('invalid-range','',{ from:'2026-02-30',to:'2026-03-01' }));
+  await waitFor(() => expect(result.current.error).toBeTruthy()); expect(rpc).not.toHaveBeenCalled();
+});
+it('discards an old range response after a different range is applied', async () => {
+  let finish!: (value: unknown) => void;
+  rpc.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockResolvedValue({ data:[],error:null });
+  const { result,rerender } = renderHook(({ from,to }) => useFocusCalendar('scope-range','',{ from,to }),{ initialProps:{ from:'2026-09-01',to:'2026-09-30' } });
+  await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+  rerender({ from:'2026-10-01',to:'2026-10-07' }); await waitFor(() => expect(result.current.loaded).toBe(true));
+  await act(async () => finish({ data:[{ day:'2026-09-15',sessions:[] }],error:null }));
+  expect(result.current.rows).toEqual([]); expect(result.current.error).toBeNull();
 });

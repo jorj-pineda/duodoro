@@ -128,7 +128,7 @@ it("clears controls and notes immediately when the account changes", () => {
   rerender(<ReflectionReview userId="partner" />);
   expect(screen.getByRole("searchbox")).toHaveValue("");
   expect(screen.queryByText("Owner secret")).toBeNull();
-  expect(fake.calendar).toHaveBeenLastCalledWith("partner", "2026-10");
+  expect(fake.calendar).toHaveBeenLastCalledWith("partner", "2026-10", undefined);
 });
 
 it("does not launch a reflection read when a retained month refresh is rejected", async () => {
@@ -137,4 +137,20 @@ it("does not launch a reflection read when a retained month refresh is rejected"
   render(<ReflectionReview userId="owner" />);
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry reflections" })));
   expect(fake.load).not.toHaveBeenCalled();
+});
+
+it("applies an explicit date range while retaining private keyword/tag/type filters and resets on account changes", () => {
+  const view = render(<ReflectionReview userId="owner" />);
+  fireEvent.change(screen.getByRole("searchbox"),{ target:{ value:"useful" } });
+  fireEvent.change(screen.getByRole("combobox",{ name:"Round type" }),{ target:{ value:"duo" } });
+  fireEvent.click(screen.getByRole("button",{ name:"Search a date range" }));
+  expect(fake.calendar).toHaveBeenLastCalledWith("owner","",undefined);
+  fireEvent.change(screen.getByLabelText("From date"),{ target:{ value:"2026-09-01" } });
+  fireEvent.change(screen.getByLabelText("Through date"),{ target:{ value:"2026-10-12" } });
+  expect(fake.calendar).toHaveBeenLastCalledWith("owner","",undefined);
+  fireEvent.click(screen.getByRole("button",{ name:"Search this date range" }));
+  expect(fake.calendar).toHaveBeenLastCalledWith("owner","",{ from:"2026-09-01",to:"2026-10-12" });
+  expect(screen.getByRole("searchbox")).toHaveValue("useful"); expect(screen.getByRole("combobox",{ name:"Round type" })).toHaveValue("duo");
+  view.rerender(<ReflectionReview userId="partner" />);
+  expect(screen.getByRole("searchbox")).toHaveValue(""); expect(screen.queryByLabelText("From date")).toBeNull();
 });
