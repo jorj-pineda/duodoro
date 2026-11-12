@@ -64,3 +64,23 @@ it("cleans up the anchor and blob if the browser cannot start the download", () 
   expect(() => downloadCalendarFile({ content: "calendar", filename: "focus.ics" })).toThrow("blocked");
   expect(revoke).toHaveBeenCalledWith("blob:failed"); expect(document.querySelector('a[download]')).toBeNull();
 });
+
+it("adds exactly one private display alarm only when explicitly requested", () => {
+  for (const reminder of [5, 10, 15, 30]) {
+    const file = buildFocusDateCalendar(row, "account-a", 25, now, reminder)!;
+    const content = unfold(file.content);
+    expect(content.match(/BEGIN:VALARM/g)).toHaveLength(1);
+    expect(content).toContain(`ACTION:DISPLAY\r\nTRIGGER:-PT${reminder}M\r\nDESCRIPTION:Focus together · Duodoro\r\nEND:VALARM`);
+    expect(content.indexOf("END:VALARM")).toBeLessThan(content.indexOf("END:VEVENT"));
+    expect(content).not.toContain("account-a"); expect(content).not.toContain("account-b");
+    for (const line of file.content.split("\r\n")) expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75);
+  }
+  expect(buildFocusDateCalendar(row, "account-a", 25, now, 0)!.content).not.toContain("VALARM");
+});
+it("rejects unsupported reminders and past trigger times, without affecting no-reminder exports", () => {
+  for (const reminder of [-1, 1, 5.5, NaN, Infinity]) expect(buildFocusDateCalendar(row, "account-a", 25, now, reminder)).toBeNull();
+  const start = Date.parse(row.starts_at);
+  expect(buildFocusDateCalendar(row, "account-a", 25, start - 15 * 60000, 15)).toBeNull();
+  expect(buildFocusDateCalendar(row, "account-a", 25, start - 60000, 5)).toBeNull();
+  expect(buildFocusDateCalendar(row, "account-a", 25, start - 60000, 0)).not.toBeNull();
+});
