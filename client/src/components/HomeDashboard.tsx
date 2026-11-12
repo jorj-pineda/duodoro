@@ -18,6 +18,7 @@ import FocusNotificationSetting from "./FocusNotificationSetting";
 import WeeklyDuoRecap from "./WeeklyDuoRecap";
 import WeeklyFocusPlan from "./WeeklyFocusPlan";
 import WorldNowCard from "./WorldNowCard";
+import FirstSessionGuidance from "./FirstSessionGuidance";
 import Button from "./Button";
 import AccountSettingsModal from "./AccountSettingsModal";
 import {
@@ -359,6 +360,9 @@ export default function HomeDashboard({
                 {activeSessionId ? "New session" : "Focus"}
               </Button>
             </div>
+            {loaded && !loading && !statsError && !activeSessionId && (personalStats === null || personalStats.sessionsCompleted === 0) && (
+              <FirstSessionGuidance key={profile.id} userId={profile.id} />
+            )}
             <WorldNowCard />
             <PreferenceSyncStatus key={`preferences:${profile.id}`} userId={profile.id} />
           </section>

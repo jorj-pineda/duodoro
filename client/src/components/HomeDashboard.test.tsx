@@ -19,6 +19,7 @@ vi.mock("@/hooks/useSharedMilestones", () => ({ useSharedMilestones: () => ({ ro
 vi.mock("@/hooks/useWeeklyDuoRecap", () => ({ useWeeklyDuoRecap: () => ({ rows: [], loaded: true, error: null, timezone: "UTC", retry: vi.fn() }) }));
 vi.mock("@/hooks/useWeeklyPlan", () => ({ useWeeklyPlan: () => ({ plan: { ids: [], version: null }, loaded: true, saving: false, error: null, reload: vi.fn(), save: vi.fn() }) }));
 
+const { statsOverrides } = vi.hoisted(() => ({ statsOverrides: {} as Record<string, unknown> }));
 vi.mock("@/lib/useStats", () => ({
   useStats: () => ({
     personalStats: null,
@@ -30,6 +31,7 @@ vi.mock("@/lib/useStats", () => ({
     loaded: true,
     retry: vi.fn(),
     fetchStats: vi.fn(),
+    ...statsOverrides,
   }),
 }));
 
@@ -87,6 +89,7 @@ function homeProps(
   const onOpenPremium = overrides.onOpenPremium ?? vi.fn();
   return {
     profile: overrides.profile ?? profile,
+    activeSessionId: overrides.activeSessionId,
     socketRef: overrides.socketRef ?? { current: null },
     onFocus,
     onOpenPremium,
@@ -114,6 +117,8 @@ function renderHome(overrides: Partial<Parameters<typeof HomeDashboard>[0]> = {}
 }
 
 beforeEach(() => {
+  Object.keys(statsOverrides).forEach(key => delete statsOverrides[key]);
+  localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(Date.parse("2026-08-12T09:07:30Z"));
 });
@@ -221,5 +226,25 @@ describe("HomeDashboard premium entry point", () => {
     renderHome({ profile: { ...profile, is_premium: true } });
     openProfileMenu();
     expect(screen.queryByText(/Unlock companions/)).not.toBeInTheDocument();
+  });
+});
+
+
+describe("first-session guidance eligibility", () => {
+  it.each([
+    { loaded: false }, { loading: true }, { error: "offline" },
+    { personalStats: { sessionsCompleted: 1 } },
+  ])("does not call an account new when stats are unavailable or history exists: %j", overrides => {
+    Object.assign(statsOverrides, overrides); renderHome();
+    expect(screen.queryByRole("complementary", { name: "First-session guidance" })).toBeNull();
+  });
+  it("shows a nonblocking tip for a successfully loaded empty account and keeps Focus usable", () => {
+    const { onFocus } = renderHome();
+    expect(screen.getByRole("complementary", { name: "First-session guidance" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /^Focus$/ })); expect(onFocus).toHaveBeenCalledOnce();
+  });
+  it("prioritizes returning to a live session over first-session guidance", () => {
+    renderHome({ activeSessionId: "active-room" });
+    expect(screen.queryByRole("complementary", { name: "First-session guidance" })).toBeNull();
   });
 });
