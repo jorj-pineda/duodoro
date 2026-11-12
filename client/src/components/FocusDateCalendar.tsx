@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { useCalendarExportPreferences } from "@/hooks/useCalendarExportPreferences";
 import { getSupabase } from "@/lib/supabase";
 import { readFocusDate, type FocusDate } from "@/lib/focusDates";
 import { buildFocusDateCalendar, CALENDAR_LENGTHS, CALENDAR_REMINDERS, downloadCalendarFile } from "@/lib/focusDateCalendar";
@@ -8,8 +9,7 @@ const control = "min-h-11 max-w-full rounded-lg border border-line bg-raise px-3
 export default function FocusDateCalendar({ date, userId, disabled }: { date: FocusDate; userId: string; disabled: boolean }) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const [minutes, setMinutes] = useState<number>(25);
-  const [reminder, setReminder] = useState(0);
+  const { minutes, reminder, save } = useCalendarExportPreferences(userId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -49,15 +49,16 @@ export default function FocusDateCalendar({ date, userId, disabled }: { date: Fo
       onClick={() => { setOpen(value => !value); setError(""); setNotice(""); }}>Add to calendar</button>
     {open && <div id={id} role="group" aria-label="Calendar export" className="space-y-2 border-t border-line pt-3">
       <label className="text-xs text-muted block">Calendar block length
-        <select value={minutes} disabled={disabled || busy} onChange={event => { setMinutes(Number(event.target.value)); setNotice(""); }} className={`${control} block mt-1`}>
+        <select value={minutes} disabled={disabled || busy} onChange={event => { save({ minutes: Number(event.target.value), reminder }); setNotice(""); }} className={`${control} block mt-1`}>
           {CALENDAR_LENGTHS.map(value => <option key={value} value={value}>{value} minutes</option>)}
         </select>
       </label>
       <label className="text-xs text-muted block">Calendar reminder
-        <select value={reminder} disabled={disabled || busy} onChange={event => { setReminder(Number(event.target.value)); setNotice(""); }} className={`${control} block mt-1`}>
+        <select value={reminder} disabled={disabled || busy} onChange={event => { save({ minutes, reminder: Number(event.target.value) }); setNotice(""); }} className={`${control} block mt-1`}>
           {CALENDAR_REMINDERS.map(value => <option key={value} value={value}>{value === 0 ? "No reminder" : `${value} minutes before`}</option>)}
         </select>
       </label>
+      <p className="text-xs text-muted">These choices are remembered for your account in this browser. Defaults are 25 minutes and no reminder. Clearing browser data resets these choices.</p>
       <p className="text-xs text-muted">Reminders are optional and delivered by your calendar app. Support, permissions and calendar settings determine whether they appear. Duodoro does not send notifications.</p>
       <p className="text-xs text-muted">Only changes your calendar block, not your Duodoro timer.</p>
       <p className="text-xs text-muted">This is a calendar copy. If the date is cancelled or replaced, remove or update the event in your calendar yourself.</p>
