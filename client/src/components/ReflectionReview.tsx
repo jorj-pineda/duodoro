@@ -6,6 +6,7 @@ import { loadSessionReflections, useSessionReflections } from "@/hooks/useSessio
 import { focusTagKey, useSessionFocusTagCache } from "@/hooks/useSessionFocusTags";
 import { focusLabel, monthLabel, sessionMatches, shiftMonth, type CalendarFilter } from "@/lib/focusCalendar";
 import { focusTagLabel, isTagFilter, TAG_FILTER_OPTIONS, type TagFilter } from "@/lib/focusTags";
+import { reflectionRangeMonths, type ReflectionDateRange } from "@/lib/reflectionRange";
 import WorldThumb from "./WorldThumb";
 
 const PAGE = 20;
@@ -19,13 +20,19 @@ export default function ReflectionReview({ userId }: { userId: string }) {
 function Review({ userId }: { userId: string }) {
   const today = useLocalDay();
   const [chosenMonth, setChosenMonth] = useState("");
+  const [rangeMode, setRangeMode] = useState(false);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [appliedRange, setAppliedRange] = useState<ReflectionDateRange | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<CalendarFilter>("all");
   const [tagFilter, setTagFilter] = useState<TagFilter>("all");
   const [shown, setShown] = useState(PAGE);
   const month = chosenMonth || today.slice(0, 7);
-  const { rows, loaded, error, retry, timezone, tagsAvailable } = useFocusCalendar(userId, month);
-  const sessions = rows.flatMap(row => row.sessions);
+  const ready = rangeMode ? !!appliedRange : !!month;
+  const { rows, loaded: calendarLoaded, error, retry, timezone, tagsAvailable } = useFocusCalendar(userId, rangeMode ? "" : month, rangeMode && appliedRange ? appliedRange : undefined);
+  const loaded = ready && calendarLoaded;
+  const sessions = ready ? rows.flatMap(row => row.sessions) : [];
   const ids = sessions.map(session => session.id);
   const entries = useSessionReflections(userId, ids);
   const tags = useSessionFocusTagCache();
@@ -57,13 +64,23 @@ function Review({ userId }: { userId: string }) {
   return <section aria-label="Private reflection review" className="space-y-4">
     <h2 className="font-display text-lg text-ink">Your reflections</h2>
     <p className="text-xs text-muted">Your saved reflections and tags are private, even on duo rounds. Edit or delete notes in Calendar.</p>
-    <div className="flex items-center justify-between gap-2">
+    <button className="min-h-11 px-2 text-sm font-bold text-accent" onClick={() => { setRangeMode(value => !value); setAppliedRange(null); setShown(PAGE); }}>{rangeMode ? "Back to monthly review" : "Search a date range"}</button>
+    {rangeMode ? <form className="space-y-2" onSubmit={event => { event.preventDefault(); if (reflectionRangeMonths({ from, to })) { setAppliedRange({ from, to }); setShown(PAGE); } }}>
+      <p className="text-xs text-muted">Search up to 366 local calendar days. Keyword, tag and round-type filters apply to the whole range before pagination.</p>
+      <div className="flex flex-wrap gap-2">
+        <label className="text-xs text-muted">From date<input type="date" value={from} onChange={event => setFrom(event.target.value)} className="block min-h-11 max-w-full rounded border border-line bg-surface px-2 text-ink" /></label>
+        <label className="text-xs text-muted">Through date<input type="date" value={to} onChange={event => setTo(event.target.value)} className="block min-h-11 max-w-full rounded border border-line bg-surface px-2 text-ink" /></label>
+      </div>
+      <button className="min-h-11 px-2 text-sm font-bold text-accent" disabled={!reflectionRangeMonths({ from, to })}>Search this date range</button>
+      {(from || to) && !reflectionRangeMonths({ from, to }) && <p className="text-xs text-muted">Choose valid dates in order, covering at most 366 days including both dates.</p>}
+      {appliedRange ? <p className="text-xs text-muted">Showing {appliedRange.from} through {appliedRange.to}, inclusive.</p> : <p className="text-xs text-muted">Choose dates, then search to load your reflections.</p>}
+    </form> : <div className="flex items-center justify-between gap-2">
       <button disabled={!month} onClick={() => changeMonth(-1)} aria-label="Previous reflection month"
         className="min-h-11 min-w-11 rounded-lg border border-line text-ink disabled:opacity-40">←</button>
       <p className="text-sm font-bold text-ink text-center" aria-live="polite">{month ? monthLabel(month) : "Your local month"}</p>
       <button disabled={!month} onClick={() => changeMonth(1)} aria-label="Next reflection month"
         className="min-h-11 min-w-11 rounded-lg border border-line text-ink disabled:opacity-40">→</button>
-    </div>
+    </div>}
     {timezone && <p className="text-xs text-muted">{timezone}</p>}
     <div className="space-y-2">
       <label htmlFor={searchId} className="block text-xs font-bold text-muted">Search your reflections</label>
@@ -91,12 +108,12 @@ function Review({ userId }: { userId: string }) {
       {failed && <p>Some reflections couldn&apos;t be loaded. Previously loaded notes may be out of date; the list may be incomplete.</p>}
       <button onClick={() => void refresh()} className="min-h-11 px-2 font-bold text-accent">Retry reflections</button>
     </div>}
-    {(!loaded && !error || loaded && reading) && <p role="status" className="text-sm text-muted">Loading your reflections…</p>}
+    {(ready && !loaded && !error || loaded && reading) && <p role="status" className="text-sm text-muted">Loading your reflections…</p>}
     {pending && <p role="status" className="text-sm text-muted">A reflection change is still being saved. Showing the last confirmed notes.</p>}
     {loaded && <>
       {complete && matching.length === 0 ? <p className="text-sm text-muted">{filtered
         ? "No reflections match these filters. Try another search, tag or round type."
-        : "No saved reflections this month. You can add a private note to a completed round in Calendar."}</p> : <>
+        : rangeMode ? "No saved reflections in this date range. You can add a private note to a completed round in Calendar." : "No saved reflections this month. You can add a private note to a completed round in Calendar."}</p> : <>
         {matching.length > 0 && <p role="status" className="text-xs text-muted">{matching.length} {complete ? "matching" : "loaded matching"} {matching.length === 1 ? "reflection" : "reflections"}</p>}
         <ol aria-label="Saved private reflections" className="space-y-3">
           {matching.slice(0, shown).map(({ round, reflection }) => <li key={round.id}>

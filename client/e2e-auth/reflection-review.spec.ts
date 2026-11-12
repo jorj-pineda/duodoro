@@ -95,6 +95,28 @@ test("reflection review searches the full month and keeps notes and tags private
   await expect(review.getByText("25 matching reflections", { exact: true })).toBeVisible();
   await expect(review.getByRole("article")).toHaveCount(20);
 
+  await review.getByRole("button", { name: "Search a date range" }).click();
+  const range = await a.page.evaluate(iso => {
+    const start = new Date(iso); start.setDate(1);
+    const key = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+    return { from:key(start), to:key(new Date()) };
+  }, previous.toISOString());
+  await review.getByLabel("From date").fill(range.from); await review.getByLabel("Through date").fill(range.to);
+  await review.getByRole("button", { name: "Search this date range" }).click();
+  await expect(review.getByText("26 matching reflections", { exact:true })).toBeVisible();
+  await expect(review.getByRole("article")).toHaveCount(20);
+  await review.getByRole("searchbox").fill("previous-month");
+  await expect(review.getByRole("article")).toHaveCount(1);
+  await expect(review.getByText("Alpha previous-month note", { exact:true })).toBeVisible();
+  await expect(review.getByText("Beta solo private note", { exact:true })).toHaveCount(0);
+  await a.page.setViewportSize({ width:375,height:667 });
+  await review.getByLabel("From date").scrollIntoViewIfNeeded();
+  expect(await a.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await a.page.screenshot({ path:test.info().outputPath("reflection-range-phone.png") });
+  await review.getByRole("button", { name: "Back to monthly review" }).click();
+  await review.getByRole("searchbox").fill("");
+  await expect(review.getByText("25 matching reflections", { exact:true })).toBeVisible();
+
   const axe = await new AxeBuilder({ page: a.page }).include("#stats-panel")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(axe.violations).toEqual([]);

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useLocalDay } from "./useDailyFocusGoal";
 import type { CalendarDay, CalendarSession } from "@/lib/focusCalendar";
+import { reflectionRangeMonths, type ReflectionDateRange } from "@/lib/reflectionRange";
 import { readCalendarTag } from "@/lib/focusTags";
 import { rememberFocusTags, retainFocusTagAccount } from "./useSessionFocusTags";
 
@@ -45,9 +46,11 @@ function parseRows(rows: RpcRow[]): { rows: CalendarDay[]; tagsAvailable: boolea
   return { rows: parsed, tagsAvailable: present > 0 || absent === 0 };
 }
 
-export function useFocusCalendar(userId: string, month: string) {
+export function useFocusCalendar(userId: string, month: string, range?: ReflectionDateRange) {
   const day = useLocalDay();
-  const owner = `${userId}:${month}`;
+  const from = range?.from, to = range?.to;
+  const ranged = range !== undefined;
+  const owner = `${userId}:${ranged ? `${from}:${to}` : month}`;
   const [state, setState] = useState<State>({ owner, rows: [], loaded: false, error: null, timezone: null, tagsAvailable: false });
   const requests = useRef(0);
   // Every owner gets a separate lifetime, including callbacks retained by an old editor.
@@ -63,14 +66,20 @@ export function useFocusCalendar(userId: string, month: string) {
 
   // Resolves true only when this request succeeded and is still the latest.
   const load = useCallback(async (): Promise<boolean> => {
-    if (!month || activeScope.current !== scope) return false;
+    if ((!month && !ranged) || activeScope.current !== scope) return false;
     const request = ++requests.current;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     try {
-      const { data, error } = await getSupabase().rpc("get_focus_calendar", { month_start: `${month}-01`, tz });
-      if (activeScope.current !== scope || request !== requests.current) return false;
-      if (error) throw error;
-      const parsed = parseRows((data ?? []) as RpcRow[]);
+      const months = ranged ? reflectionRangeMonths({ from: from ?? "", to: to ?? "" }) : [month];
+      if (!months) throw new Error("invalid date range");
+      const combined: RpcRow[] = [];
+      for (const key of months) {
+        const { data, error } = await getSupabase().rpc("get_focus_calendar", { month_start: `${key}-01`, tz });
+        if (activeScope.current !== scope || request !== requests.current) return false;
+        if (error || !data) throw error ?? new Error("missing calendar response");
+        combined.push(...data as RpcRow[]);
+      }
+      const parsed = parseRows(ranged ? combined.filter(row => row.day >= from! && row.day <= to!) : combined);
       if (parsed.tagsAvailable) {
         // Recorded before the caller resolves, so a reload can read the confirmed tag immediately.
         rememberFocusTags(userId, parsed.rows.flatMap(row => row.sessions
@@ -87,7 +96,7 @@ export function useFocusCalendar(userId: string, month: string) {
         : { owner, rows: [], loaded: false, error: LOAD_ERROR, timezone: tz, tagsAvailable: false });
       return false;
     }
-  }, [month, owner, userId, scope]);
+  }, [month, owner, userId, scope, ranged, from, to]);
 
   useEffect(() => {
     let cancelled = false;
