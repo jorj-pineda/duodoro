@@ -5,6 +5,7 @@ import { formatFocusDateTime, parseFocusDateTime } from "@/lib/focusDates";
 import type { Profile } from "@/lib/types";
 import FocusDateCalendar from "./FocusDateCalendar";
 import FocusDateStart from "./FocusDateStart";
+import FocusDateReschedule from "./FocusDateReschedule";
 const control = "min-h-11 max-w-full min-w-0 rounded-lg border border-line bg-raise px-3 py-2 text-xs text-ink disabled:opacity-50";
 
 type Props = { userId: string; friends: Profile[]; friendsLoaded: boolean; friendsError: string | null; onOpenFriends: () => void; onOpenRoom?: () => void; onInvite?: (partnerId: string) => void; onlineFriends?: Profile[]; roomDisabled?: boolean };
@@ -64,6 +65,7 @@ function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriend
             {(mine || date.status === "accepted") && <button className={control} disabled={actions.disabled} onClick={async () => { setNotice(""); if (await actions.respond(date, "cancelled")) setNotice("Focus date cancelled."); }}>Cancel date</button>}
           </div>
           {date.status === "accepted" && onOpenRoom && <FocusDateStart key={`start:${date.id}:${date.version}`} date={date} userId={userId} onOpenRoom={onOpenRoom} onInvite={onInvite} inviteAvailable={onlineFriends.some(friend => friend.id === partner && !friend.current_session_id)} disabled={actions.disabled || roomDisabled || !friendsLoaded || !!friendsError || !friends.some(friend => friend.id === partner)} />}
+          {date.status === "accepted" && "proposed_starts_at" in date && <FocusDateReschedule key={`reschedule:${date.id}:${date.version}`} date={date} userId={userId} disabled={actions.disabled} onChange={actions.reschedule} />}
           {date.status === "accepted" && <FocusDateCalendar key={`${date.id}:${date.version}`} date={date} userId={userId} disabled={actions.disabled} />}
         </article>;
       })}
@@ -84,7 +86,7 @@ function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriend
             <input required type="datetime-local" className={`${control} block w-full mt-1`} value={time} disabled={actions.busy} onChange={event => { setTime(event.target.value); setValidation(""); setNotice(""); }} />
           </label>
           {parsed && <p className="text-xs text-ink break-words">Propose: {formatFocusDateTime(parsed)}</p>}
-          <p className="text-[11px] text-faint">Choose a time within 90 days. Your friend must accept; changing the time means cancelling and proposing again.</p>
+          <p className="text-[11px] text-faint">Choose a time within 90 days. Your friend must accept. For accepted dates, either person can propose a replacement time without losing the agreed date.</p>
           {validation && <p role="alert" className="text-xs text-danger">{validation}</p>}
           <button className={control} disabled={actions.disabled || actions.dates!.length >= 10 || !selected || !parsed}>Send date proposal</button>
         </form>}

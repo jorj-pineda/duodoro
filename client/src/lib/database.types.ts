@@ -34,8 +34,10 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          proposed_starts_at: string | null
           proposer_id: string
           recipient_id: string
+          reschedule_by: string | null
           starts_at: string
           status: string
           version: number
@@ -43,8 +45,10 @@ export type Database = {
         Insert: {
           created_at?: string
           id: string
+          proposed_starts_at?: string | null
           proposer_id: string
           recipient_id: string
+          reschedule_by?: string | null
           starts_at: string
           status?: string
           version?: number
@@ -52,8 +56,10 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          proposed_starts_at?: string | null
           proposer_id?: string
           recipient_id?: string
+          reschedule_by?: string | null
           starts_at?: string
           status?: string
           version?: number
@@ -617,8 +623,10 @@ export type Database = {
         Returns: {
           created_at: string
           id: string
+          proposed_starts_at: string | null
           proposer_id: string
           recipient_id: string
+          reschedule_by: string | null
           starts_at: string
           status: string
           version: number
@@ -647,13 +655,40 @@ export type Database = {
           session_id: string
         }[]
       }
+      reschedule_focus_date: {
+        Args: {
+          p_action: string
+          p_expected_version: number
+          p_id: string
+          p_starts_at?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          proposed_starts_at: string | null
+          proposer_id: string
+          recipient_id: string
+          reschedule_by: string | null
+          starts_at: string
+          status: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "focus_dates"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       respond_focus_date: {
         Args: { p_expected_version: number; p_id: string; p_status: string }
         Returns: {
           created_at: string
           id: string
+          proposed_starts_at: string | null
           proposer_id: string
           recipient_id: string
+          reschedule_by: string | null
           starts_at: string
           status: string
           version: number
