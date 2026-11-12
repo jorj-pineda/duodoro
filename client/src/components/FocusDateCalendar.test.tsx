@@ -55,3 +55,15 @@ it("drops late responses after unmount, account changes, or a pending date mutat
   view.rerender(<FocusDateCalendar userId="a" date={row} disabled={false} />); download(); view.unmount();
   await act(async () => finish({ data: row, error: null })); expect(fake.download).not.toHaveBeenCalled();
 });
+
+it("defaults to no reminder and exports the explicitly selected reminder after a fresh read", async () => {
+  render(<FocusDateCalendar userId="a" date={row} disabled={false} />); open();
+  expect(screen.getByLabelText("Calendar reminder")).toHaveValue("0");
+  download(); await waitFor(() => expect(fake.download).toHaveBeenCalledTimes(1));
+  expect(fake.download.mock.calls[0][0].content).not.toContain("VALARM");
+  fireEvent.change(screen.getByLabelText("Calendar reminder"), { target: { value: "15" } });
+  download(); await waitFor(() => expect(fake.download).toHaveBeenCalledTimes(2));
+  expect(fake.download.mock.calls[1][0].content).toContain("TRIGGER:-PT15M");
+  expect(fake.read).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/Support, permissions and calendar settings/)).toBeVisible();
+});

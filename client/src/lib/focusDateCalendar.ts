@@ -1,6 +1,7 @@
 import { readFocusDate, type FocusDate } from "./focusDates";
 import { SITE_NAME, SITE_URL } from "./site";
 
+export const CALENDAR_REMINDERS = [0, 5, 10, 15, 30] as const;
 export const CALENDAR_LENGTHS = [25, 50, 60] as const;
 export type CalendarFile = { content: string; filename: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,13 +21,15 @@ function fold(line: string): string {
   return result;
 }
 
-export function buildFocusDateCalendar(date: FocusDate, userId: string, minutes: number, now: number): CalendarFile | null {
+export function buildFocusDateCalendar(date: FocusDate, userId: string, minutes: number, now: number, reminderMinutes = 0): CalendarFile | null {
   const row = readFocusDate(date, userId);
   const start = row ? Date.parse(row.starts_at) : NaN;
   const end = start + minutes * 60_000;
   const validYear = (value: number) => { const year = new Date(value).getUTCFullYear(); return year >= 1 && year <= 9999; };
   if (!row || row.status !== "accepted" || !UUID.test(row.id) || !Number.isFinite(now) || start <= now
     || !CALENDAR_LENGTHS.some(value => value === minutes) || !Number.isFinite(end)
+    || !CALENDAR_REMINDERS.some(value => value === reminderMinutes)
+    || (reminderMinutes > 0 && start - reminderMinutes * 60_000 <= now)
     || !validYear(now) || !validYear(start) || !validYear(end)) return null;
   const description = [
     `A time to focus together on ${SITE_NAME}.`,
@@ -38,7 +41,9 @@ export function buildFocusDateCalendar(date: FocusDate, userId: string, minutes:
     "BEGIN:VEVENT", `UID:focus-date-${row.id.toLowerCase()}@${new URL(SITE_URL).hostname}`,
     `DTSTAMP:${utc(now)}`, `DTSTART:${utc(start)}`, `DTEND:${utc(end)}`,
     `SUMMARY:${text(`Focus together · ${SITE_NAME}`)}`, `DESCRIPTION:${text(description)}`,
-    `URL:${SITE_URL}`, "CLASS:PRIVATE", "STATUS:CONFIRMED", "TRANSP:OPAQUE", "END:VEVENT", "END:VCALENDAR"];
+    `URL:${SITE_URL}`, "CLASS:PRIVATE", "STATUS:CONFIRMED", "TRANSP:OPAQUE",
+    ...(reminderMinutes > 0 ? ["BEGIN:VALARM", "ACTION:DISPLAY", `TRIGGER:-PT${reminderMinutes}M`, `DESCRIPTION:${text(`Focus together · ${SITE_NAME}`)}`, "END:VALARM"] : []),
+    "END:VEVENT", "END:VCALENDAR"];
   return { content: lines.map(fold).join("\r\n") + "\r\n", filename: `duodoro-focus-${utc(start).slice(0, 8)}.ics` };
 }
 

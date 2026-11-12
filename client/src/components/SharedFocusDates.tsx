@@ -42,7 +42,7 @@ function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriend
   return <section aria-label="Shared focus dates" className="bg-surface border border-line rounded-xl p-4 space-y-3">
     <h2 className="text-sm font-semibold text-ink">Shared focus dates</h2>
     <p className="text-xs text-muted">Make time to focus together. Only you and your invited friend can see a date. Times are shown in your local timezone.</p>
-    <p className="text-[11px] text-faint">Dates don&apos;t start sessions or send reminders. Open Duodoro when it&apos;s time to focus.</p>
+    <p className="text-[11px] text-faint">Dates don&apos;t start sessions or send Duodoro reminders. You can add an optional reminder when exporting an accepted date to your calendar. Open Duodoro when it&apos;s time to focus.</p>
     {(actions.loadError || actions.actionError) && <p role="alert" className="text-xs text-danger">{actions.loadError ?? actions.actionError}</p>}
     <button className={control} disabled={actions.busy} onClick={() => { setNotice(""); void actions.reload(); }}>Reload focus dates</button>
     {actions.dates === null ? !actions.loadError && <p role="status" className="text-xs text-muted">Loading focus dates…</p> : <>

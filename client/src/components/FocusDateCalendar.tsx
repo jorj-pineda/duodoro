@@ -2,13 +2,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { readFocusDate, type FocusDate } from "@/lib/focusDates";
-import { buildFocusDateCalendar, CALENDAR_LENGTHS, downloadCalendarFile } from "@/lib/focusDateCalendar";
+import { buildFocusDateCalendar, CALENDAR_LENGTHS, CALENDAR_REMINDERS, downloadCalendarFile } from "@/lib/focusDateCalendar";
 const control = "min-h-11 max-w-full rounded-lg border border-line bg-raise px-3 py-2 text-xs text-ink disabled:opacity-50";
 
 export default function FocusDateCalendar({ date, userId, disabled }: { date: FocusDate; userId: string; disabled: boolean }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState<number>(25);
+  const [reminder, setReminder] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -31,8 +32,8 @@ export default function FocusDateCalendar({ date, userId, disabled }: { date: Fo
         || fresh.proposer_id !== date.proposer_id || fresh.recipient_id !== date.recipient_id) {
         setError("This date changed or is unavailable. Reload focus dates before exporting."); return;
       }
-      const file = buildFocusDateCalendar(fresh, userId, minutes, Date.now());
-      if (!file) { setError("This date is no longer accepted and upcoming. Reload focus dates before exporting."); return; }
+      const file = buildFocusDateCalendar(fresh, userId, minutes, Date.now(), reminder);
+      if (!file) { setError("The date or reminder time is no longer upcoming. Choose a shorter or no reminder. Reload focus dates before exporting if the date changed."); return; }
       downloadCalendarFile(file);
       setNotice("Calendar file ready. Open the download in your calendar to import it.");
     } catch {
@@ -52,6 +53,12 @@ export default function FocusDateCalendar({ date, userId, disabled }: { date: Fo
           {CALENDAR_LENGTHS.map(value => <option key={value} value={value}>{value} minutes</option>)}
         </select>
       </label>
+      <label className="text-xs text-muted block">Calendar reminder
+        <select value={reminder} disabled={disabled || busy} onChange={event => { setReminder(Number(event.target.value)); setNotice(""); }} className={`${control} block mt-1`}>
+          {CALENDAR_REMINDERS.map(value => <option key={value} value={value}>{value === 0 ? "No reminder" : `${value} minutes before`}</option>)}
+        </select>
+      </label>
+      <p className="text-xs text-muted">Reminders are optional and delivered by your calendar app. Support, permissions and calendar settings determine whether they appear. Duodoro does not send notifications.</p>
       <p className="text-xs text-muted">Only changes your calendar block, not your Duodoro timer.</p>
       <p className="text-xs text-muted">This is a calendar copy. If the date is cancelled or replaced, remove or update the event in your calendar yourself.</p>
       <p className="text-[11px] text-faint">Includes the time and public Duodoro link, without names or private goals. Your calendar&apos;s sharing settings apply.</p>

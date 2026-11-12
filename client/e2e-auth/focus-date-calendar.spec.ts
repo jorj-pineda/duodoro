@@ -36,6 +36,8 @@ test("accepted focus dates download private calendar copies, preserve timezones 
     await expect(panel).toContainText("remove or update the event in your calendar yourself");
     await expect(panel).toContainText("Your calendar's sharing settings apply");
     await panel.getByLabel("Calendar block length").selectOption("50");
+    await expect(panel.getByLabel("Calendar reminder")).toHaveValue("0");
+    if (actor === b) await panel.getByLabel("Calendar reminder").selectOption("15");
     const [download] = await Promise.all([actor.page.waitForEvent("download"), panel.getByRole("button",{ name:"Download .ics file",exact:true }).click()]);
     expect(await download.failure()).toBeNull(); expect(download.suggestedFilename()).toMatch(/^duodoro-focus-\d{8}\.ics$/);
     const path = await download.path(); if (!path) throw new Error("Browser didn't produce a calendar file.");
@@ -47,7 +49,9 @@ test("accepted focus dates download private calendar copies, preserve timezones 
     expect(event).toContain(`DTSTART:${stamp(start)}\r\n`);
     expect(event).toContain(`DTEND:${stamp(new Date(start.getTime()+50*60_000))}\r\n`);
     expect(event).toContain("CLASS:PRIVATE\r\n"); expect(event).toContain(`URL:${SITE_URL}\r\n`);
-    for (const sensitive of [a.id,b.id,"Calendar Alpha","Calendar Beta","ATTENDEE","ORGANIZER","VALARM","/join/","mailto:"]) expect(event).not.toContain(sensitive);
+    for (const sensitive of [a.id,b.id,"Calendar Alpha","Calendar Beta","ATTENDEE","ORGANIZER","/join/","mailto:"]) expect(event).not.toContain(sensitive);
+    if (actor === b) expect(event).toContain("BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M");
+    else expect(event).not.toContain("VALARM");
     await expect(panel.getByRole("status")).toContainText("Open the download in your calendar to import it");
   }
   expect(texts[0].match(/^UID:(.+)$/m)![1]).toBe(texts[1].match(/^UID:(.+)$/m)![1]);
