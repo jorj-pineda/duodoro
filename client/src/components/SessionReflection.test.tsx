@@ -312,3 +312,31 @@ it("deletion confirmation does not silently adopt a newer saved version", async 
   expect(server.rows.get("s1")?.reflection_text).toBe("new from other device");
   expect(server.rpcArgs.at(-1)).toMatchObject({ p_expected_version: 1 });
 });
+
+describe("optional reflection prompts", () => {
+  it("leaves saved text untouched and does not mark a clean editor dirty", async () => {
+    seed("Already saved"); render(<Harness />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit reflection" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Optional reflection prompt" }), { target: { value: "What helped you focus?" } });
+    expect(screen.getByRole("textbox")).toHaveValue("Already saved");
+    expect(screen.getByRole("button", { name: "Save reflection" })).toBeDisabled();
+    expect(server.rpcNames).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("group", { name: "Discard draft?" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit reflection" }));
+    expect(screen.getByRole("combobox", { name: "Optional reflection prompt" })).toHaveValue("");
+  });
+  it("preserves typed writing when questions change and saves only that writing", async () => {
+    seed(null); render(<Harness />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add reflection" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "My own answer" } });
+    const select = screen.getByRole("combobox", { name: "Optional reflection prompt" });
+    fireEvent.change(select, { target: { value: "What got in your way?" } });
+    fireEvent.change(select, { target: { value: "What would you try next time?" } });
+    expect(screen.getByRole("textbox")).toHaveValue("My own answer");
+    fireEvent.click(screen.getByRole("button", { name: "Save reflection" }));
+    await screen.findByText("Reflection saved");
+    expect(server.rows.get("s1")?.reflection_text).toBe("My own answer");
+    expect(server.rpcArgs[0].p_text).toBe("My own answer");
+  });
+});

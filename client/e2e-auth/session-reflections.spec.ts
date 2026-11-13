@@ -45,10 +45,21 @@ test('private reflections on a shared round stay private to each person across r
 
   await shared.getByRole('button', { name: 'Add reflection', exact: true }).click();
   await expect(noteBox(shared)).toHaveAccessibleDescription(/Only you can see this\./);
+  const prompt = shared.getByRole('combobox', { name:'Optional reflection prompt' });
+  await expect(prompt).toHaveValue(''); await prompt.selectOption('What helped you focus?');
+  await expect(noteBox(shared)).toHaveValue('');
+  await expect(shared.getByRole('button', { name:'Save reflection', exact:true })).toBeDisabled();
   await noteBox(shared).fill('Felt steady after the rough start.\nWant more breaks.');
+  await prompt.selectOption('What got in your way?');
+  await expect(noteBox(shared)).toHaveValue('Felt steady after the rough start.\nWant more breaks.');
+  await expect(noteBox(shared)).toHaveAccessibleDescription(/What got in your way/);
   await shared.getByRole('button', { name: 'Save reflection', exact: true }).click();
   await expect(shared.getByText('Reflection saved')).toBeVisible();
   await expect(shared.getByText('Felt steady after the rough start.')).toBeVisible();
+
+  const savedWriting = await a.client.from('session_reflections').select('reflection_text').eq('user_id',a.id);
+  requireSuccess(savedWriting.error,'Read prompt-assisted reflection');
+  expect(savedWriting.data).toEqual([{ reflection_text:'Felt steady after the rough start.\nWant more breaks.' }]);
 
   // Survives reload, including the second page of calendar rounds.
   await a.page.reload();
@@ -90,6 +101,10 @@ test('private reflections on a shared round stay private to each person across r
 
   // Edit, then delete on Alpha's side; Beta's note is untouched.
   await roundWith(calendarFor(a.page), 'Reflect Beta').getByRole('button', { name: 'Edit reflection', exact: true }).click();
+  const reopened = roundWith(calendarFor(a.page), 'Reflect Beta');
+  await expect(reopened.getByRole('combobox', { name:'Optional reflection prompt' })).toHaveValue('');
+  await reopened.getByRole('combobox', { name:'Optional reflection prompt' }).selectOption('What would you try next time?');
+  await expect(noteBox(reopened)).toHaveValue('Felt steady after the rough start.\nWant more breaks.');
   // Phone width while the editor is open: the textarea, count and buttons must fit without page overflow.
   await a.page.setViewportSize({ width: 375, height: 667 });
   await roundWith(calendarFor(a.page), 'Reflect Beta').scrollIntoViewIfNeeded();

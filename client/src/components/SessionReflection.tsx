@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
 import { deleteSessionReflection, loadSessionReflections, saveSessionReflection, useSessionReflection } from "@/hooks/useSessionReflections";
+import ReflectionPrompts from "./ReflectionPrompts";
 import { REFLECTION_MAX_CODE_POINTS, validateReflectionText } from "@/lib/sessionReflections";
 
 const button = "min-h-11 px-2 text-xs font-semibold text-accent disabled:opacity-50";
@@ -32,7 +33,7 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
   const ids = {
-    heading: useId(), textarea: useId(), help: useId(), count: useId(), problem: useId(),
+    heading: useId(), textarea: useId(), help: useId(), count: useId(), problem: useId(), prompt: useId(),
   };
 
   const latest = { text: saved?.text ?? "", version: saved?.version ?? null };
@@ -43,7 +44,7 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const changedElsewhere = mode === "edit" && !following && (saved?.version ?? null) !== base.version;
   const showProblem = !validation.ok && (validation.reason !== "blank" || attempted || draft !== "");
-  const describedBy = [ids.help, ids.count, showProblem ? ids.problem : null].filter(Boolean).join(" ");
+  const describedBy = [ids.help, ids.prompt, ids.count, showProblem ? ids.problem : null].filter(Boolean).join(" ");
 
   const focusTrigger = () => requestAnimationFrame(() => triggerRef.current?.focus());
   const focusDelete = () => requestAnimationFrame(() => deleteTriggerRef.current?.focus());
@@ -140,6 +141,7 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   if (mode === "edit") {
     return <section aria-labelledby={ids.heading} className="space-y-2 border-t border-line pt-2">
       {label}
+      <ReflectionPrompts disabled={busy} descriptionId={ids.prompt} />
       <label htmlFor={ids.textarea} className="block text-xs font-semibold text-ink">How did this session go?</label>
       <textarea id={ids.textarea} rows={4} value={draft} disabled={busy}
         aria-describedby={describedBy} aria-invalid={!validation.ok && showProblem ? true : undefined}
