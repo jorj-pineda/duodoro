@@ -67,3 +67,16 @@ it("labels the old list honestly after an unconfirmed write", () => {
   expect(screen.getByText("No dates in the last loaded list.")).toBeVisible();
   expect(screen.getByText("Showing the last loaded dates.")).toBeVisible();
 });
+it("offers room setup only for accepted dates with a usable room action and available friend", () => {
+  const open = vi.fn(); fake.hook.mockReturnValue(state([{ ...row,status:"accepted" }]));
+  const view = render(<SharedFocusDates {...props} onOpenRoom={open} />);
+  expect(screen.getByRole("button",{ name:"Open room setup" })).toBeEnabled();
+  view.rerender(<SharedFocusDates {...props} onOpenRoom={open} roomDisabled />);
+  expect(screen.getByRole("button",{ name:"Open room setup" })).toBeDisabled();
+  view.rerender(<SharedFocusDates {...props} onOpenRoom={open} friendsError="offline" />);
+  expect(screen.getByRole("button",{ name:"Open room setup" })).toBeDisabled();
+  view.rerender(<SharedFocusDates {...props} onOpenRoom={open} friends={[]} />);
+  expect(screen.getByRole("button",{ name:"Open room setup" })).toBeDisabled();
+  fake.hook.mockReturnValue(state()); view.rerender(<SharedFocusDates {...props} onOpenRoom={open} />);
+  expect(screen.queryByRole("button",{ name:"Open room setup" })).toBeNull(); expect(open).not.toHaveBeenCalled();
+});

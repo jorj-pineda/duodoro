@@ -408,7 +408,8 @@ export default function HomeDashboard({
             <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
               friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
             <SharedFocusDates userId={profile.id} friends={friends} friendsLoaded={friendsLoaded}
-              friendsError={friendsError} onOpenFriends={onOpenFriends} />
+              friendsError={friendsError} onOpenFriends={onOpenFriends} onOpenRoom={onFocus}
+              roomDisabled={connectionState !== "connected" || !!activeSessionId} />
           </section>
 
           <section aria-labelledby="home-progress" className="space-y-4">

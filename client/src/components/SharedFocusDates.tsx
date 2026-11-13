@@ -4,13 +4,14 @@ import { useFocusDates } from "@/hooks/useFocusDates";
 import { formatFocusDateTime, parseFocusDateTime } from "@/lib/focusDates";
 import type { Profile } from "@/lib/types";
 import FocusDateCalendar from "./FocusDateCalendar";
+import FocusDateStart from "./FocusDateStart";
 const control = "min-h-11 max-w-full min-w-0 rounded-lg border border-line bg-raise px-3 py-2 text-xs text-ink disabled:opacity-50";
 
-type Props = { userId: string; friends: Profile[]; friendsLoaded: boolean; friendsError: string | null; onOpenFriends: () => void };
+type Props = { userId: string; friends: Profile[]; friendsLoaded: boolean; friendsError: string | null; onOpenFriends: () => void; onOpenRoom?: () => void; roomDisabled?: boolean };
 export default function SharedFocusDates(props: Props) {
   return <FocusDates key={props.userId} {...props} />;
 }
-function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriends }: Props) {
+function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriends, onOpenRoom, roomDisabled = false }: Props) {
   const actions = useFocusDates(userId);
   const stale = !!(actions.loadError || actions.actionError);
   const [open, setOpen] = useState(false);
@@ -62,6 +63,7 @@ function FocusDates({ userId, friends, friendsLoaded, friendsError, onOpenFriend
             </>}
             {(mine || date.status === "accepted") && <button className={control} disabled={actions.disabled} onClick={async () => { setNotice(""); if (await actions.respond(date, "cancelled")) setNotice("Focus date cancelled."); }}>Cancel date</button>}
           </div>
+          {date.status === "accepted" && onOpenRoom && <FocusDateStart key={`start:${date.id}:${date.version}`} date={date} userId={userId} onOpenRoom={onOpenRoom} disabled={actions.disabled || roomDisabled || !friendsLoaded || !!friendsError || !friends.some(friend => friend.id === partner)} />}
           {date.status === "accepted" && <FocusDateCalendar key={`${date.id}:${date.version}`} date={date} userId={userId} disabled={actions.disabled} />}
         </article>;
       })}
