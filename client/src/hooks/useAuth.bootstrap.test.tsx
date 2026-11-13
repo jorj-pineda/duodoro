@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createFakeSupabase,
@@ -10,7 +10,9 @@ let fake: ReturnType<typeof createFakeSupabase>;
 
 vi.mock("@/lib/supabase", () => ({ getSupabase: () => fake.sb }));
 
+import { browserDraftEpoch, readBrowserReflectionDraft, writeBrowserReflectionDraft } from "@/lib/browserReflectionDrafts";
 import { useAuth } from "./useAuth";
+import BrowserDraftWarning from "@/components/BrowserDraftWarning";
 
 beforeEach(() => {
   fake = createFakeSupabase();
@@ -238,4 +240,31 @@ describe("useAuth bootstrap", () => {
     // cannot be matched and must not become a profile with id undefined.
     await waitFor(() => expect(result.current.profile?.id).toBe("user-1"));
   });
+});
+
+it("retains this account's recovery copy on refresh and clears it on sign-out", async () => {
+  const profile = makeProfileRow({ id:"draft-owner",avatar_config:{ skinColor:"#FDDBB4" } });
+  fake.sessionResult.session = makeSession({ id:profile.id }); fake.selectResults.profile = { data:profile,error:null };
+  sessionStorage.clear(); writeBrowserReflectionDraft({ userId:profile.id,sessionId:"round",text:"private",baselineText:"",version:null },browserDraftEpoch());
+  const { result } = renderHook(() => useAuth()); await waitFor(() => expect(result.current.appStep).toBe("home"));
+  expect(readBrowserReflectionDraft(profile.id,"round").draft?.text).toBe("private");
+  await act(async () => { await fake.authHandlers[0]("SIGNED_OUT",null); });
+  expect(readBrowserReflectionDraft(profile.id,"round").draft).toBeNull(); expect(result.current.appStep).toBe("landing");
+});
+
+it("keeps cleanup failures visible across account switches and sign-out without blocking auth", async () => {
+  const profile = makeProfileRow({ id:"next-owner",avatar_config:{ skinColor:"#FDDBB4" } });
+  sessionStorage.clear(); writeBrowserReflectionDraft({ userId:"old-owner",sessionId:"round",text:"private",baselineText:"",version:null },browserDraftEpoch());
+  const staleEpoch = browserDraftEpoch();
+  const remove = vi.spyOn(Storage.prototype,"removeItem").mockImplementation(() => { throw new Error("blocked"); });
+  fake.sessionResult.session = makeSession({ id:profile.id }); fake.selectResults.profile = { data:profile,error:null };
+  render(<BrowserDraftWarning />);
+  const { result } = renderHook(() => useAuth()); await waitFor(() => expect(result.current.appStep).toBe("home"));
+  expect(screen.getByRole("alert")).toHaveTextContent(/Unencrypted copies may remain/);
+  await act(async () => { await fake.authHandlers[0]("SIGNED_OUT",null); });
+  expect(result.current.appStep).toBe("landing"); expect(screen.getByRole("alert")).toHaveTextContent(/site data/);
+  expect(writeBrowserReflectionDraft({ userId:"old-owner",sessionId:"round",text:"late",baselineText:"",version:null },staleEpoch)).toBe(false);
+  remove.mockRestore();
+  await act(async () => { await fake.authHandlers[0]("SIGNED_OUT",null); });
+  expect(screen.queryByRole("alert")).toBeNull();
 });

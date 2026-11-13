@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { browserDraftEpoch, readBrowserReflectionDraft, writeBrowserReflectionDraft, removeBrowserReflectionDraft, type BrowserReflectionDraft } from "@/lib/browserReflectionDrafts";
 import { deleteSessionReflection, loadSessionReflections, saveSessionReflection, useSessionReflection } from "@/hooks/useSessionReflections";
 import ReflectionPrompts from "./ReflectionPrompts";
 import { REFLECTION_MAX_CODE_POINTS, validateReflectionText } from "@/lib/sessionReflections";
@@ -14,7 +15,7 @@ type Notice = { tone: "status" | "alert"; text: string; reload?: "edit" | "view"
 // freezes the baseline version it was opened from. Later saved changes from
 // another tab or device then stay out of the draft, and a save from the stale
 // baseline is rejected by the server.
-export default function SessionReflection({ userId, sessionId, onDirtyChange, onBusyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean) => void; onBusyChange?: (busy: boolean) => void }) {
+export default function SessionReflection({ userId, sessionId, onDirtyChange, onBusyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean, discardRecovery?: () => boolean) => void; onBusyChange?: (busy: boolean) => void }) {
   const entry = useSessionReflection(userId, sessionId);
   const saved = entry?.reflection ?? null;
   const status = entry?.status ?? "loading";
@@ -29,11 +30,21 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   const [attempted, setAttempted] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const [recovery, setRecovery] = useState<BrowserReflectionDraft | null>(null);
+  const [recoveryEnabled, setRecoveryEnabled] = useState(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<"off" | "saved" | "failed">("off");
+  const recoveryEpoch = useRef(0), hasBrowserCopy = useRef(false);
+  const discardRecovery = useCallback(() => {
+    if (!hasBrowserCopy.current) return true;
+    const cleared = removeBrowserReflectionDraft(userId,sessionId);
+    if (cleared) hasBrowserCopy.current = false;
+    return cleared;
+  }, [userId,sessionId]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
   const ids = {
-    heading: useId(), textarea: useId(), help: useId(), count: useId(), problem: useId(), prompt: useId(),
+    heading: useId(), textarea: useId(), help: useId(), count: useId(), problem: useId(), prompt: useId(), recoveryHelp: useId(),
   };
 
   const latest = { text: saved?.text ?? "", version: saved?.version ?? null };
@@ -41,7 +52,7 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   const base = following ? latest : baseline;
   const validation = validateReflectionText(draft);
   const dirty = mode === "edit" && !following && draft !== base.text;
-  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => { onDirtyChange?.(dirty, discardRecovery); }, [dirty, onDirtyChange, discardRecovery]);
   const changedElsewhere = mode === "edit" && !following && (saved?.version ?? null) !== base.version;
   const showProblem = !validation.ok && (validation.reason !== "blank" || attempted || draft !== "");
   const describedBy = [ids.help, ids.prompt, ids.count, showProblem ? ids.problem : null].filter(Boolean).join(" ");
@@ -50,9 +61,14 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   const focusDelete = () => requestAnimationFrame(() => deleteTriggerRef.current?.focus());
 
   function openEditor() {
+    const stored = readBrowserReflectionDraft(userId,sessionId);
+    recoveryEpoch.current = browserDraftEpoch(); hasBrowserCopy.current = !!stored.draft || stored.error;
+    setRecovery(stored.draft); setRecoveryEnabled(false); setRecoveryStatus(stored.error ? "failed" : "off");
     setFollowing(true); setDraftValue(""); setAttempted(false); setDiscarding(false); setNotice(null); setMode("edit");
   }
   function closeEditor() {
+    if (!recovery && !discardRecovery()) { setNotice({ tone:"alert",text:"Couldn't remove the browser recovery copy. Retry before discarding." }); return; }
+    setRecovery(null); setRecoveryEnabled(false);
     setMode("view"); setDiscarding(false); setAttempted(false); setFollowing(true); focusTrigger();
   }
   function requestClose() {
@@ -62,7 +78,28 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   function onDraftChange(value: string) {
     if (following) { setBaseline(latest); setFollowing(false); }
     setDraftValue(value);
+    if (recoveryEnabled) storeRecovery(value,following ? latest : baseline);
     setNotice(null);
+  }
+
+  function storeRecovery(text: string, original: { text: string; version: number | null }) {
+    const ok = writeBrowserReflectionDraft({ userId,sessionId,text,baselineText:original.text,version:original.version },recoveryEpoch.current);
+    if (ok) hasBrowserCopy.current = text !== original.text;
+    setRecoveryStatus(ok ? text !== original.text ? "saved" : "off" : "failed");
+  }
+  function toggleRecovery(enabled: boolean) {
+    if (!enabled && !discardRecovery()) { setRecoveryStatus("failed"); return; }
+    setRecoveryEnabled(enabled); setRecoveryStatus("off");
+    if (enabled && dirty) storeRecovery(draft,base);
+  }
+  function recover() {
+    if (!recovery || recoveryEpoch.current !== browserDraftEpoch()) return;
+    setDraftValue(recovery.text); setBaseline({ text:recovery.baselineText,version:recovery.version }); setFollowing(false);
+    setRecovery(null); setRecoveryEnabled(true); setRecoveryStatus("saved");
+  }
+  function discardCandidate() {
+    if (!discardRecovery()) { setRecoveryStatus("failed"); return; }
+    setRecovery(null); setRecoveryStatus("off");
   }
 
   async function save() {
@@ -72,8 +109,10 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
     try {
       const result = await saveSessionReflection(userId, sessionId, validation.text, base.version);
       if (result.ok) {
+        const cleared = discardRecovery();
+        setRecovery(null); setRecoveryEnabled(false);
         setMode("view"); setFollowing(true); setDiscarding(false); setAttempted(false);
-        setNotice({ tone: "status", text: "Reflection saved" });
+        setNotice(cleared ? { tone: "status", text: "Reflection saved" } : { tone:"alert",text:"Reflection saved, but the browser copy couldn't be removed. Clear this tab's site data to remove it." });
         focusTrigger();
       } else if (result.failure.kind === "changed" || result.failure.kind === "exists") {
         // Refresh the saved copy as a read so the banner can offer an explicit reload.
@@ -94,7 +133,9 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
     try {
       const result = await deleteSessionReflection(userId, sessionId, deleteVersion);
       if (result.ok) {
-        setMode("view"); setNotice({ tone: "status", text: "Reflection deleted" }); focusTrigger();
+        const cleared = removeBrowserReflectionDraft(userId,sessionId); hasBrowserCopy.current = !cleared;
+        setRecovery(null); setRecoveryEnabled(false);
+        setMode("view"); setNotice(cleared ? { tone: "status", text: "Reflection deleted" } : { tone:"alert",text:"Reflection deleted, but the browser copy couldn't be removed. Clear this tab's site data to remove it." }); focusTrigger();
       } else if (result.failure.kind === "changed") {
         setMode("view");
         setNotice({ tone: "alert", text: "This reflection changed in another tab or device. Reload it before deleting.", reload: "view" });
@@ -116,6 +157,8 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
         setNotice({ tone: "alert", text: "Couldn't reload your reflection. Your draft is still here. Try again.", reload: nextMode === "view" ? "view" : undefined });
         return;
       }
+      if (!discardRecovery()) { setNotice({ tone:"alert",text:"Couldn't remove the browser recovery copy. Your draft is still here." }); return; }
+      setRecoveryEnabled(false); setRecovery(null);
       setFollowing(true); setDraftValue(""); setDiscarding(false); setAttempted(false); setNotice(null);
       setMode(nextMode);
       if (nextMode === "view") focusTrigger();
@@ -141,9 +184,18 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
   if (mode === "edit") {
     return <section aria-labelledby={ids.heading} className="space-y-2 border-t border-line pt-2">
       {label}
-      <ReflectionPrompts disabled={busy} descriptionId={ids.prompt} />
+      {recovery && <div role="group" aria-label="Browser draft recovery" className="space-y-1">
+        <p className="text-xs text-muted">A recovery draft is available in this tab. Recover it to review your writing before saving, or discard the browser copy.</p>
+        <button className={button} disabled={busy} aria-describedby={ids.recoveryHelp} onClick={recover}>Recover browser draft</button>
+        <button className={danger} disabled={busy} onClick={discardCandidate}>Discard browser draft</button>
+      </div>}
+      {!recovery && <label className="flex min-h-11 items-center gap-2 text-xs text-muted"><input type="checkbox" aria-describedby={ids.recoveryHelp} disabled={busy} checked={recoveryEnabled} onChange={event => toggleRecovery(event.target.checked)} />Keep a recovery draft in this tab</label>}
+      <p id={ids.recoveryHelp} className="text-[11px] text-muted">This tab keeps an unencrypted copy for up to 7 days. Avoid shared devices. Save, discard or sign out to clear copies. If storage is blocked, clear this tab’s site data.</p>
+      {recoveryStatus === "failed" && <p role="alert" className="text-xs text-danger">Couldn&apos;t store or remove the latest browser copy. Your writing is still in this editor; an older copy may remain. Keep this editor open or clear this tab&apos;s site data.</p>}
+      {recoveryEnabled && recoveryStatus === "saved" && <p role="status" className="text-xs text-muted">Recovery copy updated in this tab. Use Save reflection to save your writing to your account.</p>}
+      <ReflectionPrompts disabled={busy || !!recovery} descriptionId={ids.prompt} />
       <label htmlFor={ids.textarea} className="block text-xs font-semibold text-ink">How did this session go?</label>
-      <textarea id={ids.textarea} rows={4} value={draft} disabled={busy}
+      <textarea id={ids.textarea} rows={4} value={draft} disabled={busy || !!recovery}
         aria-describedby={describedBy} aria-invalid={!validation.ok && showProblem ? true : undefined}
         onChange={event => onDraftChange(event.target.value)}
         className="block w-full min-h-24 border border-line bg-bg px-2 py-1 text-sm text-ink [overflow-wrap:anywhere] whitespace-pre-wrap" />

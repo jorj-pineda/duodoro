@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import StatsPanel from "./StatsPanel";
 import StatsScreen from "./StatsScreen";
 vi.mock("@/lib/useStats", () => ({ useStats: () => ({ personalStats: null, duoStats: [], recentSessions: [], dailyFocus: [], loading: false, loaded: true, fetchStats: vi.fn(), retry: vi.fn(), error: null }) }));
 vi.mock("./FocusInsights", () => ({ default: () => null }));
 vi.mock("./ReflectionReview", () => ({ default: () => null }));
 vi.mock("./FocusCalendar", () => ({ default: DraftCalendar }));
-function DraftCalendar({ onDraftStateChange }: { onDraftStateChange?: (state: { dirty: boolean; busy: boolean }) => void }) {
+const { cleanupRecovery } = vi.hoisted(() => ({ cleanupRecovery: vi.fn() }));
+beforeEach(() => { cleanupRecovery.mockReset().mockReturnValue(true); });
+function DraftCalendar({ onDraftStateChange }: { onDraftStateChange?: (state: { dirty: boolean; busy: boolean; discard?: () => boolean }) => void }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => { onDraftStateChange?.({ dirty: !!text, busy }); }, [text, busy, onDraftStateChange]);
+  useEffect(() => { onDraftStateChange?.({ dirty: !!text, busy, discard: cleanupRecovery }); }, [text, busy, onDraftStateChange]);
   return <><textarea aria-label="Reflection draft" value={text} onChange={e => setText(e.target.value)} />
     <button onClick={() => setBusy(!busy)}>Toggle save</button></>;
 }
@@ -99,4 +101,12 @@ it("does not carry a blocked-exit notice into another account", async () => {
   rerender(<StatsPanel {...props} userId="bob" />);
   fireEvent.click(screen.getByRole("button", { name: "Toggle save" }));
   expect(screen.queryByText(/Wait for your reflection/)).toBeNull();
+});
+
+it("blocks a confirmed Stats exit when browser-copy cleanup fails, then permits a retry", async () => {
+  vi.spyOn(window,"confirm").mockReturnValue(true); cleanupRecovery.mockReturnValueOnce(false).mockReturnValue(true);
+  const { onClose } = await panel(); fireEvent.click(screen.getByRole("button",{ name:"Close" }));
+  expect(onClose).not.toHaveBeenCalled(); expect(screen.getByText(/Couldn't remove a browser recovery copy/)).toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toHaveValue("private draft");
+  fireEvent.click(screen.getByRole("button",{ name:"Close" })); expect(onClose).toHaveBeenCalledOnce();
 });

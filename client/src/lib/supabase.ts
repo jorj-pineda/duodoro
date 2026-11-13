@@ -1,3 +1,4 @@
+import { clearBrowserReflectionDrafts } from "./browserReflectionDrafts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
@@ -33,5 +34,6 @@ export async function signInWithProvider(provider: "google" | "discord") {
 }
 
 export async function signOut() {
+  clearBrowserReflectionDrafts();
   await getSupabase().auth.signOut();
 }

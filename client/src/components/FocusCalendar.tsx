@@ -56,7 +56,11 @@ export default function FocusCalendar({ userId, onDraftStateChange }: { userId: 
   const [focusRequest, setFocusRequest] = useState(0);
   const month = chosenMonth || today.slice(0, 7);
   const selected = chosenDay.startsWith(`${month}-`) ? chosenDay : (today.startsWith(`${month}-`) ? today : `${month}-01`);
-  const reflectionChanged = useCallback((sessionId: string, dirty: boolean) => {
+  const recoveryDiscards = useRef(new Map<string, () => boolean>());
+  const discardRecoveryCopies = useCallback(() => [...recoveryDiscards.current.values()].every(discard => discard()), []);
+  const reflectionChanged = useCallback((sessionId: string, dirty: boolean, discardRecovery?: () => boolean) => {
+    if (dirty && discardRecovery) recoveryDiscards.current.set(sessionId,discardRecovery);
+    else recoveryDiscards.current.delete(sessionId);
     if (dirty) {
       // A midnight rollover must not change the selected day under an editor.
       setChosenMonth(month);
@@ -88,8 +92,8 @@ export default function FocusCalendar({ userId, onDraftStateChange }: { userId: 
   const hasDrafts = dirtyReflections.size > 0;
   const reflectionBusy = visibleDetails.some(session => pendingReflections.has(session.id));
   useEffect(() => {
-    onDraftStateChange?.({ dirty: hasDrafts, busy: reflectionBusy });
-  }, [hasDrafts, reflectionBusy, onDraftStateChange]);
+    onDraftStateChange?.({ dirty: hasDrafts, busy: reflectionBusy, discard: discardRecoveryCopies });
+  }, [hasDrafts, reflectionBusy, onDraftStateChange, discardRecoveryCopies]);
   const detailIds = visibleDetails.map(session => session.id).join(",");
   // One bounded batch for the rounds on screen, not one request per round.
   useLoadSessionReflections(userId, visibleDetails.map(session => session.id));
@@ -112,6 +116,7 @@ export default function FocusCalendar({ userId, onDraftStateChange }: { userId: 
         return false;
       }
       if (!window.confirm("Discard your unsaved reflection drafts and change the calendar? Choose Cancel to keep editing.")) return false;
+      if (!discardRecoveryCopies()) { setAnnouncement("Couldn't remove a browser recovery copy. Retry before discarding."); return false; }
       setDirtyReflections(new Set());
       // Explicit discard also resets editors whose rounds still match a filter.
       setEditorRevision(revision => revision + 1);
@@ -211,7 +216,7 @@ export default function FocusCalendar({ userId, onDraftStateChange }: { userId: 
                   saved={session.private_tag_version === null ? null : { tag: session.private_tag, version: session.private_tag_version }}
                   available={tagsAvailable} onSaved={onTagSaved} reload={retry} />
                 {!sessionMatches(session, filter, activeTag) && <p role="status" className="text-xs text-muted">This round stays here while you finish your reflection draft. It is excluded from matching totals.</p>}
-                <SessionReflection key={`reflection-${userId}-${session.id}-${editorRevision}`} userId={userId} sessionId={session.id} onDirtyChange={dirty => reflectionChanged(session.id, dirty)} onBusyChange={busy => reflectionPending(session.id, busy)} />
+                <SessionReflection key={`reflection-${userId}-${session.id}-${editorRevision}`} userId={userId} sessionId={session.id} onDirtyChange={(dirty, discardRecovery) => reflectionChanged(session.id, dirty, discardRecovery)} onBusyChange={busy => reflectionPending(session.id, busy)} />
               </article>)}
               {shown < details.length && <button className="min-h-11 text-xs underline" onClick={() => setShown(count => count + PAGE)}>Show more rounds ({details.length - shown} remaining)</button>}
             </>}
