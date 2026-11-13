@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "@/test/axe";
 
 // A small fake of the server contract: the same version checks and error codes
@@ -69,6 +69,7 @@ function seed(text: string | null, version = 1, sessionId = "s1") {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   seed(null);
   server.failRead = false;
   server.failWrite = null;
@@ -339,4 +340,62 @@ describe("optional reflection prompts", () => {
     expect(server.rows.get("s1")?.reflection_text).toBe("My own answer");
     expect(server.rpcArgs[0].p_text).toBe("My own answer");
   });
+});
+
+describe("opt-in browser recovery", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const copies = () => Object.keys(sessionStorage).filter(key => key.startsWith("duodoro:reflection-draft:"));
+  it("stores nothing until opt-in, then offers explicit recovery after remount and clears after save", async () => {
+    seed(null); const first = render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Add reflection" }));
+    fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"Private unfinished writing" } }); expect(copies()).toHaveLength(0);
+    expect(screen.getByRole("checkbox",{ name:"Keep a recovery draft in this tab" })).toHaveAccessibleDescription(/unencrypted/);
+    fireEvent.click(screen.getByRole("checkbox",{ name:"Keep a recovery draft in this tab" })); expect(copies()).toHaveLength(1); first.unmount();
+    render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Add reflection" }));
+    expect(screen.getByRole("textbox")).toHaveValue(""); expect(screen.getByRole("textbox")).toBeDisabled();
+    fireEvent.click(screen.getByRole("button",{ name:"Recover browser draft" }));
+    expect(screen.getByRole("textbox")).toHaveValue("Private unfinished writing"); expect(server.rpcNames).toEqual([]);
+    fireEvent.click(screen.getByRole("button",{ name:"Save reflection" })); await screen.findByText("Reflection saved"); expect(copies()).toHaveLength(0);
+  });
+  it("preserves a frozen stale revision and never overwrites a changed server note", async () => {
+    seed("original",1); const first = render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Edit reflection" }));
+    fireEvent.click(screen.getByRole("checkbox",{ name:"Keep a recovery draft in this tab" }));
+    fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"my draft" } }); first.unmount();
+    seed("new server text",2); await act(() => loadSessionReflections("alice",["s1"]));
+    render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Edit reflection" })); fireEvent.click(screen.getByRole("button",{ name:"Recover browser draft" }));
+    expect(screen.getByText(/changed in another tab or device/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button",{ name:"Save reflection" })); await screen.findByText("Your draft is still here. Nothing was overwritten.");
+    expect(server.rows.get("s1")?.reflection_text).toBe("new server text"); expect(copies()).toHaveLength(1);
+  });
+  it("clears opted-in copies when opting out or explicitly discarding", async () => {
+    seed(null); render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Add reflection" }));
+    fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"private draft" } }); const checkbox = screen.getByRole("checkbox");
+    fireEvent.click(checkbox); expect(copies()).toHaveLength(1); fireEvent.click(checkbox); expect(copies()).toHaveLength(0);
+    fireEvent.click(checkbox); fireEvent.click(screen.getByRole("button",{ name:"Cancel" })); fireEvent.click(screen.getByRole("button",{ name:"Discard draft" })); expect(copies()).toHaveLength(0);
+  });
+  it("blocks explicit discard if an unreadable older copy cannot be removed", async () => {
+    seed(null); sessionStorage.setItem("duodoro:reflection-draft:v1:alice:s1","invalid copy");
+    const remove = vi.spyOn(Storage.prototype,"removeItem").mockImplementation(() => { throw new Error("blocked"); });
+    render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Add reflection" }));
+    fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"new writing" } });
+    fireEvent.click(screen.getByRole("button",{ name:"Cancel" })); fireEvent.click(screen.getByRole("button",{ name:"Discard draft" }));
+    expect(screen.getByRole("textbox")).toHaveValue("new writing");
+    expect(screen.getByText(/Retry before discarding/)).toBeVisible();
+    remove.mockRestore(); fireEvent.click(screen.getByRole("button",{ name:"Discard draft" }));
+    expect(screen.queryByRole("textbox")).toBeNull(); expect(sessionStorage.getItem("duodoro:reflection-draft:v1:alice:s1")).toBeNull();
+  });
+  it("keeps writing usable when browser storage fails", async () => {
+    seed(null); render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Add reflection" }));
+    vi.spyOn(Storage.prototype,"setItem").mockImplementation(() => { throw new Error("quota"); });
+    fireEvent.click(screen.getByRole("checkbox")); fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"still here" } });
+    expect(screen.getByRole("textbox")).toHaveValue("still here"); expect(screen.getByText(/Couldn't store or remove/)).toBeVisible();
+  });
+});
+
+it("removes a recovery copy when the saved reflection is deleted without opening the draft", async () => {
+  seed("saved");
+  const { browserDraftEpoch, writeBrowserReflectionDraft } = await import("@/lib/browserReflectionDrafts");
+  writeBrowserReflectionDraft({ userId:"alice",sessionId:"s1",text:"unfinished",baselineText:"saved",version:1 },browserDraftEpoch());
+  render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Delete reflection" }));
+  fireEvent.click(within(screen.getByRole("group",{ name:"Delete reflection?" })).getByRole("button",{ name:"Delete reflection" }));
+  await screen.findByText("Reflection deleted"); expect(sessionStorage.getItem("duodoro:reflection-draft:v1:alice:s1")).toBeNull();
 });

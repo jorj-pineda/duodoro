@@ -4,6 +4,7 @@ import {
   DEFAULT_AVATAR,
   type AvatarConfig,
 } from "@/lib/avatarData";
+import { clearBrowserReflectionDrafts } from "@/lib/browserReflectionDrafts";
 import { getSupabase } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { profileFromRow, type Profile } from "@/lib/types";
@@ -186,6 +187,7 @@ export function useAuth() {
 
     const handleSession = async (session: Session) => {
       if (!mounted || handledUser === session.user.id) return;
+      clearBrowserReflectionDrafts(session.user.id);
       handledUser = session.user.id;
       const generation = ++sessionGeneration;
       const cached = getCachedProfile();
@@ -243,7 +245,7 @@ export function useAuth() {
         if (!current(generation)) return;
         if (error) throw error;
         if (!session) {
-          if (!hasOAuthCode) setAppStep("landing");
+          if (!hasOAuthCode) { clearBrowserReflectionDrafts(); setAppStep("landing"); }
           else {
             // Allow an in-flight PKCE callback to deliver its auth event.
             const timer = setTimeout(() => {
@@ -272,6 +274,7 @@ export function useAuth() {
           // they finish releases the callback lock on a fresh browser.
           void handleSession(session);
         } else if (event === "SIGNED_OUT") {
+          clearBrowserReflectionDrafts();
           ++sessionGeneration;
           handledUser = null;
           setProfile(null);

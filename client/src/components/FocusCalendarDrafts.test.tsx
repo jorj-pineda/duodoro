@@ -16,6 +16,7 @@ async function draft() {
   fireEvent.change(editor(), { target: { value: "Keep this private draft" } });
 }
 beforeEach(() => {
+  sessionStorage.clear();
   fake.today = "2026-10-07";
   fake.rpc.mockReset(); fake.hook.mockReset();
   fake.hook.mockImplementation((_id, month) => ({ rows: month === "2026-10" ? rows : [], loaded: true, error: null, retry: vi.fn(), tagsAvailable: true, timezone: "UTC" }));
@@ -96,4 +97,13 @@ it("waits for an in-flight save instead of discarding a pending write", async ()
   await waitFor(() => expect(screen.getByText("Reflection saved")).toBeVisible());
   fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
   expect(screen.getByRole("heading", { name: "September 2026" })).toBeVisible();
+});
+
+it("clears a browser recovery copy only when calendar discard is confirmed", async () => {
+  const confirm = vi.spyOn(window,"confirm").mockReturnValue(false);
+  render(<FocusCalendar userId="alice" />); await draft();
+  fireEvent.click(screen.getByRole("checkbox",{ name:"Keep a recovery draft in this tab" }));
+  const key = Object.keys(sessionStorage).find(key => key.startsWith("duodoro:reflection-draft:")); expect(key).toBeTruthy();
+  fireEvent.click(day("2026-10-08")); expect(sessionStorage.getItem(key!)).not.toBeNull();
+  confirm.mockReturnValue(true); fireEvent.click(day("2026-10-08")); expect(sessionStorage.getItem(key!)).toBeNull();
 });

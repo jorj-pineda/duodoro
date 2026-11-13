@@ -1,4 +1,5 @@
 "use client";
+import BrowserDraftWarning from "./BrowserDraftWarning";
 import { ReactionControls } from "./PixelReactions";
 import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
 import CompanionNameEditor from "./CompanionNameEditor";
@@ -46,6 +47,10 @@ import {
 } from "@/lib/shareInvite";
 
 export default function DuoTimer() {
+  return <><BrowserDraftWarning /><DuoTimerContent /></>;
+}
+
+function DuoTimerContent() {
   const router = useRouter();
   const auth = useAuth();
   useAccountPreferenceSync(auth.profile?.id);
