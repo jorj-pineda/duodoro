@@ -1,0 +1,25 @@
+import { randomUUID } from "node:crypto";
+import { test, expect, requireSuccess, AUTH_STORAGE_KEY } from "./duoFixture";
+import { onboard } from "./onboard";
+test("an accepted date opens waiting-room setup with a manual invite and manual start", async ({ duo }) => {
+  const { a,b,admin,roomCodes } = duo;
+  await a.page.goto("/"); await onboard(a.page,"Date Start Alpha",`dsa_${randomUUID().slice(0,8)}`);
+  await b.page.goto("/"); await b.page.evaluate(({ key,session }) => localStorage.setItem(key,JSON.stringify(session)),{ key:AUTH_STORAGE_KEY,session:b.session });
+  await b.page.reload(); await onboard(b.page,"Date Start Beta",`dsb_${randomUUID().slice(0,8)}`);
+  requireSuccess((await admin.from("friendships").insert({ requester_id:a.id,addressee_id:b.id,status:"accepted" })).error,"Create date-start friends");
+  const proposed = await a.client.rpc("propose_focus_date",{ p_id:randomUUID(),p_recipient_id:b.id,p_starts_at:new Date(Date.now()+86400000).toISOString() });
+  requireSuccess(proposed.error,"Propose date-start fixture");
+  requireSuccess((await b.client.rpc("respond_focus_date",{ p_id:proposed.data![0].id,p_expected_version:1,p_status:"accepted" })).error,"Accept date-start fixture");
+  await a.page.reload(); await a.page.setViewportSize({ width:390,height:844 });
+  const dates = a.page.getByRole("region",{ name:"Shared focus dates" });
+  const button = dates.getByRole("button",{ name:"Open room setup",exact:true });
+  await expect(button).toBeEnabled(); await button.scrollIntoViewIfNeeded();
+  expect(await a.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await dates.screenshot({ path:test.info().outputPath("focus-date-start-phone.png") });
+  await button.click();
+  await expect(a.page.getByRole("button",{ name:"Start solo",exact:true })).toBeVisible();
+  await expect(a.page.getByRole("button",{ name:"Copy invite link",exact:true })).toBeVisible();
+  await expect(a.page.getByRole("button",{ name:"Stop timer",exact:true })).toHaveCount(0);
+  const room = await a.page.evaluate(() => localStorage.getItem("duodoro:session"));
+  if (!room) throw new Error("Date-start room was not created."); roomCodes.add(room);
+});
