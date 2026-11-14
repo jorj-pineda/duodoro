@@ -90,3 +90,8 @@ it('keeps a selected goal private while an existing focus round is running, then
   expect(screen.getByRole('textbox')).toHaveValue('Next private goal');
   expect(screen.getByRole('button',{ name: 'Save intention' })).toBeEnabled();
 });
+
+it("keeps multiline imported reflections readable and private until explicit save", () => {
+  const onSave = vi.fn(); render(<SessionIntentions {...props} goalDraft={"First thought\nSecond thought"} onSave={onSave} />);
+  expect(screen.getByRole("textbox")).toHaveValue("First thought\nSecond thought"); expect(screen.getByRole("textbox").tagName).toBe("TEXTAREA"); expect(onSave).not.toHaveBeenCalled();
+});

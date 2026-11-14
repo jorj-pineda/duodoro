@@ -64,7 +64,9 @@ function DuoTimerContent() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcuts = useShortcutPreference(auth.profile?.id);
   const [intentionEditing, setIntentionEditing] = useState(false);
-  const [goalDraft, setGoalDraft] = useState<{ owner: string; text: string } | null>(null);
+  const [goalDraft, setGoalDraft] = useState<{ owner: string; text: string; revision?: string } | null>(null);
+  const [draftAccount, setDraftAccount] = useState(auth.profile?.id);
+  if (draftAccount !== auth.profile?.id) { setDraftAccount(auth.profile?.id); setGoalDraft(null); }
   const [wrapScope, setWrapScope] = useState<{ owner: string; room: string } | null>(null);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -139,7 +141,14 @@ function DuoTimerContent() {
     handleCreateSession();
   };
 
+  const prepareReflectionIntention = (text: string) => {
+    if (!profile || hasIntentionDraft) return false;
+    setGoalDraft({ owner:profile.id,text,revision:crypto.randomUUID() });
+    return true;
+  };
+
   const handleFocusGoal = (task: Task) => {
+    if (hasIntentionDraft) { showError("Review or cancel your existing intention draft first."); return; }
     if (!profile || task.owner_id !== profile.id || task.room_code !== null || task.is_done) return;
     if (game.connectionState !== "connected") { showError("Reconnect before focusing on a goal."); return; }
     setGoalDraft({ owner: profile.id, text: task.content });
@@ -378,6 +387,7 @@ function DuoTimerContent() {
             open={statsOpen}
             onClose={() => setStatsOpen(false)}
             userId={profile.id}
+            onPrepareIntention={prepareReflectionIntention}
             onViewFullStats={() => {
               setStatsOpen(false);
               setFullStatsOpen(true);
@@ -387,6 +397,7 @@ function DuoTimerContent() {
             open={fullStatsOpen}
             onClose={() => setFullStatsOpen(false)}
             userId={profile.id}
+            onPrepareIntention={prepareReflectionIntention}
           />
           <PremiumModal
             open={premiumOpen}
@@ -695,7 +706,7 @@ function DuoTimerContent() {
           </>}
           reactions={<ReactionControls key={game.sessionId} connected={game.connectionState === "connected" && Boolean(game.sessionId)} onSend={game.sendReaction} />}
           startBlocked={hasIntentionDraft}
-          intentionPrompt={profile && game.sessionId && <SessionIntentions key={`${profile.id}:${game.sessionId}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
+          intentionPrompt={profile && game.sessionId && <SessionIntentions key={`${profile.id}:${game.sessionId}:${goalDraft?.owner === profile.id ? goalDraft.revision ?? "goal" : "none"}`} intentions={game.intentions} userId={profile.id} phase={game.phase}
             names={Object.fromEntries([[profile.id, displayName], ...(game.partnerUserId ? [[game.partnerUserId, game.partnerName ?? "Partner"]] : [])])}
             onSave={game.setIntention} onEditingChange={setIntentionEditing} goalDraft={goalDraft?.owner === profile.id ? goalDraft.text : undefined} onGoalDismiss={() => setGoalDraft(null)} />}
           companionGrowth={companionGrowth}

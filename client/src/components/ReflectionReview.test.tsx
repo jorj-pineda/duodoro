@@ -154,3 +154,9 @@ it("applies an explicit date range while retaining private keyword/tag/type filt
   view.rerender(<ReflectionReview userId="partner" />);
   expect(screen.getByRole("searchbox")).toHaveValue(""); expect(screen.queryByLabelText("From date")).toBeNull();
 });
+
+it("offers a confirmed saved note as a private intention draft without writes or navigation", () => {
+  fake.calendar.mockReturnValue(state([round("s1")])); fake.entries.mockReturnValue({ s1:entry("s1","My private note") });
+  const prepare = vi.fn(() => true); render(<ReflectionReview userId="owner" onPrepareIntention={prepare} />);
+  fireEvent.click(screen.getByRole("button",{ name:"Use for my next focus" })); expect(prepare).toHaveBeenCalledWith("My private note"); expect(screen.getByText(/Private draft prepared/)).toBeVisible();
+});
