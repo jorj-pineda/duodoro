@@ -1,4 +1,5 @@
 "use client";
+import type { PrepareReflectionIntention } from "./ReflectionIntention";
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useModalAccessibility } from "@/hooks/useModalAccessibility";
@@ -14,6 +15,7 @@ import WorldThumb from "./WorldThumb";
 import { CloseIcon } from "./Icons";
 
 interface Props {
+  onPrepareIntention?: PrepareReflectionIntention;
   open: boolean;
   onClose: () => void;
   userId: string;
@@ -121,6 +123,7 @@ export default function StatsPanel({
   onClose,
   userId,
   onViewFullStats,
+  onPrepareIntention,
 }: Props) {
   const guard = useReflectionExitGuard(open, userId);
   const close = () => { guard.leave(onClose); };
@@ -227,9 +230,9 @@ export default function StatsPanel({
                   </p>
                 )}
 
-                {tab === "calendar" && <FocusCalendar key={userId} userId={userId} onDraftStateChange={guard.onDraftStateChange} />}
+                {tab === "calendar" && <FocusCalendar key={userId} userId={userId} onPrepareIntention={onPrepareIntention} onDraftStateChange={guard.onDraftStateChange} />}
                 {tab === "insights" && <FocusInsights key={userId} userId={userId} />}
-                {tab === "reflections" && <ReflectionReview userId={userId} />}
+                {tab === "reflections" && <ReflectionReview userId={userId} onPrepareIntention={onPrepareIntention} />}
 
                 {/* Personal tab */}
                 {tab !== "calendar" && tab !== "insights" && tab !== "reflections" && !loading && statsError && (

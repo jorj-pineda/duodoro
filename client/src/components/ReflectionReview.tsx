@@ -1,4 +1,5 @@
 "use client";
+import ReflectionIntention, { type PrepareReflectionIntention } from "./ReflectionIntention";
 import { useId, useState } from "react";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
 import { useFocusCalendar } from "@/hooks/useFocusCalendar";
@@ -13,11 +14,11 @@ const PAGE = 20;
 
 // Account changes discard search text, filters and the selected month as well
 // as the notes. These controls are intentionally never persisted or shared.
-export default function ReflectionReview({ userId }: { userId: string }) {
-  return <Review key={userId} userId={userId} />;
+export default function ReflectionReview({ userId, onPrepareIntention }: { userId: string; onPrepareIntention?: PrepareReflectionIntention }) {
+  return <Review key={userId} userId={userId} onPrepareIntention={onPrepareIntention} />;
 }
 
-function Review({ userId }: { userId: string }) {
+function Review({ userId, onPrepareIntention }: { userId: string; onPrepareIntention?: PrepareReflectionIntention }) {
   const today = useLocalDay();
   const [chosenMonth, setChosenMonth] = useState("");
   const [rangeMode, setRangeMode] = useState(false);
@@ -129,6 +130,7 @@ function Review({ userId }: { userId: string }) {
               </div>
               {tagsAvailable && <p className="text-xs text-muted">{round.private_tag ? focusTagLabel(round.private_tag) : "No tag"}</p>}
               <p className="whitespace-pre-wrap break-words text-sm text-ink">{reflection.text}</p>
+              {complete && !pending && <ReflectionIntention text={reflection.text} onPrepare={onPrepareIntention} />}
             </article>
           </li>)}
         </ol>

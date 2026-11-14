@@ -58,9 +58,9 @@ vi.mock("@/lib/supabase", () => ({
 import SessionReflection from "./SessionReflection";
 import { useLoadSessionReflections, resetSessionReflectionStore, loadSessionReflections } from "@/hooks/useSessionReflections";
 
-function Harness({ sessionId = "s1" }: { sessionId?: string }) {
+function Harness({ sessionId = "s1", onPrepareIntention }: { sessionId?: string; onPrepareIntention?: (text: string) => boolean }) {
   useLoadSessionReflections("alice", [sessionId]);
-  return <SessionReflection userId="alice" sessionId={sessionId} />;
+  return <SessionReflection userId="alice" sessionId={sessionId} onPrepareIntention={onPrepareIntention} />;
 }
 
 function seed(text: string | null, version = 1, sessionId = "s1") {
@@ -398,4 +398,11 @@ it("removes a recovery copy when the saved reflection is deleted without opening
   render(<Harness />); fireEvent.click(await screen.findByRole("button",{ name:"Delete reflection" }));
   fireEvent.click(within(screen.getByRole("group",{ name:"Delete reflection?" })).getByRole("button",{ name:"Delete reflection" }));
   await screen.findByText("Reflection deleted"); expect(sessionStorage.getItem("duodoro:reflection-draft:v1:alice:s1")).toBeNull();
+});
+
+it("stages only the saved private reflection and never writes or uses unsaved edits", async () => {
+  seed("Saved private thought"); const prepare = vi.fn(() => true); render(<Harness onPrepareIntention={prepare} />);
+  fireEvent.click(await screen.findByRole("button",{ name:"Use for my next focus" })); expect(prepare).toHaveBeenCalledWith("Saved private thought"); expect(server.rpcNames).toEqual([]);
+  fireEvent.click(screen.getByRole("button",{ name:"Edit reflection" })); fireEvent.change(screen.getByRole("textbox"),{ target:{ value:"unsaved" } });
+  expect(screen.queryByRole("button",{ name:"Use for my next focus" })).toBeNull();
 });

@@ -1,4 +1,5 @@
 "use client";
+import ReflectionIntention, { type PrepareReflectionIntention } from "./ReflectionIntention";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { browserDraftEpoch, readBrowserReflectionDraft, writeBrowserReflectionDraft, removeBrowserReflectionDraft, type BrowserReflectionDraft } from "@/lib/browserReflectionDrafts";
 import { deleteSessionReflection, loadSessionReflections, saveSessionReflection, useSessionReflection } from "@/hooks/useSessionReflections";
@@ -15,7 +16,7 @@ type Notice = { tone: "status" | "alert"; text: string; reload?: "edit" | "view"
 // freezes the baseline version it was opened from. Later saved changes from
 // another tab or device then stay out of the draft, and a save from the stale
 // baseline is rejected by the server.
-export default function SessionReflection({ userId, sessionId, onDirtyChange, onBusyChange }: { userId: string; sessionId: string; onDirtyChange?: (dirty: boolean, discardRecovery?: () => boolean) => void; onBusyChange?: (busy: boolean) => void }) {
+export default function SessionReflection({ userId, sessionId, onDirtyChange, onBusyChange, onPrepareIntention }: { userId: string; sessionId: string; onPrepareIntention?: PrepareReflectionIntention; onDirtyChange?: (dirty: boolean, discardRecovery?: () => boolean) => void; onBusyChange?: (busy: boolean) => void }) {
   const entry = useSessionReflection(userId, sessionId);
   const saved = entry?.reflection ?? null;
   const status = entry?.status ?? "loading";
@@ -242,6 +243,7 @@ export default function SessionReflection({ userId, sessionId, onDirtyChange, on
     {status === "error" && <p role="alert" className="text-xs text-danger">Couldn&apos;t refresh your reflection. This is your last saved copy.</p>}
     {saved ? <>
       <p className="text-xs text-ink whitespace-pre-wrap [overflow-wrap:anywhere]">{saved.text}</p>
+      {!busy && status === "ready" && <ReflectionIntention text={saved.text} onPrepare={onPrepareIntention} />}
       <p className="text-[11px] text-muted">Only you can see this.</p>
       <div className="flex flex-wrap gap-1">
         <button ref={triggerRef} className={button} disabled={busy} onClick={openEditor}>Edit reflection</button>

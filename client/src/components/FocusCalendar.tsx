@@ -1,4 +1,5 @@
 "use client";
+import type { PrepareReflectionIntention } from "./ReflectionIntention";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReflectionDraftState } from "@/hooks/useReflectionExitGuard";
 import { useLocalDay } from "@/hooks/useDailyFocusGoal";
@@ -32,7 +33,7 @@ function tagPhrase(tag: TagFilter): string {
   return ` tagged ${focusTagLabel(tag)}`;
 }
 
-export default function FocusCalendar({ userId, onDraftStateChange }: { userId: string; onDraftStateChange?: (state: ReflectionDraftState) => void }) {
+export default function FocusCalendar({ userId, onDraftStateChange, onPrepareIntention }: { userId: string; onPrepareIntention?: PrepareReflectionIntention; onDraftStateChange?: (state: ReflectionDraftState) => void }) {
   const today = useLocalDay();
   const [chosenMonth, setChosenMonth] = useState("");
   const [chosenDay, setChosenDay] = useState("");
@@ -216,7 +217,7 @@ export default function FocusCalendar({ userId, onDraftStateChange }: { userId: 
                   saved={session.private_tag_version === null ? null : { tag: session.private_tag, version: session.private_tag_version }}
                   available={tagsAvailable} onSaved={onTagSaved} reload={retry} />
                 {!sessionMatches(session, filter, activeTag) && <p role="status" className="text-xs text-muted">This round stays here while you finish your reflection draft. It is excluded from matching totals.</p>}
-                <SessionReflection key={`reflection-${userId}-${session.id}-${editorRevision}`} userId={userId} sessionId={session.id} onDirtyChange={(dirty, discardRecovery) => reflectionChanged(session.id, dirty, discardRecovery)} onBusyChange={busy => reflectionPending(session.id, busy)} />
+                <SessionReflection key={`reflection-${userId}-${session.id}-${editorRevision}`} userId={userId} sessionId={session.id} onPrepareIntention={onPrepareIntention} onDirtyChange={(dirty, discardRecovery) => reflectionChanged(session.id, dirty, discardRecovery)} onBusyChange={busy => reflectionPending(session.id, busy)} />
               </article>)}
               {shown < details.length && <button className="min-h-11 text-xs underline" onClick={() => setShown(count => count + PAGE)}>Show more rounds ({details.length - shown} remaining)</button>}
             </>}

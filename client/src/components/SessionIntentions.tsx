@@ -24,6 +24,7 @@ export default function SessionIntentions({ intentions, userId, phase, names, on
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [error, setError] = useState<string | null>(null);
   const focusing = phase === "focus";
+  const DraftField = goalDraft === undefined ? "input" : "textarea";
   const saved = intentions.next[userId] ?? "";
   const closeEditor = () => {
     setEditing(false);
@@ -54,18 +55,18 @@ export default function SessionIntentions({ intentions, userId, phase, names, on
       {Object.entries(intentions.next).filter(([id]) => names[id] && id !== userId).map(([id, text]) => (
         <p key={id} className="text-xs text-muted mt-2 break-words">{names[id]}: {text}</p>
       ))}
-      {goalDraft !== undefined && editing && <p className="text-xs text-ink mt-2">Private goal draft. Review it before Save intention shares this text in the room. {saved && "Saving replaces your current next-round intention."}</p>}
+      {goalDraft !== undefined && editing && <p className="text-xs text-ink mt-2">Private intention draft. Review it before Save intention shares this text in the room. {saved && "Saving replaces your current next-round intention."}</p>}
       {editing ? (
         <form className="mt-2" onSubmit={(event) => { event.preventDefault(); if (!focusing) void save(draft); }}>
           <label htmlFor="session-intention" className="sr-only">Your session intention</label>
-          <input id="session-intention" autoFocus maxLength={160} value={draft} disabled={busy}
+          <DraftField id="session-intention" autoFocus maxLength={160} value={draft} disabled={busy}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault();
               if (event.key === "Escape") { event.stopPropagation(); event.preventDefault(); if (!busy) closeEditor(); }
             }}
             className="w-full min-h-11 border border-line bg-bg px-2 text-sm text-ink" />
-          {draft.trim().length > 160 && <p role="alert" className="text-xs text-ink">Shorten this goal to 160 characters before sharing. No text has been cut automatically.</p>}
+          {draft.trim().length > 160 && <p role="alert" className="text-xs text-ink">Shorten this draft to 160 characters before sharing. No text has been cut automatically.</p>}
           {focusing && <p className="text-xs text-muted mt-1">Focus has started. Your draft is still here for the break.</p>}
           <div className="flex gap-2">
             <button className={button} disabled={busy || focusing || draft.trim().length > 160} type="submit">{busy ? "Saving…" : "Save intention"}</button>

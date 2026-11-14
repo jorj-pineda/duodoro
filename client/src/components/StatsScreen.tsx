@@ -1,4 +1,5 @@
 "use client";
+import type { PrepareReflectionIntention } from "./ReflectionIntention";
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useReflectionExitGuard } from "@/hooks/useReflectionExitGuard";
@@ -14,6 +15,7 @@ import WorldThumb from "./WorldThumb";
 import { CloseIcon } from "./Icons";
 
 interface Props {
+  onPrepareIntention?: PrepareReflectionIntention;
   open: boolean;
   onClose: () => void;
   userId: string;
@@ -124,7 +126,7 @@ function BigStatCard({
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function StatsScreen({ open, onClose, userId }: Props) {
+export default function StatsScreen({ open, onClose, userId, onPrepareIntention }: Props) {
   const guard = useReflectionExitGuard(open, userId);
   const close = () => { guard.leave(onClose); };
   const dialogRef = useModalAccessibility<HTMLDivElement>(open, close);
@@ -169,8 +171,8 @@ export default function StatsScreen({ open, onClose, userId }: Props) {
 
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
             <FocusInsights key={`insights-${userId}`} userId={userId} />
-            <FocusCalendar key={userId} userId={userId} onDraftStateChange={guard.onDraftStateChange} />
-            <ReflectionReview userId={userId} />
+            <FocusCalendar key={userId} userId={userId} onPrepareIntention={onPrepareIntention} onDraftStateChange={guard.onDraftStateChange} />
+            <ReflectionReview userId={userId} onPrepareIntention={onPrepareIntention} />
             <FocusHistoryExport key={`export-${userId}`} userId={userId} />
             {loading && (
               <p className="text-faint text-sm text-center py-12">
