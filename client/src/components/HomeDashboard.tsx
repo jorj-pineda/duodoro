@@ -408,7 +408,7 @@ export default function HomeDashboard({
             <SharedDailyGoals key={`shared:${profile.id}`} userId={profile.id} friends={friends}
               friendsError={friendsError} friendsLoaded={friendsLoaded} onOpenFriends={onOpenFriends} />
             <SharedFocusDates userId={profile.id} friends={friends} friendsLoaded={friendsLoaded}
-              friendsError={friendsError} onOpenFriends={onOpenFriends} onOpenRoom={onFocus}
+              friendsError={friendsError} onOpenFriends={onOpenFriends} onOpenRoom={onFocus} onInvite={onInvite} onlineFriends={onlineFriends}
               roomDisabled={connectionState !== "connected" || !!activeSessionId} />
           </section>
 

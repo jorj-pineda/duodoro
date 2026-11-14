@@ -33,3 +33,25 @@ it("drops late reads when room creation becomes disabled or the component unmoun
   view.rerender(<FocusDateStart date={date} userId="a" disabled={false} onOpenRoom={open} />); fireEvent.click(screen.getByRole("button")); view.unmount();
   await act(async () => resolve({ data:date,error:null })); expect(open).not.toHaveBeenCalled();
 });
+
+it.each(["a","b"])("invites only the freshly validated date partner for %s on explicit click", async userId => {
+  const invite = vi.fn(), open = vi.fn(); render(<FocusDateStart date={date} userId={userId} disabled={false} onOpenRoom={open} onInvite={invite} inviteAvailable />);
+  expect(invite).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button",{ name:"Open room & invite friend" }));
+  await waitFor(() => expect(invite).toHaveBeenCalledWith(userId === "a" ? "b" : "a")); expect(open).not.toHaveBeenCalled();
+});
+it("blocks unavailable partners and drops pending invites when presence changes", async () => {
+  const invite = vi.fn(), open = vi.fn(); const view = render(<FocusDateStart date={date} userId="a" disabled={false} onOpenRoom={open} onInvite={invite} />);
+  expect(screen.getByRole("button",{ name:"Open room & invite friend" })).toBeDisabled(); expect(screen.getByRole("button",{ name:"Open room setup" })).toBeEnabled();
+  let resolve!: (value: unknown) => void; read.mockImplementation(() => new Promise(done => { resolve = done; }));
+  view.rerender(<FocusDateStart date={date} userId="a" disabled={false} onOpenRoom={open} onInvite={invite} inviteAvailable />);
+  fireEvent.click(screen.getByRole("button",{ name:"Open room & invite friend" }));
+  view.rerender(<FocusDateStart date={date} userId="a" disabled={false} onOpenRoom={open} onInvite={invite} />);
+  await act(async () => resolve({ data:date,error:null })); expect(invite).not.toHaveBeenCalled();
+});
+it("never invites from a stale or failed date read", async () => {
+  const invite = vi.fn(); render(<FocusDateStart date={date} userId="a" disabled={false} onOpenRoom={vi.fn()} onInvite={invite} inviteAvailable />);
+  for (const result of [{ data:{ ...date,version:3 },error:null },{ data:null,error:{ message:"offline" } }]) {
+    read.mockResolvedValueOnce(result); fireEvent.click(screen.getByRole("button",{ name:"Open room & invite friend" })); await screen.findByRole("alert");
+  }
+  expect(invite).not.toHaveBeenCalled();
+});
