@@ -38,3 +38,15 @@ it("has a neutral server frame and hydrates without mismatch for a dismissed acc
   expect(errors).toEqual([]); expect(container).toBeEmptyDOMElement();
   act(() => root.unmount()); container.remove();
 });
+
+it("explains room setup and privacy even after dismissing the Home tip", () => {
+  const view = render(<FirstSessionGuidance userId="room-user" />);
+  fireEvent.click(screen.getByRole("button"));
+  view.rerender(<FirstSessionGuidance userId="room-user" room />);
+  expect(screen.getByRole("complementary",{ name:"Room setup guidance" })).toBeVisible();
+  expect(screen.getByText(/Choose your timer settings before starting/)).toBeVisible();
+  expect(screen.getByText(/Saving an intention shares it/)).toHaveTextContent(/Reflections.*stay private/);
+  fireEvent.click(screen.getByRole("button",{ name:"Dismiss room setup tip" }));
+  view.unmount(); render(<FirstSessionGuidance userId="room-user" room />);
+  expect(screen.queryByRole("complementary")).toBeNull();
+});

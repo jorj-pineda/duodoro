@@ -1,4 +1,5 @@
 "use client";
+import FirstSessionGuidance from "./FirstSessionGuidance";
 import BrowserDraftWarning from "./BrowserDraftWarning";
 import { ReactionControls } from "./PixelReactions";
 import SessionIntentions, { IntentionRecap } from "./SessionIntentions";
@@ -707,6 +708,7 @@ function DuoTimerContent() {
           timeLeft={game.timeLeft}
           flowElapsed={game.flowElapsed}
           phaseProgress={game.phaseProgress}
+          setupGuidance={profile && <FirstSessionGuidance key={`setup:${profile.id}`} userId={profile.id} room />}
           timerPresets={profile && <SessionPresets key={profile.id} userId={profile.id}
             current={{ mode: game.timerMode, focus: game.focusDuration, break: game.breakDuration }}
             onApply={prefs => { game.setTimerMode(prefs.mode); game.setFocusDuration(prefs.focus); game.setBreakDuration(prefs.break); }} />}
