@@ -80,3 +80,17 @@ it("offers room setup only for accepted dates with a usable room action and avai
   fake.hook.mockReturnValue(state()); view.rerender(<SharedFocusDates {...props} onOpenRoom={open} />);
   expect(screen.queryByRole("button",{ name:"Open room setup" })).toBeNull(); expect(open).not.toHaveBeenCalled();
 });
+
+it("gates direct invites by loaded friendship and idle online presence while keeping room setup available", () => {
+  fake.hook.mockReturnValue(state([{ ...row,status:"accepted" }]));
+  const base = { ...props,onOpenRoom:vi.fn(),onInvite:vi.fn() };
+  const view = render(<SharedFocusDates {...base} onlineFriends={[]} />);
+  expect(screen.getByRole("button",{ name:"Open room & invite friend" })).toBeDisabled();
+  expect(screen.getByRole("button",{ name:"Open room setup" })).toBeEnabled();
+  view.rerender(<SharedFocusDates {...base} onlineFriends={[{ id:"b",current_session_id:"busy" }] as Profile[]} />);
+  expect(screen.getByRole("button",{ name:"Open room & invite friend" })).toBeDisabled();
+  view.rerender(<SharedFocusDates {...base} onlineFriends={[{ id:"b",current_session_id:null }] as Profile[]} />);
+  expect(screen.getByRole("button",{ name:"Open room & invite friend" })).toBeEnabled();
+  view.rerender(<SharedFocusDates {...base} friendsError="Unavailable" onlineFriends={[{ id:"b" }] as Profile[]} />);
+  expect(screen.getByRole("button",{ name:"Open room & invite friend" })).toBeDisabled();
+});
