@@ -131,3 +131,10 @@ it('shows the private check-in only during a break, with timer controls intact',
     expect(screen.queryByText('Private energy prompt')).toBeNull();
   }
 });
+
+it("shows setup guidance only before a round starts and keeps Start usable", () => {
+  const start = vi.fn(); const view = render(<ReadyHUD phase="waiting" playerCount={1} onStart={start} setupGuidance={<span>Setup help</span>} />);
+  expect(screen.getByText("Setup help")).toBeVisible(); fireEvent.click(screen.getByRole("button",{ name:"Start solo" })); expect(start).toHaveBeenCalledOnce();
+  view.rerender(<ReadyHUD phase="focus" sessionStarted setupGuidance={<span>Setup help</span>} />); expect(screen.queryByText("Setup help")).toBeNull();
+  view.rerender(<ReadyHUD setupGuidance={<span>Setup help</span>} />); expect(screen.queryByText("Setup help")).toBeNull();
+});

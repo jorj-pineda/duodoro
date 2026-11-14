@@ -50,6 +50,7 @@ interface SessionHUDProps {
   quietFocus?: boolean;
   quietFocusSetting?: ReactNode;
   preferenceStatus?: ReactNode;
+  setupGuidance?: ReactNode;
   timerPresets?: ReactNode;
   reactions?: ReactNode;
   startBlocked?: boolean;
@@ -105,6 +106,7 @@ export default function SessionHUD({
   quietFocus = false,
   quietFocusSetting,
   preferenceStatus,
+  setupGuidance,
   timerPresets,
   reactions,
   startBlocked = false,
@@ -251,6 +253,7 @@ export default function SessionHUD({
           </div>
         )}
 
+        {!sessionStarted && phase === "waiting" && setupGuidance}
         {!sessionStarted && phase === "waiting" && timerPresets}
 
         {intentionPrompt}
