@@ -28,11 +28,13 @@ import ConnectionBanner from "./ConnectionBanner";
 import SessionTopBar from "./SessionTopBar";
 import SessionHUD from "./SessionHUD";
 import QuietFocusSetting from "./QuietFocusSetting";
+import KeepAwakeSetting from "./KeepAwakeSetting";
 import { startShortcutAction } from "@/lib/keyboardShortcuts";
 import KeyboardShortcuts from "./KeyboardShortcuts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useShortcutPreference } from "@/hooks/useShortcutPreference";
 import { useQuietFocus } from "@/hooks/useQuietFocus";
+import { useKeepAwakePreference, useScreenWakeLock } from "@/hooks/useKeepAwake";
 import { useAccountPreferenceSync } from "@/hooks/useAccountPreferenceSync";
 import PreferenceSyncStatus from "./PreferenceSyncStatus";
 import SessionPresets from "./SessionPresets";
@@ -95,6 +97,8 @@ function DuoTimerContent() {
     auth;
   const initial = displayName.charAt(0).toUpperCase();
   useGameTitle(appStep === "game" && !!profile, game);
+  const keepAwake = useKeepAwakePreference(profile?.id);
+  const wakeLock = useScreenWakeLock(appStep === "game" && !!profile && keepAwake.enabled && game.phase === "focus");
 
   const shortcutScreen = !!profile && (appStep === "home" || appStep === "game");
   const hasIntentionDraft = intentionEditing || Boolean(profile && goalDraft?.owner === profile.id);
@@ -697,7 +701,10 @@ function DuoTimerContent() {
 
         <SessionHUD
           quietFocus={quietFocus}
-          quietFocusSetting={profile && <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />}
+          quietFocusSetting={profile && <div className="w-full flex flex-col items-center">
+            <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />
+            <KeepAwakeSetting key={`keep-awake:${profile.id}`} userId={profile.id} failed={wakeLock.failed} />
+          </div>}
           preferenceStatus={profile && <PreferenceSyncStatus key={`sync:${profile.id}`} userId={profile.id} />}
           companionNames={<>
             {game.myPet && game.myPetName && <CompanionNameEditor key={`${profile?.id}:${game.myPet}`} pet={game.myPet} name={game.myPetName}
