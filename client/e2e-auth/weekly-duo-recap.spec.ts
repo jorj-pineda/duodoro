@@ -32,12 +32,31 @@ test('weekly recap shows completed shared focus and retries without exposing sol
   await a.page.setViewportSize({ width: 375, height: 667 });
   await recap.scrollIntoViewIfNeeded();
   await a.page.screenshot({ path: test.info().outputPath('weekly-recap-phone.png') });
+  // The recap also refreshes on its own (socket connect, window focus), so a
+  // refresh can recover it and detach Retry mid-click once the outage ends.
+  let failing = true;
+  let requests = 0;
   await a.page.route('**/rest/v1/rpc/get_weekly_duo_recap', async route => {
+    requests += 1;
+    if (!failing) return route.continue();
     await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) });
   });
   await a.page.reload();
   await expect(recap.getByRole('alert')).toContainText("Couldn't load");
+  const retry = recap.getByRole('button', { name: 'Retry weekly recap' });
+  // During the outage Retry is stable: prove it reaches the network and keeps
+  // the error visible.
+  const beforeFailedRetry = requests;
+  await retry.click({ timeout: 15_000 });
+  await expect.poll(() => requests).toBeGreaterThan(beforeFailedRetry);
+  await expect(recap.getByRole('alert')).toContainText("Couldn't load");
+  failing = false;
+  const recovered = recap.getByText('20m together', { exact: true });
+  // Retry if it is still offered; an automatic refresh may win the race.
+  await expect(async () => {
+    if (await retry.count()) await retry.click({ timeout: 1_000 });
+    await expect(recovered).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(recap.getByRole('alert')).toHaveCount(0);
   await a.page.unroute('**/rest/v1/rpc/get_weekly_duo_recap');
-  await recap.getByRole('button', { name: 'Retry weekly recap' }).click();
-  await expect(recap.getByText('20m together', { exact: true })).toBeVisible();
 });
