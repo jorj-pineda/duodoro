@@ -33,3 +33,6 @@ export const DARK_BG = "#171411";
 export const DARK_INK = "#ede4d3";
 export const DARK_MUTED = "#a2967e";
 export const PAPER = "#f3ede1";
+/** Dark-theme `--accent`/`--calm`: the tab icon is always charcoal. */
+export const TAB_FOCUS = "#e6876f";
+export const TAB_BREAK = "#7da7e8";

@@ -43,6 +43,7 @@ import DisplayNameChangeModal from "./DisplayNameChangeModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
 import { useGameTitle } from "@/hooks/useGameTitle";
+import { useTabIcon } from "@/hooks/useTabIcon";
 import {
   clearPendingShareInvite,
   readPendingShareInvite,
@@ -97,6 +98,7 @@ function DuoTimerContent() {
     auth;
   const initial = displayName.charAt(0).toUpperCase();
   useGameTitle(appStep === "game" && !!profile, game);
+  useTabIcon(appStep === "game" && !!profile, game);
   const keepAwake = useKeepAwakePreference(profile?.id);
   const wakeLock = useScreenWakeLock(appStep === "game" && !!profile && keepAwake.enabled && game.phase === "focus");
 
