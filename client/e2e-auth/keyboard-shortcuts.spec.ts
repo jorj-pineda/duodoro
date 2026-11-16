@@ -33,6 +33,8 @@ test('opt-in shortcuts respect typing, overlays, room eligibility and quiet focu
   await text.fill('Write'); await text.press('s');
   await expect(a.page.getByRole('timer')).toHaveCount(0);
   await text.press('Enter');
+  // Shortcuts stay off while the intention saves; wait until it has closed.
+  await expect(intention.getByRole('button', { name: 'Edit intention', exact: true })).toBeFocused();
   await a.page.getByRole('button', { name: 'Start solo', exact: true }).focus();
   await a.page.keyboard.press('s');
   await expect(a.page.getByRole('timer')).toBeVisible();
