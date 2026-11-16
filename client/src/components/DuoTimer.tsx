@@ -44,6 +44,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGameSession } from "@/hooks/useGameSession";
 import { useGameTitle } from "@/hooks/useGameTitle";
 import { useTabIcon } from "@/hooks/useTabIcon";
+import { useMiniTimer } from "@/hooks/useMiniTimer";
+import { MiniTimerPortal, MiniTimerToggle } from "./MiniTimer";
 import {
   clearPendingShareInvite,
   readPendingShareInvite,
@@ -99,6 +101,7 @@ function DuoTimerContent() {
   const initial = displayName.charAt(0).toUpperCase();
   useGameTitle(appStep === "game" && !!profile, game);
   useTabIcon(appStep === "game" && !!profile, game);
+  const miniTimer = useMiniTimer(appStep === "game" && !!profile);
   const keepAwake = useKeepAwakePreference(profile?.id);
   const wakeLock = useScreenWakeLock(appStep === "game" && !!profile && keepAwake.enabled && game.phase === "focus");
 
@@ -701,11 +704,14 @@ function DuoTimerContent() {
           }}
         />
 
+        <MiniTimerPortal target={miniTimer.window} phase={game.phase} serverMode={game.serverMode} timeLeft={game.timeLeft}
+          flowElapsed={game.flowElapsed} phaseProgress={game.phaseProgress} partnerName={game.playerCount === 2 ? game.partnerName : null} />
         <SessionHUD
           quietFocus={quietFocus}
           quietFocusSetting={profile && <div className="w-full flex flex-col items-center">
             <QuietFocusSetting key={`quiet-focus:${profile.id}`} userId={profile.id} />
             <KeepAwakeSetting key={`keep-awake:${profile.id}`} userId={profile.id} failed={wakeLock.failed} />
+            <MiniTimerToggle opened={!!miniTimer.window} failed={miniTimer.failed} onOpen={() => void miniTimer.open()} onClose={miniTimer.close} />
           </div>}
           preferenceStatus={profile && <PreferenceSyncStatus key={`sync:${profile.id}`} userId={profile.id} />}
           companionNames={<>
