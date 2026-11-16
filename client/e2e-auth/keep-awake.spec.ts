@@ -67,11 +67,15 @@ test('keep screen awake holds a lock only during focus and restores it on tab re
   await expect(a.page).toHaveTitle(/· Break · Duodoro/);
   await expect.poll(held).toBe(0);
 
-  // The choice survives a reload and applies to the next focus round.
+  // The choice survives a reload and applies to the next focus round. Stop
+  // first: the setting is hidden during break, and a short Flow break can end
+  // around the reload, so reloading mid-break made the check timing-dependent.
+  await a.page.getByRole('button', { name: 'Stop timer', exact: true }).click();
+  const startSolo = a.page.getByRole('button', { name: 'Start solo', exact: true });
+  await expect(startSolo).toBeVisible();
   await a.page.reload();
   await expect(awake).toBeChecked();
-  await a.page.getByRole('button', { name: 'Stop timer', exact: true }).click();
-  await a.page.getByRole('button', { name: 'Start solo', exact: true }).click();
+  await startSolo.click();
   await expect(a.page).toHaveTitle(/· Flow · Duodoro/);
   await expect.poll(held).toBe(1);
 
