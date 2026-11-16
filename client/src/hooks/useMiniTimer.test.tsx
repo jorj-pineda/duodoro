@@ -90,6 +90,34 @@ describe("useMiniTimer", () => {
     expect(pip.closed).toBe(true);
   });
 
+  it("closes a window that arrives after unmount without mirroring the theme", async () => {
+    const pip = fakeWindow();
+    let resolve!: (value: Window) => void;
+    installApi(() => new Promise<Window>(done => { resolve = done; }));
+    const { result, unmount } = renderHook(() => useMiniTimer(true));
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.open(); });
+    unmount();
+    await act(async () => { resolve(pip); await opening; });
+    expect(pip.closed).toBe(true);
+    document.documentElement.setAttribute("data-theme", "dark");
+    await act(async () => {});
+    expect(pip.document.documentElement.getAttribute("data-theme")).toBeNull();
+  });
+
+  it("closes a window that arrives after the room closed", async () => {
+    const pip = fakeWindow();
+    let resolve!: (value: Window) => void;
+    installApi(() => new Promise<Window>(done => { resolve = done; }));
+    const { result, rerender } = renderHook(({ active }) => useMiniTimer(active), { initialProps: { active: true } });
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.open(); });
+    rerender({ active: false });
+    await act(async () => { resolve(pip); await opening; });
+    expect(pip.closed).toBe(true);
+    expect(result.current.window).toBeNull();
+  });
+
   it("reports a refused window and clears the message on the next attempt", async () => {
     const pip = fakeWindow();
     let refuse = true;

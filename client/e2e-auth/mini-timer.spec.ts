@@ -43,11 +43,18 @@ test('mini timer mirrors the room timer and closes with the room', async ({ duo 
   await expect(mini.getByText('Break', { exact: true })).toBeVisible();
   await mini.screenshot({ path: test.info().outputPath('mini-timer-break.png') });
 
-  // Closing from the page, then reopening, gives a fresh window.
-  await Promise.all([mini.waitForEvent('close'), a.page.getByRole('button', { name: 'Close mini timer' }).click()]);
+  // Closing it from its own window (the only close control during break)
+  // returns the page toggle to Open once that toggle is shown again.
+  await Promise.all([mini.waitForEvent('close'), mini.evaluate(() => { setTimeout(() => window.close(), 0); })]);
   await a.page.getByRole('button', { name: 'Stop timer', exact: true }).click();
+  await expect(open).toBeVisible();
   await a.page.getByRole('button', { name: 'Start solo', exact: true }).click();
   await expect(a.page).toHaveTitle(/· Flow · Duodoro/);
+
+  // During focus the page control closes it, and reopening gives a fresh window.
+  const [second] = await Promise.all([a.page.waitForEvent('popup'), open.click()]);
+  await expect(second.getByRole('timer')).toHaveText(/^\d\d:\d\d$/);
+  await Promise.all([second.waitForEvent('close'), a.page.getByRole('button', { name: 'Close mini timer' }).click()]);
   const [again] = await Promise.all([a.page.waitForEvent('popup'), open.click()]);
   await expect(again.getByRole('timer')).toHaveText(/^\d\d:\d\d$/);
 
