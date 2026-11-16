@@ -18,6 +18,9 @@ export default defineConfig({
     : "list",
   use: {
     baseURL: APP_ORIGIN,
+    // Fail a stalled click or navigation quickly instead of at the test limit.
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
   },
   webServer: [
     {
