@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 type PictureInPictureApi = {
   requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
@@ -59,13 +59,28 @@ function mirrorRoot(source: Document, target: Document) {
 export function useMiniTimer(active: boolean) {
   const [pip, setPip] = useState<Window | null>(null);
   const [failed, setFailed] = useState(false);
+  // A window can arrive after unmount, after the room closes, or after a newer
+  // request; only the latest request from a live, active room may keep it.
+  const live = useRef(false);
+  const activeRef = useRef(active);
+  const latest = useRef(0);
+  useEffect(() => { activeRef.current = active; }, [active]);
+  useEffect(() => {
+    live.current = true;
+    return () => { live.current = false; };
+  }, []);
 
   const open = useCallback(async () => {
     const api = pictureInPicture();
     if (!api) return;
+    const request = ++latest.current;
     setFailed(false);
     try {
       const next = await api.requestWindow({ width: 260, height: 150 });
+      if (!live.current || !activeRef.current || request !== latest.current) {
+        next.close();
+        return;
+      }
       next.document.title = "Duodoro timer";
       copyStyles(document, next.document);
       const stopMirroring = mirrorRoot(document, next.document);
@@ -75,7 +90,7 @@ export function useMiniTimer(active: boolean) {
       }, { once: true });
       setPip(next);
     } catch {
-      setFailed(true);
+      if (live.current && request === latest.current) setFailed(true);
     }
   }, []);
 
