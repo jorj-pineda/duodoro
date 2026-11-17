@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import { readFocusDate, type DateResponse, type FocusDate } from "@/lib/focusDates";
+import { readFocusDate, type DateResponse, type RescheduleAction, type FocusDate } from "@/lib/focusDates";
 
 type State = { scope: object; dates: FocusDate[] | null; loadError: string | null; actionError: string | null };
 export function useFocusDates(userId: string) {
@@ -83,6 +83,14 @@ export function useFocusDates(userId: string) {
     () => getSupabase().rpc("respond_focus_date", { p_id: date.id, p_expected_version: date.version, p_status: status }),
     row => row.id === date.id && row.proposer_id === date.proposer_id && row.recipient_id === date.recipient_id
       && row.starts_at === date.starts_at && row.status === status && row.version === date.version + 1);
+  const reschedule = (date: FocusDate, action: RescheduleAction, startsAt?: string) => write(
+    () => getSupabase().rpc("reschedule_focus_date", { p_id: date.id, p_expected_version: date.version, p_action: action, p_starts_at: startsAt }),
+    row => row.id === date.id && row.proposer_id === date.proposer_id && row.recipient_id === date.recipient_id
+      && row.status === "accepted" && row.version === date.version + 1
+      && (action === "propose" ? row.starts_at === date.starts_at && row.reschedule_by === userId
+          && Date.parse(row.proposed_starts_at ?? "") === Date.parse(startsAt ?? "")
+        : row.proposed_starts_at === null && row.reschedule_by === null
+          && row.starts_at === (action === "accept" ? date.proposed_starts_at : date.starts_at)));
   return { ...current, busy: busyScope === scope, disabled: busyScope === scope || !!current.loadError || !!current.actionError || !current.dates,
-    reload: () => refresh(true), propose, respond };
+    reload: () => refresh(true), propose, respond, reschedule };
 }

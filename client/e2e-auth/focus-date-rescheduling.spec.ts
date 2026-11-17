@@ -1,0 +1,37 @@
+import { randomUUID } from "node:crypto";
+import { test, expect, requireSuccess, AUTH_STORAGE_KEY } from "./duoFixture";
+import { onboard } from "./onboard";
+test("both participants agree a replacement while the original date remains accepted", async ({ duo }) => {
+  const { a, b, admin } = duo;
+  await a.page.goto("/"); await onboard(a.page, "Reschedule Alpha", `rsa_${randomUUID().slice(0,8)}`);
+  await b.page.goto("/");
+  await b.page.evaluate(({ key, session }) => localStorage.setItem(key,JSON.stringify(session)), { key: AUTH_STORAGE_KEY, session:b.session });
+  await b.page.reload(); await onboard(b.page,"Reschedule Beta",`rsb_${randomUUID().slice(0,8)}`);
+  requireSuccess((await admin.from("friendships").insert({ requester_id:a.id,addressee_id:b.id,status:"accepted" })).error,"Create friends");
+  const oldTime = new Date(Date.now()+86400000).toISOString();
+  const proposed = await a.client.rpc("propose_focus_date",{ p_id:randomUUID(),p_recipient_id:b.id,p_starts_at:oldTime }); requireSuccess(proposed.error,"Propose date");
+  const id = proposed.data![0].id;
+  requireSuccess((await b.client.rpc("respond_focus_date",{ p_id:id,p_expected_version:1,p_status:"accepted" })).error,"Accept date");
+  await a.page.reload(); await b.page.reload();
+  const region = a.page.getByRole("region",{ name:"Shared focus dates" });
+  await region.getByRole("button",{ name:"Propose a new time" }).click();
+  const replacement = await a.page.evaluate(() => {
+    const date = new Date(Date.now()+2*86400000); date.setSeconds(0,0);
+    const local = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}T${String(date.getHours()).padStart(2,"0")}:${String(date.getMinutes()).padStart(2,"0")}`;
+    return { local, iso:date.toISOString() };
+  });
+  await region.getByLabel("Replacement local date and time").fill(replacement.local);
+  await region.getByRole("button",{ name:"Send new time proposal" }).click();
+  await expect(region.getByRole("button",{ name:"Withdraw time proposal" })).toBeVisible();
+  const pending = await a.client.from("focus_dates").select("*").eq("id",id).single(); requireSuccess(pending.error,"Read pending replacement");
+  expect(Date.parse(pending.data!.starts_at)).toBe(Date.parse(oldTime)); expect(pending.data!.status).toBe("accepted");
+  const partner = b.page.getByRole("region",{ name:"Shared focus dates" });
+  await partner.getByRole("button",{ name:"Reload focus dates" }).click();
+  await partner.getByRole("button",{ name:"Accept new time" }).click();
+  await expect(partner.getByRole("button",{ name:"Propose a new time" })).toBeVisible();
+  const accepted = await b.client.from("focus_dates").select("*").eq("id",id).single(); requireSuccess(accepted.error,"Read accepted replacement");
+  expect(Date.parse(accepted.data!.starts_at)).toBe(Date.parse(replacement.iso)); expect(accepted.data!.proposed_starts_at).toBeNull();
+  await region.getByRole("button",{ name:"Reload focus dates" }).click();
+  await expect(region.getByRole("button",{ name:"Propose a new time" })).toBeVisible();
+  await region.screenshot({ path:test.info().outputPath("accepted-reschedule.png") });
+});
